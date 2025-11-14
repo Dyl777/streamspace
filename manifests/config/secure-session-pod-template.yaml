@@ -1,0 +1,106 @@
+# Secure Pod Template for Session Pods
+# This template demonstrates how session pods should be configured
+# with restricted security settings
+#
+# The controller should use these security settings when creating session pods
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-session-pod
+  namespace: streamspace
+  labels:
+    app: streamspace-session
+    session: example
+spec:
+  # SECURITY: Run as non-root user
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    # Seccomp profile
+    seccompProfile:
+      type: RuntimeDefault
+
+  containers:
+    - name: session
+      image: lscr.io/linuxserver/firefox:latest
+
+      # SECURITY: Container security context
+      securityContext:
+        # Prevent privilege escalation
+        allowPrivilegeEscalation: false
+        # Read-only root filesystem (app data goes to volumes)
+        readOnlyRootFilesystem: false  # TODO: Enable when apps support it
+        # Run as non-root
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        # Drop all capabilities
+        capabilities:
+          drop:
+            - ALL
+          # Only add back absolutely necessary capabilities
+          # add: []  # None needed for most apps
+
+      # Resource limits
+      resources:
+        requests:
+          memory: "1Gi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "1000m"
+
+      # Volume mounts
+      volumeMounts:
+        - name: user-home
+          mountPath: /config
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /.cache
+
+      # Environment variables
+      env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+
+      # Health checks
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 3000
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 3000
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        timeoutSeconds: 3
+
+  volumes:
+    - name: user-home
+      persistentVolumeClaim:
+        claimName: home-example-user
+    - name: tmp
+      emptyDir: {}
+    - name: cache
+      emptyDir: {}
+
+  # Restart policy
+  restartPolicy: Always
+
+  # DNS policy
+  dnsPolicy: ClusterFirst
+
+  # Enable service account token automount: false for security
+  automountServiceAccountToken: false
