@@ -21,6 +21,12 @@ export interface Session {
   status: SessionStatus;
   createdAt: string;
   activeConnections?: number;
+  // Activity tracking fields
+  lastActivity?: string;
+  idleDuration?: number; // seconds
+  idleThreshold?: number; // seconds
+  isIdle?: boolean;
+  isActive?: boolean;
 }
 
 export interface SessionStatus {

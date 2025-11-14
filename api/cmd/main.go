@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/streamspace/streamspace/api/internal/activity"
 	"github.com/streamspace/streamspace/api/internal/api"
 	"github.com/streamspace/streamspace/api/internal/auth"
 	"github.com/streamspace/streamspace/api/internal/db"
@@ -91,6 +92,23 @@ func main() {
 	wsManager := websocket.NewManager(database, k8sClient)
 	wsManager.Start()
 
+	// Initialize activity tracker
+	log.Println("Initializing activity tracker...")
+	activityTracker := activity.NewTracker(k8sClient)
+
+	// Start idle session monitor (check every 1 minute)
+	idleCheckInterval := getEnv("IDLE_CHECK_INTERVAL", "1m")
+	idleInterval, err := time.ParseDuration(idleCheckInterval)
+	if err != nil {
+		log.Printf("Invalid IDLE_CHECK_INTERVAL, using default 1m: %v", err)
+		idleInterval = 1 * time.Minute
+	}
+
+	idleCtx, cancelIdle := context.WithCancel(context.Background())
+	defer cancelIdle()
+
+	go activityTracker.StartIdleMonitor(idleCtx, "streamspace", idleInterval)
+
 	// Create Gin router
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -120,9 +138,10 @@ func main() {
 	userHandler := handlers.NewUserHandler(userDB)
 	groupHandler := handlers.NewGroupHandler(groupDB, userDB)
 	authHandler := auth.NewAuthHandler(userDB, jwtManager)
+	activityHandler := handlers.NewActivityHandler(k8sClient, activityTracker)
 
 	// Setup routes
-	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, jwtManager, userDB)
+	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, jwtManager, userDB)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -156,7 +175,7 @@ func main() {
 	log.Println("Server stopped")
 }
 
-func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, jwtManager *auth.JWTManager, userDB *db.UserDB) {
+func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, jwtManager *auth.JWTManager, userDB *db.UserDB) {
 	// Health check (public)
 	router.GET("/health", h.Health)
 	router.GET("/version", h.Version)
@@ -228,6 +247,9 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 
 		// Group management - using dedicated handler
 		groupHandler.RegisterRoutes(v1)
+
+		// Activity tracking - using dedicated handler
+		activityHandler.RegisterRoutes(v1)
 
 		// Metrics
 		v1.GET("/metrics", h.GetMetrics)

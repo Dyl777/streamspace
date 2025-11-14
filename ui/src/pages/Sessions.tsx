@@ -31,6 +31,8 @@ import Layout from '../components/Layout';
 import TagChip from '../components/TagChip';
 import TagManager from '../components/TagManager';
 import QuotaAlert from '../components/QuotaAlert';
+import ActivityIndicator from '../components/ActivityIndicator';
+import IdleTimer from '../components/IdleTimer';
 import { useUpdateSessionState, useDeleteSession } from '../hooks/useApi';
 import { useSessionsWebSocket } from '../hooks/useWebSocket';
 import { useUserStore } from '../store/userStore';
@@ -207,10 +209,27 @@ export default function Sessions() {
                       <Box sx={{ display: 'flex', gap: 0.5, flexDirection: 'column', alignItems: 'flex-end' }}>
                         <Chip label={session.state} size="small" color={getStateColor(session.state)} />
                         <Chip label={session.status.phase} size="small" color={getPhaseColor(session.status.phase)} />
+                        <ActivityIndicator
+                          isActive={session.isActive}
+                          isIdle={session.isIdle}
+                          state={session.state}
+                          size="small"
+                        />
                       </Box>
                     </Box>
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {session.state === 'running' && session.lastActivity && session.idleThreshold && (
+                        <Box>
+                          <IdleTimer
+                            lastActivity={session.lastActivity}
+                            idleDuration={session.idleDuration}
+                            idleThreshold={session.idleThreshold}
+                            showProgress={session.isIdle || false}
+                            compact={true}
+                          />
+                        </Box>
+                      )}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" color="text.secondary">
                           Resources

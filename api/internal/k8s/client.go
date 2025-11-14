@@ -310,6 +310,102 @@ func (c *Client) UpdateSessionState(ctx context.Context, namespace, name, state 
 	return parseSession(result)
 }
 
+// UpdateSession updates a Session resource
+func (c *Client) UpdateSession(ctx context.Context, session *Session) error {
+	obj, err := c.dynamicClient.Resource(sessionGVR).Namespace(session.Namespace).Get(ctx, session.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// Update spec
+	spec := map[string]interface{}{
+		"user":           session.User,
+		"template":       session.Template,
+		"state":          session.State,
+		"persistentHome": session.PersistentHome,
+	}
+
+	if session.IdleTimeout != "" {
+		spec["idleTimeout"] = session.IdleTimeout
+	}
+
+	if session.MaxSessionDuration != "" {
+		spec["maxSessionDuration"] = session.MaxSessionDuration
+	}
+
+	if session.Resources.Memory != "" || session.Resources.CPU != "" {
+		resources := make(map[string]interface{})
+		if session.Resources.Memory != "" {
+			resources["memory"] = session.Resources.Memory
+		}
+		if session.Resources.CPU != "" {
+			resources["cpu"] = session.Resources.CPU
+		}
+		spec["resources"] = resources
+	}
+
+	if len(session.Tags) > 0 {
+		spec["tags"] = session.Tags
+	}
+
+	obj.Object["spec"] = spec
+
+	_, err = c.dynamicClient.Resource(sessionGVR).Namespace(session.Namespace).Update(ctx, obj, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update session: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateSessionStatus updates a Session's status subresource
+func (c *Client) UpdateSessionStatus(ctx context.Context, session *Session) error {
+	obj, err := c.dynamicClient.Resource(sessionGVR).Namespace(session.Namespace).Get(ctx, session.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// Build status object
+	status := make(map[string]interface{})
+
+	if session.Status.Phase != "" {
+		status["phase"] = session.Status.Phase
+	}
+
+	if session.Status.PodName != "" {
+		status["podName"] = session.Status.PodName
+	}
+
+	if session.Status.URL != "" {
+		status["url"] = session.Status.URL
+	}
+
+	if session.Status.LastActivity != nil {
+		status["lastActivity"] = session.Status.LastActivity.Format(time.RFC3339)
+	}
+
+	if session.Status.ResourceUsage.Memory != "" || session.Status.ResourceUsage.CPU != "" {
+		resourceUsage := make(map[string]interface{})
+		if session.Status.ResourceUsage.Memory != "" {
+			resourceUsage["memory"] = session.Status.ResourceUsage.Memory
+		}
+		if session.Status.ResourceUsage.CPU != "" {
+			resourceUsage["cpu"] = session.Status.ResourceUsage.CPU
+		}
+		status["resourceUsage"] = resourceUsage
+	}
+
+	obj.Object["status"] = status
+
+	// Update status subresource
+	_, err = c.dynamicClient.Resource(sessionGVR).Namespace(session.Namespace).UpdateStatus(ctx, obj, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update session status: %w", err)
+	}
+
+	return nil
+}
+
 // DeleteSession deletes a Session
 func (c *Client) DeleteSession(ctx context.Context, namespace, name string) error {
 	err := c.dynamicClient.Resource(sessionGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
