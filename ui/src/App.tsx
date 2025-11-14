@@ -96,8 +96,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
-          <Routes>
+        <ErrorBoundary>
+          <BrowserRouter>
+            <Routes>
             <Route path="/login" element={<Login />} />
             <Route
               path="/"
@@ -237,6 +238,7 @@ function App() {
             />
           </Routes>
         </BrowserRouter>
+        </ErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -1,7 +1,16 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
+import { toast } from './toast';
 
 // API Base URL - uses Vite proxy in development, direct URL in production
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+
+// API Error Response Type
+export interface APIErrorResponse {
+  error: string;
+  message: string;
+  code?: string;
+  details?: string;
+}
 
 // Types
 export interface Session {
@@ -301,13 +310,69 @@ class APIClient {
     // Response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Clear token and redirect to login
-          localStorage.removeItem('streamspace_token');
-          localStorage.removeItem('streamspace_user');
-          window.location.href = '/login';
+      (error: AxiosError<APIErrorResponse>) => {
+        // Handle network errors
+        if (!error.response) {
+          toast.error('Network error. Please check your connection.');
+          return Promise.reject(error);
         }
+
+        const status = error.response.status;
+        const data = error.response.data;
+
+        // Handle different error types
+        switch (status) {
+          case 401:
+            // Unauthorized - clear auth and redirect to login
+            if (!window.location.pathname.includes('/login')) {
+              toast.error('Session expired. Please log in again.');
+              localStorage.removeItem('streamspace_token');
+              localStorage.removeItem('streamspace_user');
+              window.location.href = '/login';
+            }
+            break;
+
+          case 403:
+            // Forbidden - quota exceeded or permission denied
+            if (data?.code === 'QUOTA_EXCEEDED') {
+              toast.error('Resource quota exceeded. ' + (data.message || 'Please delete unused sessions.'));
+            } else {
+              toast.error(data?.message || 'You do not have permission to perform this action.');
+            }
+            break;
+
+          case 404:
+            // Not found - show friendly message
+            toast.error(data?.message || 'Resource not found.');
+            break;
+
+          case 409:
+            // Conflict - usually duplicate resources
+            toast.error(data?.message || 'A conflict occurred. Resource may already exist.');
+            break;
+
+          case 429:
+            // Rate limit exceeded
+            toast.error('Too many requests. Please slow down.');
+            break;
+
+          case 500:
+          case 502:
+          case 503:
+          case 504:
+            // Server errors
+            toast.error(data?.message || 'Server error. Please try again later.');
+            break;
+
+          default:
+            // Generic error
+            if (data?.message) {
+              toast.error(data.message);
+            } else {
+              toast.error('An unexpected error occurred.');
+            }
+        }
+
         return Promise.reject(error);
       }
     );
