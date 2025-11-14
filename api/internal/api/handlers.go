@@ -676,10 +676,14 @@ func (h *Handler) InstallCatalogTemplate(c *gin.Context) {
 		"manifest": manifest,
 	})
 
-	// Increment install count
-	_, _ = h.db.DB().ExecContext(ctx, `
+	// Increment install count (best effort, don't fail the request if this fails)
+	_, err = h.db.DB().ExecContext(ctx, `
 		UPDATE catalog_templates SET install_count = install_count + 1 WHERE id = $1
 	`, catalogID)
+	if err != nil {
+		// Log error but don't fail the request - install count is not critical
+		log.Printf("Warning: Failed to increment install count for template %s: %v", catalogID, err)
+	}
 }
 
 // ============================================================================
@@ -768,7 +772,11 @@ func (h *Handler) AddRepository(c *gin.Context) {
 		return
 	}
 
-	id, _ := result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get repository ID"})
+		return
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"id":      id,

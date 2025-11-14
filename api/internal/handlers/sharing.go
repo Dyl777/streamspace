@@ -74,6 +74,24 @@ func (h *SharingHandler) CreateShare(c *gin.Context) {
 		return
 	}
 
+	// Authorization: Verify the requesting user is the session owner
+	currentUserID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	currentUserIDStr, ok := currentUserID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type"})
+		return
+	}
+
+	if currentUserIDStr != ownerUserId {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only the session owner can share this session"})
+		return
+	}
+
 	// Check if user exists
 	var exists bool
 	err = h.db.DB().QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`, req.SharedWithUserId).Scan(&exists)

@@ -237,25 +237,3 @@ var _ = Describe("Session Controller State Transitions", func() {
 		}, time.Second*5, time.Millisecond*100).Should(Equal(int32(1)))
 	})
 })
-
-// Cleanup function to run after tests
-var _ = AfterSuite(func() {
-	ctx := context.Background()
-
-	// Clean up test resources
-	session := &streamv1alpha1.Session{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-session",
-			Namespace: "default",
-		},
-	}
-	_ = k8sClient.Delete(ctx, session)
-
-	template := &streamv1alpha1.Template{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-template",
-			Namespace: "default",
-		},
-	}
-	_ = k8sClient.Delete(ctx, template)
-})
