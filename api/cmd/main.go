@@ -145,10 +145,21 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
 
+	// SECURITY: Add security headers (HSTS, CSP, X-Frame-Options, etc.)
+	router.Use(middleware.SecurityHeaders())
+
+	// SECURITY: Add request size limits to prevent large payload attacks
+	// Maximum 10MB for general requests
+	router.Use(middleware.RequestSizeLimit(10 * 1024 * 1024))
+
 	// SECURITY: Add rate limiting to prevent DoS attacks
 	// 100 requests per second per IP with burst of 200
 	rateLimiter := middleware.NewRateLimiter(100, 200)
 	router.Use(rateLimiter.Middleware())
+
+	// SECURITY: Add audit logging for all requests
+	auditLogger := middleware.NewAuditLogger(database, false) // Don't log request bodies by default
+	router.Use(auditLogger.Middleware())
 
 	// Add gzip compression (exclude WebSocket endpoints)
 	router.Use(middleware.GzipWithExclusions(
@@ -200,8 +211,14 @@ func main() {
 		log.Println("         Generate a secret with: openssl rand -hex 32")
 	}
 
+	// SECURITY: Initialize CSRF protection
+	csrfProtection := middleware.NewCSRFProtection(24 * time.Hour)
+
+	// SECURITY: Create stricter rate limiter for auth endpoints
+	authRateLimiter := middleware.NewRateLimiter(5, 10) // 5 req/sec with burst of 10
+
 	// Setup routes
-	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, jwtManager, userDB, redisCache, webhookSecret)
+	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, jwtManager, userDB, redisCache, webhookSecret, csrfProtection, authRateLimiter)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -235,7 +252,7 @@ func main() {
 	log.Println("Server stopped")
 }
 
-func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
+func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string, csrfProtection *middleware.CSRFProtection, authRateLimiter *middleware.RateLimiter) {
 	// SECURITY: Create authentication middleware
 	authMiddleware := auth.Middleware(jwtManager, userDB)
 	adminMiddleware := auth.RequireRole("admin")
@@ -251,15 +268,23 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 	router.GET("/health", h.Health)
 	router.GET("/version", h.Version)
 
+	// SECURITY: CSRF token endpoint (public - issues CSRF tokens)
+	router.GET("/api/v1/csrf-token", csrfProtection.IssueTokenHandler())
+
 	// API v1
 	v1 := router.Group("/api/v1")
 	{
-		// Authentication routes (public - no auth required)
-		authHandler.RegisterRoutes(v1)
+		// Authentication routes (public - no auth required, but rate limited)
+		authGroup := v1.Group("/auth")
+		authGroup.Use(authRateLimiter.Middleware()) // SECURITY: Brute force protection
+		{
+			authHandler.RegisterRoutes(authGroup)
+		}
 
 		// PROTECTED ROUTES - Require authentication
 		protected := v1.Group("")
 		protected.Use(authMiddleware)
+		protected.Use(csrfProtection.Middleware()) // SECURITY: CSRF protection for all state-changing operations
 		{
 			// Sessions (authenticated users only)
 			sessions := protected.Group("/sessions")

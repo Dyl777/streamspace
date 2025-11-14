@@ -31,8 +31,8 @@ spec:
       securityContext:
         # Prevent privilege escalation
         allowPrivilegeEscalation: false
-        # Read-only root filesystem (app data goes to volumes)
-        readOnlyRootFilesystem: false  # TODO: Enable when apps support it
+        # SECURITY: Read-only root filesystem - all writes must go to mounted volumes
+        readOnlyRootFilesystem: true
         # Run as non-root
         runAsNonRoot: true
         runAsUser: 1000
@@ -53,14 +53,25 @@ spec:
           memory: "2Gi"
           cpu: "1000m"
 
-      # Volume mounts
+      # Volume mounts - Required for read-only root filesystem
       volumeMounts:
+        # User persistent home directory
         - name: user-home
           mountPath: /config
+        # Temporary directories (emptyDir for ephemeral data)
         - name: tmp
           mountPath: /tmp
+        - name: var-tmp
+          mountPath: /var/tmp
         - name: cache
           mountPath: /.cache
+        - name: local
+          mountPath: /.local
+        # Application-specific writable directories
+        - name: run
+          mountPath: /run
+        - name: var-run
+          mountPath: /var/run
 
       # Environment variables
       env:
@@ -88,13 +99,25 @@ spec:
         timeoutSeconds: 3
 
   volumes:
+    # Persistent storage
     - name: user-home
       persistentVolumeClaim:
         claimName: home-example-user
+    # Ephemeral writable volumes (required for read-only root filesystem)
     - name: tmp
+      emptyDir: {}
+    - name: var-tmp
       emptyDir: {}
     - name: cache
       emptyDir: {}
+    - name: local
+      emptyDir: {}
+    - name: run
+      emptyDir:
+        medium: Memory  # Use memory-backed tmpfs for runtime files
+    - name: var-run
+      emptyDir:
+        medium: Memory
 
   # Restart policy
   restartPolicy: Always
