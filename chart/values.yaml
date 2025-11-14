@@ -367,6 +367,70 @@ postgresql:
     secretKeys:
       adminPasswordKey: "postgres-password"
 
+## Redis Cache (Optional)
+redis:
+  enabled: false  # Set to true to enable caching
+
+  # Use external Redis
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    # Password should be in existingSecret
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: "redis-password"
+    database: 0
+
+  # Internal Redis (for development/testing)
+  internal:
+    image:
+      registry: docker.io
+      repository: redis
+      tag: "7-alpine"
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 200m
+
+    # Persistent volume (optional for cache)
+    persistence:
+      enabled: false  # Usually not needed for cache
+      storageClass: ""
+      size: 5Gi
+      accessMode: ReadWriteOnce
+
+    # Security
+    podSecurityContext:
+      fsGroup: 999
+      runAsNonRoot: true
+      runAsUser: 999
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+    # Redis configuration
+    config:
+      maxMemory: "200mb"
+      maxMemoryPolicy: "allkeys-lru"  # Evict least recently used keys
+      appendOnly: "no"  # Don't persist to disk for cache
+
+  # Cache TTL configuration (used by API)
+  ttl:
+    sessions: 30s        # Session lists
+    templates: 5m        # Template catalog
+    catalog: 10m         # External catalog data
+    config: 5m           # Configuration values
+    cluster: 1m          # Kubernetes cluster resources
+
 ## Ingress
 ingress:
   enabled: true
