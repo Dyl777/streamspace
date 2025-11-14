@@ -95,12 +95,70 @@ The API backend serves as the central control plane for StreamSpace, interfacing
   - Initial sync on startup
   - Repository status tracking (pending, syncing, synced, failed)
 
+### ✅ Phase 2.4 - WebSocket & Real-Time (Completed)
+
+- **WebSocket Hub Infrastructure** (`internal/websocket/hub.go`)
+  - Hub/Client pattern for managing WebSocket connections
+  - Thread-safe client registration/unregistration
+  - Broadcast messaging to all connected clients
+  - Read/write pumps for bidirectional communication
+  - Automatic cleanup on disconnect
+  - Client connection counting
+
+- **WebSocket Handlers** (`internal/websocket/handlers.go`)
+  - Manager orchestrates multiple WebSocket hubs (sessions, metrics)
+  - Real-time session updates (broadcasts every 3 seconds)
+  - Real-time cluster metrics (broadcasts every 5 seconds)
+  - Pod logs streaming (tail -f style with timestamps)
+  - Enriched session data with active connections from database
+  - JSON message format with type field for different update types
+
+- **WebSocket Endpoints**
+  - `WS /api/v1/ws/sessions` - Real-time session updates with active connections
+  - `WS /api/v1/ws/cluster` - Real-time cluster metrics (sessions, connections, repositories)
+  - `WS /api/v1/ws/logs/:namespace/:pod` - Streaming pod logs with timestamps
+
+- **Message Formats**
+  ```json
+  // Sessions update
+  {
+    "type": "sessions_update",
+    "sessions": [...],
+    "count": 5,
+    "timestamp": "2025-01-15T10:30:00Z"
+  }
+
+  // Metrics update
+  {
+    "type": "metrics_update",
+    "metrics": {
+      "sessions": {"running": 3, "hibernated": 2, "total": 5},
+      "activeConnections": 7,
+      "repositories": 2,
+      "templates": 150
+    },
+    "timestamp": "2025-01-15T10:30:05Z"
+  }
+
+  // Pod logs (raw text messages)
+  "2025-01-15T10:30:10Z Starting application..."
+  ```
+
+- **Frontend WebSocket Integration**
+  - Custom React hook (`useWebSocket`) with automatic reconnection
+  - Exponential backoff reconnection strategy (3s, 4.5s, 6.75s, ..., max 30s)
+  - Max 10 reconnection attempts
+  - Real-time Dashboard updates (no polling)
+  - Real-time Sessions page updates (no polling)
+  - Connection status indicators in UI
+  - Reconnection attempt tracking
+
 ## Directory Structure
 
 ```
 api/
 ├── cmd/
-│   └── main.go                    # Server entry point (220 lines)
+│   └── main.go                    # Server entry point (270 lines)
 ├── internal/
 │   ├── db/
 │   │   └── database.go            # Database layer (200 lines)
@@ -112,9 +170,12 @@ api/
 │   │   ├── sync.go                # Sync service (220+ lines)
 │   │   ├── git.go                 # Git client (150+ lines)
 │   │   └── parser.go              # Template parser (250+ lines)
+│   ├── websocket/
+│   │   ├── hub.go                 # WebSocket hub infrastructure (160+ lines)
+│   │   └── handlers.go            # WebSocket handlers (280+ lines)
 │   └── api/
 │       ├── handlers.go            # API handlers (700+ lines)
-│       └── stubs.go               # Stub handlers and webhooks (200+ lines)
+│       └── stubs.go               # Stub handlers and webhooks (265+ lines)
 ├── go.mod                         # Go module definition
 └── README.md                      # This file
 ```
@@ -189,8 +250,56 @@ DELETE /api/v1/repositories/:id     # Delete repository
 ### WebSocket Endpoints
 
 ```
-WS     /api/v1/ws/sessions          # Real-time session updates
-WS     /api/v1/ws/logs/:namespace/:pod  # Pod logs streaming
+WS     /api/v1/ws/sessions                  # Real-time session updates (broadcast every 3s)
+WS     /api/v1/ws/cluster                   # Real-time cluster metrics (broadcast every 5s)
+WS     /api/v1/ws/logs/:namespace/:pod      # Pod logs streaming (tail -f with timestamps)
+```
+
+**WebSocket Message Formats:**
+
+Sessions Update (every 3 seconds):
+```json
+{
+  "type": "sessions_update",
+  "sessions": [
+    {
+      "name": "user1-firefox",
+      "user": "user1",
+      "template": "firefox-browser",
+      "state": "running",
+      "status": "Running",
+      "activeConnections": 2,
+      "resources": {"memory": "2Gi", "cpu": "1000m"},
+      "createdAt": "2025-01-15T10:00:00Z"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2025-01-15T10:30:00Z"
+}
+```
+
+Metrics Update (every 5 seconds):
+```json
+{
+  "type": "metrics_update",
+  "metrics": {
+    "sessions": {
+      "running": 3,
+      "hibernated": 2,
+      "total": 5
+    },
+    "activeConnections": 7,
+    "repositories": 2,
+    "templates": 150
+  },
+  "timestamp": "2025-01-15T10:30:05Z"
+}
+```
+
+Pod Logs (streaming):
+```
+2025-01-15T10:30:10Z Starting application...
+2025-01-15T10:30:11Z Server listening on port 3000
 ```
 
 ## Configuration
