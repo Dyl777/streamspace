@@ -5,6 +5,7 @@
 # Documentation
 README.md
 *.md
+docs/
 
 # Build artifacts
 bin/
@@ -16,6 +17,8 @@ bin/
 # Test files
 *_test.go
 testdata/
+cover.out
+coverage.txt
 
 # IDE
 .vscode/
@@ -43,10 +46,15 @@ docker-compose*.yml
 .gitlab-ci.yml
 .travis.yml
 
-# Coverage
-coverage.txt
-*.out
-*.prof
+# Kubebuilder
+hack/
+config/samples/
+config/default/
+config/crd/patches/
+config/rbac/patches/
 
 # Dependencies (will be downloaded in build)
 vendor/
+
+# Kubernetes config
+*.kubeconfig

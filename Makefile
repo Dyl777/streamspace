@@ -6,6 +6,11 @@ DOCKER_REGISTRY := ghcr.io
 DOCKER_ORG := streamspace
 VERSION := v0.2.0
 
+# Git information for versioning
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "$(VERSION)")
+BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 # Component images
 CONTROLLER_IMAGE := $(DOCKER_REGISTRY)/$(DOCKER_ORG)/streamspace-controller
 API_IMAGE := $(DOCKER_REGISTRY)/$(DOCKER_ORG)/streamspace-api
@@ -19,6 +24,11 @@ KUBE_CONTEXT := $(shell kubectl config current-context)
 # Build configuration
 GO_VERSION := 1.21
 NODE_VERSION := 18
+
+# Build arguments
+BUILD_ARGS := --build-arg VERSION=$(GIT_TAG) \
+              --build-arg COMMIT=$(GIT_COMMIT) \
+              --build-arg BUILD_DATE=$(BUILD_DATE)
 
 # Colors for output
 COLOR_RESET := \033[0m
@@ -113,18 +123,33 @@ docker-build: docker-build-controller docker-build-api docker-build-ui ## Build 
 
 docker-build-controller: ## Build controller Docker image
 	@echo "$(COLOR_GREEN)Building controller Docker image...$(COLOR_RESET)"
-	@docker build -t $(CONTROLLER_IMAGE):$(VERSION) -t $(CONTROLLER_IMAGE):latest -f controller/Dockerfile controller/
-	@echo "$(COLOR_GREEN)✓ Built $(CONTROLLER_IMAGE):$(VERSION)$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Version: $(GIT_TAG) | Commit: $(GIT_COMMIT)$(COLOR_RESET)"
+	@docker build $(BUILD_ARGS) \
+		-t $(CONTROLLER_IMAGE):$(VERSION) \
+		-t $(CONTROLLER_IMAGE):$(GIT_TAG) \
+		-t $(CONTROLLER_IMAGE):latest \
+		-f controller/Dockerfile controller/
+	@echo "$(COLOR_GREEN)✓ Built $(CONTROLLER_IMAGE):$(GIT_TAG)$(COLOR_RESET)"
 
 docker-build-api: ## Build API Docker image
 	@echo "$(COLOR_GREEN)Building API Docker image...$(COLOR_RESET)"
-	@docker build -t $(API_IMAGE):$(VERSION) -t $(API_IMAGE):latest -f api/Dockerfile api/
-	@echo "$(COLOR_GREEN)✓ Built $(API_IMAGE):$(VERSION)$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Version: $(GIT_TAG) | Commit: $(GIT_COMMIT)$(COLOR_RESET)"
+	@docker build $(BUILD_ARGS) \
+		-t $(API_IMAGE):$(VERSION) \
+		-t $(API_IMAGE):$(GIT_TAG) \
+		-t $(API_IMAGE):latest \
+		-f api/Dockerfile api/
+	@echo "$(COLOR_GREEN)✓ Built $(API_IMAGE):$(GIT_TAG)$(COLOR_RESET)"
 
 docker-build-ui: ## Build UI Docker image
 	@echo "$(COLOR_GREEN)Building UI Docker image...$(COLOR_RESET)"
-	@docker build -t $(UI_IMAGE):$(VERSION) -t $(UI_IMAGE):latest -f ui/Dockerfile ui/
-	@echo "$(COLOR_GREEN)✓ Built $(UI_IMAGE):$(VERSION)$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Version: $(GIT_TAG) | Commit: $(GIT_COMMIT)$(COLOR_RESET)"
+	@docker build $(BUILD_ARGS) \
+		-t $(UI_IMAGE):$(VERSION) \
+		-t $(UI_IMAGE):$(GIT_TAG) \
+		-t $(UI_IMAGE):latest \
+		-f ui/Dockerfile ui/
+	@echo "$(COLOR_GREEN)✓ Built $(UI_IMAGE):$(GIT_TAG)$(COLOR_RESET)"
 
 docker-push: docker-push-controller docker-push-api docker-push-ui ## Push all Docker images
 
@@ -257,6 +282,45 @@ k8s-port-forward-ui: ## Port-forward UI to localhost:3000
 k8s-port-forward-api: ## Port-forward API to localhost:8000
 	@echo "$(COLOR_GREEN)Port-forwarding API to http://localhost:8000$(COLOR_RESET)"
 	@kubectl port-forward -n $(NAMESPACE) svc/$(HELM_RELEASE)-api 8000:8000
+
+##@ Docker Compose
+
+docker-compose-up: ## Start all services with Docker Compose
+	@echo "$(COLOR_GREEN)Starting services with Docker Compose...$(COLOR_RESET)"
+	@docker-compose up -d
+	@echo "$(COLOR_GREEN)✓ Services started$(COLOR_RESET)"
+	@echo ""
+	@echo "$(COLOR_BOLD)Access points:$(COLOR_RESET)"
+	@echo "  API:      http://localhost:8000"
+	@echo "  Database: localhost:5432"
+	@echo ""
+	@echo "Run 'make docker-compose-logs' to view logs"
+
+docker-compose-up-dev: ## Start services with monitoring stack
+	@echo "$(COLOR_GREEN)Starting services with monitoring...$(COLOR_RESET)"
+	@docker-compose --profile monitoring --profile dev up -d
+	@echo "$(COLOR_GREEN)✓ Services started$(COLOR_RESET)"
+	@echo ""
+	@echo "$(COLOR_BOLD)Access points:$(COLOR_RESET)"
+	@echo "  API:        http://localhost:8000"
+	@echo "  Database:   localhost:5432"
+	@echo "  pgAdmin:    http://localhost:5050 (admin@streamspace.local / admin)"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  Grafana:    http://localhost:3000 (admin / admin)"
+
+docker-compose-down: ## Stop all Docker Compose services
+	@echo "$(COLOR_YELLOW)Stopping Docker Compose services...$(COLOR_RESET)"
+	@docker-compose --profile monitoring --profile dev down
+	@echo "$(COLOR_GREEN)✓ Services stopped$(COLOR_RESET)"
+
+docker-compose-logs: ## View logs from Docker Compose services
+	@docker-compose logs -f
+
+docker-compose-logs-api: ## View API logs from Docker Compose
+	@docker-compose logs -f api
+
+docker-compose-restart: ## Restart Docker Compose services
+	@docker-compose restart
 
 ##@ Development Workflows
 
