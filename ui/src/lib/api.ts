@@ -1,0 +1,294 @@
+import axios, { AxiosInstance } from 'axios';
+
+// API Base URL - uses Vite proxy in development, direct URL in production
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+
+// Types
+export interface Session {
+  name: string;
+  namespace: string;
+  user: string;
+  template: string;
+  state: 'running' | 'hibernated' | 'terminated';
+  persistentHome: boolean;
+  idleTimeout?: string;
+  maxSessionDuration?: string;
+  resources?: {
+    memory?: string;
+    cpu?: string;
+  };
+  status: SessionStatus;
+  createdAt: string;
+  activeConnections?: number;
+}
+
+export interface SessionStatus {
+  phase: string;
+  podName?: string;
+  url?: string;
+  lastActivity?: string;
+  resourceUsage?: {
+    memory?: string;
+    cpu?: string;
+  };
+  conditions?: Array<{
+    type: string;
+    status: string;
+    message: string;
+  }>;
+}
+
+export interface Template {
+  name: string;
+  namespace: string;
+  displayName: string;
+  description: string;
+  category: string;
+  appType: 'desktop' | 'webapp';
+  icon?: string;
+  baseImage: string;
+  defaultResources?: {
+    memory?: string;
+    cpu?: string;
+  };
+  tags?: string[];
+  createdAt: string;
+}
+
+export interface CatalogTemplate {
+  id: number;
+  name: string;
+  displayName: string;
+  description: string;
+  category: string;
+  icon?: string;
+  manifest: string;
+  tags: string[];
+  installCount: number;
+  repository: {
+    name: string;
+    url: string;
+  };
+}
+
+export interface Repository {
+  id: number;
+  name: string;
+  url: string;
+  branch: string;
+  authType: string;
+  lastSync?: string;
+  templateCount: number;
+  status: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSessionRequest {
+  user: string;
+  template: string;
+  resources?: {
+    memory?: string;
+    cpu?: string;
+  };
+  persistentHome?: boolean;
+  idleTimeout?: string;
+  maxSessionDuration?: string;
+}
+
+export interface ConnectSessionResponse {
+  connectionId: string;
+  sessionUrl: string;
+  state: string;
+  message: string;
+}
+
+class APIClient {
+  private client: AxiosInstance;
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: API_BASE_URL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Request interceptor for adding auth tokens (future)
+    this.client.interceptors.request.use(
+      (config) => {
+        // TODO: Add JWT token from auth store
+        // const token = authStore.getState().token;
+        // if (token) {
+        //   config.headers.Authorization = `Bearer ${token}`;
+        // }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor for error handling
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          // TODO: Handle unauthorized - redirect to login
+          console.error('Unauthorized - please login');
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  // ============================================================================
+  // Session Management
+  // ============================================================================
+
+  async listSessions(user?: string): Promise<Session[]> {
+    const params = user ? { user } : {};
+    const response = await this.client.get<{ sessions: Session[]; total: number }>('/sessions', { params });
+    return response.data.sessions;
+  }
+
+  async getSession(id: string): Promise<Session> {
+    const response = await this.client.get<Session>(`/sessions/${id}`);
+    return response.data;
+  }
+
+  async createSession(data: CreateSessionRequest): Promise<Session> {
+    const response = await this.client.post<Session>('/sessions', data);
+    return response.data;
+  }
+
+  async updateSessionState(id: string, state: 'running' | 'hibernated' | 'terminated'): Promise<Session> {
+    const response = await this.client.patch<Session>(`/sessions/${id}`, { state });
+    return response.data;
+  }
+
+  async deleteSession(id: string): Promise<void> {
+    await this.client.delete(`/sessions/${id}`);
+  }
+
+  async connectSession(id: string, user: string): Promise<ConnectSessionResponse> {
+    const response = await this.client.get<ConnectSessionResponse>(`/sessions/${id}/connect`, {
+      params: { user },
+    });
+    return response.data;
+  }
+
+  async disconnectSession(id: string, connectionId: string): Promise<void> {
+    await this.client.post(`/sessions/${id}/disconnect`, null, {
+      params: { connectionId },
+    });
+  }
+
+  async sendHeartbeat(id: string, connectionId: string): Promise<void> {
+    await this.client.post(`/sessions/${id}/heartbeat`, null, {
+      params: { connectionId },
+    });
+  }
+
+  async getSessionConnections(id: string) {
+    const response = await this.client.get(`/sessions/${id}/connections`);
+    return response.data;
+  }
+
+  // ============================================================================
+  // Template Management
+  // ============================================================================
+
+  async listTemplates(category?: string): Promise<Template[]> {
+    const params = category ? { category } : {};
+    const response = await this.client.get<{ templates: Template[]; total: number }>('/templates', { params });
+    return response.data.templates;
+  }
+
+  async getTemplate(id: string): Promise<Template> {
+    const response = await this.client.get<Template>(`/templates/${id}`);
+    return response.data;
+  }
+
+  async createTemplate(data: Partial<Template>): Promise<Template> {
+    const response = await this.client.post<Template>('/templates', data);
+    return response.data;
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    await this.client.delete(`/templates/${id}`);
+  }
+
+  // ============================================================================
+  // Catalog (Template Marketplace)
+  // ============================================================================
+
+  async listCatalogTemplates(category?: string, tag?: string): Promise<CatalogTemplate[]> {
+    const params: Record<string, string> = {};
+    if (category) params.category = category;
+    if (tag) params.tag = tag;
+
+    const response = await this.client.get<{ templates: CatalogTemplate[]; total: number }>('/catalog/templates', {
+      params,
+    });
+    return response.data.templates;
+  }
+
+  async installCatalogTemplate(id: number): Promise<void> {
+    await this.client.post(`/catalog/templates/${id}/install`);
+  }
+
+  // ============================================================================
+  // Repository Management
+  // ============================================================================
+
+  async listRepositories(): Promise<Repository[]> {
+    const response = await this.client.get<{ repositories: Repository[]; total: number }>('/catalog/repositories');
+    return response.data.repositories;
+  }
+
+  async addRepository(data: {
+    name: string;
+    url: string;
+    branch?: string;
+    authType?: string;
+    authSecret?: string;
+  }): Promise<{ id: number; message: string }> {
+    const response = await this.client.post('/catalog/repositories', data);
+    return response.data;
+  }
+
+  async syncRepository(id: number): Promise<void> {
+    await this.client.post(`/catalog/repositories/${id}/sync`);
+  }
+
+  async syncAllRepositories(): Promise<void> {
+    await this.client.post('/catalog/sync');
+  }
+
+  async deleteRepository(id: number): Promise<void> {
+    await this.client.delete(`/catalog/repositories/${id}`);
+  }
+
+  // ============================================================================
+  // Health & Metrics
+  // ============================================================================
+
+  async getHealth() {
+    const response = await this.client.get('/health');
+    return response.data;
+  }
+
+  async getVersion() {
+    const response = await this.client.get('/version');
+    return response.data;
+  }
+
+  async getMetrics() {
+    const response = await this.client.get('/metrics');
+    return response.data;
+  }
+}
+
+// Export singleton instance
+export const api = new APIClient();
+export default api;
