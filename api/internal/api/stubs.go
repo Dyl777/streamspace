@@ -232,17 +232,231 @@ func (h *Handler) ListNamespaces(c *gin.Context) {
 
 // CreateResource creates a K8s resource
 func (h *Handler) CreateResource(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	var req struct {
+		APIVersion string                 `json:"apiVersion" binding:"required"`
+		Kind       string                 `json:"kind" binding:"required"`
+		Metadata   map[string]interface{} `json:"metadata" binding:"required"`
+		Spec       map[string]interface{} `json:"spec"`
+		Data       map[string]interface{} `json:"data"` // For ConfigMaps, Secrets, etc.
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Get namespace from metadata or use default
+	namespace := h.namespace
+	if meta, ok := req.Metadata["namespace"].(string); ok && meta != "" {
+		namespace = meta
+	}
+
+	// Build the resource object
+	resource := map[string]interface{}{
+		"apiVersion": req.APIVersion,
+		"kind":       req.Kind,
+		"metadata":   req.Metadata,
+	}
+
+	if req.Spec != nil {
+		resource["spec"] = req.Spec
+	}
+	if req.Data != nil {
+		resource["data"] = req.Data
+	}
+
+	// Convert to unstructured
+	unstructuredObj := &unstructured.Unstructured{Object: resource}
+
+	// Create the resource using dynamic client
+	gvr, err := h.getGVRForKind(req.APIVersion, req.Kind)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid resource type",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	created, err := h.k8sClient.GetDynamicClient().Resource(gvr).Namespace(namespace).
+		Create(ctx, unstructuredObj, metav1.CreateOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to create resource",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, created.Object)
 }
 
 // UpdateResource updates a K8s resource
 func (h *Handler) UpdateResource(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	resourceType := c.Param("type")     // e.g., "deployment", "service"
+	resourceName := c.Param("name")
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		namespace = h.namespace
+	}
+
+	var req struct {
+		APIVersion string                 `json:"apiVersion" binding:"required"`
+		Kind       string                 `json:"kind" binding:"required"`
+		Metadata   map[string]interface{} `json:"metadata" binding:"required"`
+		Spec       map[string]interface{} `json:"spec"`
+		Data       map[string]interface{} `json:"data"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Build the resource object
+	resource := map[string]interface{}{
+		"apiVersion": req.APIVersion,
+		"kind":       req.Kind,
+		"metadata":   req.Metadata,
+	}
+
+	if req.Spec != nil {
+		resource["spec"] = req.Spec
+	}
+	if req.Data != nil {
+		resource["data"] = req.Data
+	}
+
+	// Ensure name matches
+	if meta, ok := resource["metadata"].(map[string]interface{}); ok {
+		meta["name"] = resourceName
+		meta["namespace"] = namespace
+	}
+
+	// Convert to unstructured
+	unstructuredObj := &unstructured.Unstructured{Object: resource}
+
+	// Get GVR for the resource type
+	gvr, err := h.getGVRForKind(req.APIVersion, req.Kind)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid resource type",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Update the resource
+	updated, err := h.k8sClient.GetDynamicClient().Resource(gvr).Namespace(namespace).
+		Update(ctx, unstructuredObj, metav1.UpdateOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to update resource",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, updated.Object)
 }
 
 // DeleteResource deletes a K8s resource
 func (h *Handler) DeleteResource(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	resourceType := c.Param("type")     // e.g., "deployment", "service"
+	resourceName := c.Param("name")
+	apiVersion := c.Query("apiVersion") // e.g., "apps/v1"
+	kind := c.Query("kind")             // e.g., "Deployment"
+	namespace := c.Query("namespace")
+
+	if namespace == "" {
+		namespace = h.namespace
+	}
+
+	if apiVersion == "" || kind == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "apiVersion and kind query parameters are required",
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Get GVR for the resource type
+	gvr, err := h.getGVRForKind(apiVersion, kind)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid resource type",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Delete the resource
+	err = h.k8sClient.GetDynamicClient().Resource(gvr).Namespace(namespace).
+		Delete(ctx, resourceName, metav1.DeleteOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to delete resource",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Resource deleted successfully",
+		"name":    resourceName,
+		"type":    resourceType,
+	})
+}
+
+// Helper function to get GroupVersionResource from apiVersion and kind
+func (h *Handler) getGVRForKind(apiVersion, kind string) (schema.GroupVersionResource, error) {
+	// Parse apiVersion into group and version
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+
+	// Map common kinds to their resource names (plural, lowercase)
+	// This is a simplified mapping - in production, use discovery client
+	resourceMap := map[string]string{
+		"Deployment":  "deployments",
+		"Service":     "services",
+		"Pod":         "pods",
+		"ConfigMap":   "configmaps",
+		"Secret":      "secrets",
+		"Ingress":     "ingresses",
+		"Session":     "sessions",
+		"Template":    "templates",
+		"StatefulSet": "statefulsets",
+		"DaemonSet":   "daemonsets",
+		"Job":         "jobs",
+		"CronJob":     "cronjobs",
+		"Namespace":   "namespaces",
+		"Node":        "nodes",
+	}
+
+	resource, ok := resourceMap[kind]
+	if !ok {
+		// Fallback: lowercase + s (not always correct, but common pattern)
+		resource = strings.ToLower(kind) + "s"
+	}
+
+	return schema.GroupVersionResource{
+		Group:    gv.Group,
+		Version:  gv.Version,
+		Resource: resource,
+	}, nil
 }
 
 // GetPodLogs returns pod logs
@@ -382,36 +596,9 @@ func (h *Handler) UpdateConfig(c *gin.Context) {
 	})
 }
 
-// ListUsers returns all users
-func (h *Handler) ListUsers(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
-}
-
-// CreateUser creates a new user
-func (h *Handler) CreateUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
-}
-
-// GetCurrentUser returns current user info
-func (h *Handler) GetCurrentUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
-}
-
-// GetUser returns user by ID
-func (h *Handler) GetUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
-}
-
-// UpdateUser updates user
-func (h *Handler) UpdateUser(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
-}
-
-// GetUserSessions returns sessions for a user
-func (h *Handler) GetUserSessions(c *gin.Context) {
-	userID := c.Param("id")
-	c.Redirect(http.StatusTemporaryRedirect, "/api/v1/sessions?user="+userID)
-}
+// NOTE: User management endpoints (ListUsers, CreateUser, GetUser, etc.)
+// are fully implemented in api/internal/handlers/users.go by UserHandler.
+// Those should be used instead of stub implementations.
 
 // GetMetrics returns metrics
 func (h *Handler) GetMetrics(c *gin.Context) {
