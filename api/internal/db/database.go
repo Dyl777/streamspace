@@ -410,6 +410,89 @@ func (d *Database) Migrate() error {
 
 		// Templates by app_type and rating (filtering by app type with sorting)
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_apptype_rating ON catalog_templates(app_type, avg_rating DESC)`,
+
+		// ========== Plugin System ==========
+
+		// Catalog plugins (available plugins from repositories)
+		`CREATE TABLE IF NOT EXISTS catalog_plugins (
+			id SERIAL PRIMARY KEY,
+			repository_id INT REFERENCES catalog_repositories(id) ON DELETE CASCADE,
+			name VARCHAR(255) NOT NULL,
+			version VARCHAR(50) NOT NULL,
+			display_name VARCHAR(255),
+			description TEXT,
+			category VARCHAR(100),
+			plugin_type VARCHAR(50) DEFAULT 'extension',
+			icon_url TEXT,
+			manifest JSONB,
+			tags TEXT[],
+			install_count INT DEFAULT 0,
+			avg_rating DECIMAL(3,2) DEFAULT 0.00,
+			rating_count INT DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(repository_id, name, version)
+		)`,
+
+		// Create indexes for plugins
+		`CREATE INDEX IF NOT EXISTS idx_catalog_plugins_category ON catalog_plugins(category)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_plugins_type ON catalog_plugins(plugin_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_plugins_category_rating ON catalog_plugins(category, avg_rating DESC)`,
+
+		// Installed plugins (user-installed plugins)
+		`CREATE TABLE IF NOT EXISTS installed_plugins (
+			id SERIAL PRIMARY KEY,
+			catalog_plugin_id INT REFERENCES catalog_plugins(id) ON DELETE SET NULL,
+			name VARCHAR(255) NOT NULL,
+			version VARCHAR(50) NOT NULL,
+			enabled BOOLEAN DEFAULT true,
+			config JSONB,
+			installed_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(name)
+		)`,
+
+		// Create indexes for installed plugins
+		`CREATE INDEX IF NOT EXISTS idx_installed_plugins_enabled ON installed_plugins(enabled)`,
+		`CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(installed_by)`,
+
+		// Plugin versions (track plugin version history)
+		`CREATE TABLE IF NOT EXISTS plugin_versions (
+			id SERIAL PRIMARY KEY,
+			plugin_id INT REFERENCES catalog_plugins(id) ON DELETE CASCADE,
+			version VARCHAR(50) NOT NULL,
+			changelog TEXT,
+			manifest JSONB,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(plugin_id, version)
+		)`,
+
+		// Plugin ratings (user ratings for plugins)
+		`CREATE TABLE IF NOT EXISTS plugin_ratings (
+			id SERIAL PRIMARY KEY,
+			plugin_id INT REFERENCES catalog_plugins(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			rating INT CHECK (rating >= 1 AND rating <= 5),
+			review TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(plugin_id, user_id)
+		)`,
+
+		// Create indexes for plugin ratings
+		`CREATE INDEX IF NOT EXISTS idx_plugin_ratings_plugin_id ON plugin_ratings(plugin_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_plugin_ratings_user_id ON plugin_ratings(user_id)`,
+
+		// Plugin statistics (view and usage tracking)
+		`CREATE TABLE IF NOT EXISTS plugin_stats (
+			plugin_id INT PRIMARY KEY REFERENCES catalog_plugins(id) ON DELETE CASCADE,
+			view_count INT DEFAULT 0,
+			install_count INT DEFAULT 0,
+			last_viewed_at TIMESTAMP,
+			last_installed_at TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	// Execute migrations
