@@ -18,7 +18,6 @@ import {
   TextField,
   Alert,
   LinearProgress,
-  Chip,
   Tooltip,
   CircularProgress,
 } from '@mui/material';
@@ -56,7 +55,7 @@ export default function AdminQuotas() {
     setError('');
 
     try {
-      const quotasData = await api.listUserQuotas();
+      const quotasData = await api.listAllUserQuotas();
       setQuotas(quotasData);
     } catch (err: any) {
       console.error('Failed to load quotas:', err);
@@ -69,11 +68,11 @@ export default function AdminQuotas() {
   const handleOpenEdit = (quota?: UserQuota) => {
     if (quota) {
       setSelectedQuota(quota);
-      setUsername(quota.username);
-      setMaxSessions(quota.limits.maxSessions.toString());
-      setMaxCPU(quota.limits.maxCPU);
-      setMaxMemory(quota.limits.maxMemory);
-      setMaxStorage(quota.limits.maxStorage);
+      setUsername(quota.username || quota.userId);
+      setMaxSessions(quota.maxSessions.toString());
+      setMaxCPU(quota.maxCpu);
+      setMaxMemory(quota.maxMemory);
+      setMaxStorage(quota.maxStorage);
     } else {
       setSelectedQuota(null);
       setUsername('');
@@ -95,12 +94,12 @@ export default function AdminQuotas() {
       const quotaData: SetQuotaRequest = {
         username: username.trim(),
         maxSessions: parseInt(maxSessions),
-        maxCPU,
+        maxCpu: maxCPU,
         maxMemory,
         maxStorage,
       };
 
-      await api.setUserQuota(quotaData);
+      await api.setAdminUserQuota(quotaData);
       setEditDialogOpen(false);
       loadQuotas();
     } catch (err: any) {
@@ -113,7 +112,7 @@ export default function AdminQuotas() {
     if (!selectedQuota) return;
 
     try {
-      await api.deleteUserQuota(selectedQuota.username);
+      await api.deleteAdminUserQuota(selectedQuota.username || selectedQuota.userId);
       setDeleteDialogOpen(false);
       setSelectedQuota(null);
       loadQuotas();
@@ -199,32 +198,32 @@ export default function AdminQuotas() {
                 </TableRow>
               ) : (
                 quotas.map((quota) => {
-                  const sessionPercent = calculatePercentage(quota.used.sessions, quota.limits.maxSessions);
+                  const sessionPercent = calculatePercentage(quota.usedSessions, quota.maxSessions);
                   const cpuPercent = calculatePercentage(
-                    parseResourceString(quota.used.cpu),
-                    parseResourceString(quota.limits.maxCPU)
+                    parseResourceString(quota.usedCpu),
+                    parseResourceString(quota.maxCpu)
                   );
                   const memoryPercent = calculatePercentage(
-                    parseResourceString(quota.used.memory),
-                    parseResourceString(quota.limits.maxMemory)
+                    parseResourceString(quota.usedMemory),
+                    parseResourceString(quota.maxMemory)
                   );
                   const storagePercent = calculatePercentage(
-                    parseResourceString(quota.used.storage),
-                    parseResourceString(quota.limits.maxStorage)
+                    parseResourceString(quota.usedStorage),
+                    parseResourceString(quota.maxStorage)
                   );
 
                   return (
-                    <TableRow key={quota.username}>
+                    <TableRow key={quota.username || quota.userId}>
                       <TableCell>
                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                          {quota.username}
+                          {quota.username || quota.userId}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                             <Typography variant="body2">
-                              {quota.used.sessions} / {quota.limits.maxSessions}
+                              {quota.usedSessions} / {quota.maxSessions}
                             </Typography>
                             {sessionPercent > 90 && (
                               <Tooltip title="Near quota limit">
@@ -249,7 +248,7 @@ export default function AdminQuotas() {
                       <TableCell>
                         <Box>
                           <Typography variant="body2" sx={{ mb: 0.5 }}>
-                            {quota.used.cpu} / {quota.limits.maxCPU}
+                            {quota.usedCpu} / {quota.maxCpu}
                           </Typography>
                           <LinearProgress
                             variant="determinate"
@@ -268,7 +267,7 @@ export default function AdminQuotas() {
                       <TableCell>
                         <Box>
                           <Typography variant="body2" sx={{ mb: 0.5 }}>
-                            {quota.used.memory} / {quota.limits.maxMemory}
+                            {quota.usedMemory} / {quota.maxMemory}
                           </Typography>
                           <LinearProgress
                             variant="determinate"
@@ -287,7 +286,7 @@ export default function AdminQuotas() {
                       <TableCell>
                         <Box>
                           <Typography variant="body2" sx={{ mb: 0.5 }}>
-                            {quota.used.storage} / {quota.limits.maxStorage}
+                            {quota.usedStorage} / {quota.maxStorage}
                           </Typography>
                           <LinearProgress
                             variant="determinate"

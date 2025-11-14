@@ -30,6 +30,7 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 		userRoutes.GET("", h.ListUsers)
 		userRoutes.POST("", h.CreateUser)
 		userRoutes.GET("/me", h.GetCurrentUser)
+		userRoutes.GET("/me/quota", h.GetCurrentUserQuota)
 		userRoutes.GET("/:id", h.GetUser)
 		userRoutes.PATCH("/:id", h.UpdateUser)
 		userRoutes.DELETE("/:id", h.DeleteUser)
@@ -43,6 +44,15 @@ func (h *UserHandler) RegisterRoutes(router *gin.RouterGroup) {
 
 		// User groups
 		userRoutes.GET("/:id/groups", h.GetUserGroups)
+	}
+
+	// Admin quota routes
+	adminQuotaRoutes := router.Group("/admin/quotas")
+	{
+		adminQuotaRoutes.GET("", h.ListAllUserQuotas)
+		adminQuotaRoutes.GET("/:username", h.GetAdminUserQuota)
+		adminQuotaRoutes.PUT("", h.SetAdminUserQuota)
+		adminQuotaRoutes.DELETE("/:username", h.DeleteAdminUserQuota)
 	}
 }
 
@@ -181,6 +191,39 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 	user.PasswordHash = ""
 
 	c.JSON(http.StatusOK, user)
+}
+
+// GetCurrentUserQuota godoc
+// @Summary Get current user quota
+// @Description Get quota information for the currently authenticated user
+// @Tags users, quotas
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.UserQuota
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/users/me/quota [get]
+func (h *UserHandler) GetCurrentUserQuota(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "User not authenticated",
+		})
+		return
+	}
+
+	quota, err := h.userDB.GetUserQuota(c.Request.Context(), userID.(string))
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error:   "Quota not found",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, quota)
 }
 
 // UpdateUser godoc
@@ -379,6 +422,167 @@ func (h *UserHandler) GetUserGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"groups": groups,
 		"total":  len(groups),
+	})
+}
+
+// ListAllUserQuotas godoc
+// @Summary List all user quotas
+// @Description Get resource quotas for all users (admin only)
+// @Tags admin, quotas
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/quotas [get]
+func (h *UserHandler) ListAllUserQuotas(c *gin.Context) {
+	quotas, err := h.userDB.ListAllUserQuotas(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to list quotas",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"quotas": quotas,
+		"total":  len(quotas),
+	})
+}
+
+// GetAdminUserQuota godoc
+// @Summary Get user quota by username
+// @Description Get resource quota for a user by username (admin only)
+// @Tags admin, quotas
+// @Accept json
+// @Produce json
+// @Param username path string true "Username"
+// @Success 200 {object} models.UserQuota
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/quotas/{username} [get]
+func (h *UserHandler) GetAdminUserQuota(c *gin.Context) {
+	username := c.Param("username")
+
+	// Get user by username
+	user, err := h.userDB.GetUserByUsername(c.Request.Context(), username)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error:   "User not found",
+			Message: fmt.Sprintf("User %s not found", username),
+		})
+		return
+	}
+
+	quota, err := h.userDB.GetUserQuota(c.Request.Context(), user.ID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error:   "Quota not found",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, quota)
+}
+
+// SetAdminUserQuota godoc
+// @Summary Set user quota by username
+// @Description Set or update resource quota for a user by username (admin only)
+// @Tags admin, quotas
+// @Accept json
+// @Produce json
+// @Param quota body models.SetQuotaRequest true "Quota settings with username"
+// @Success 200 {object} models.UserQuota
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/quotas [put]
+func (h *UserHandler) SetAdminUserQuota(c *gin.Context) {
+	var req models.SetQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	if req.Username == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request",
+			Message: "Username is required",
+		})
+		return
+	}
+
+	// Get user by username
+	user, err := h.userDB.GetUserByUsername(c.Request.Context(), req.Username)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error:   "User not found",
+			Message: fmt.Sprintf("User %s not found", req.Username),
+		})
+		return
+	}
+
+	// Set quota for the user
+	if err := h.userDB.SetUserQuota(c.Request.Context(), user.ID, &req); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to set quota",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	// Fetch updated quota
+	quota, err := h.userDB.GetUserQuota(c.Request.Context(), user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to fetch updated quota",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, quota)
+}
+
+// DeleteAdminUserQuota godoc
+// @Summary Delete user quota
+// @Description Delete (reset to default) resource quota for a user (admin only)
+// @Tags admin, quotas
+// @Accept json
+// @Produce json
+// @Param username path string true "Username"
+// @Success 200 {object} SuccessResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/admin/quotas/{username} [delete]
+func (h *UserHandler) DeleteAdminUserQuota(c *gin.Context) {
+	username := c.Param("username")
+
+	// Get user by username
+	user, err := h.userDB.GetUserByUsername(c.Request.Context(), username)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error:   "User not found",
+			Message: fmt.Sprintf("User %s not found", username),
+		})
+		return
+	}
+
+	// Delete quota (reset to defaults)
+	if err := h.userDB.DeleteUserQuota(c.Request.Context(), user.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to delete quota",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: fmt.Sprintf("Quota deleted for user %s", username),
 	})
 }
 

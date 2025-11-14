@@ -22,14 +22,20 @@ import {
   FullscreenExit as FullscreenExitIcon,
   Refresh as RefreshIcon,
   Info as InfoIcon,
+  Share as ShareIcon,
+  People as PeopleIcon,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { api } from '../lib/api';
 import { useUserStore } from '../store/userStore';
+import SessionShareDialog from '../components/SessionShareDialog';
+import SessionInvitationDialog from '../components/SessionInvitationDialog';
+import SessionCollaboratorsPanel from '../components/SessionCollaboratorsPanel';
 
 export default function SessionViewer() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const username = useUserStore((state) => state.username);
+  const username = useUserStore((state) => state.user?.username);
 
   const [session, setSession] = useState<any>(null);
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -37,6 +43,12 @@ export default function SessionViewer() {
   const [error, setError] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+
+  // Sharing state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
+  const [collaboratorsDialogOpen, setCollaboratorsDialogOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,6 +84,9 @@ export default function SessionViewer() {
       // Get session details
       const sessionData = await api.getSession(sessionId);
       setSession(sessionData);
+
+      // Check if current user is the session owner
+      setIsOwner(sessionData.user === username);
 
       // Check if session is running
       if (sessionData.state !== 'running') {
@@ -237,6 +252,28 @@ export default function SessionViewer() {
             sx={{ mr: 2 }}
           />
 
+          {isOwner && (
+            <>
+              <Tooltip title="Share with User">
+                <IconButton color="inherit" onClick={() => setShareDialogOpen(true)}>
+                  <ShareIcon />
+                </IconButton>
+              </Tooltip>
+
+              <Tooltip title="Create Invitation Link">
+                <IconButton color="inherit" onClick={() => setInvitationDialogOpen(true)}>
+                  <LinkIcon />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+
+          <Tooltip title="View Collaborators">
+            <IconButton color="inherit" onClick={() => setCollaboratorsDialogOpen(true)}>
+              <PeopleIcon />
+            </IconButton>
+          </Tooltip>
+
           <Tooltip title="Session Info">
             <IconButton color="inherit" onClick={() => setInfoDialogOpen(true)}>
               <InfoIcon />
@@ -277,6 +314,53 @@ export default function SessionViewer() {
           allow="clipboard-read; clipboard-write"
         />
       </Box>
+
+      {/* Sharing Dialogs */}
+      {sessionId && session && (
+        <>
+          <SessionShareDialog
+            open={shareDialogOpen}
+            sessionId={sessionId}
+            sessionName={session.name}
+            onClose={() => setShareDialogOpen(false)}
+          />
+          <SessionInvitationDialog
+            open={invitationDialogOpen}
+            sessionId={sessionId}
+            sessionName={session.name}
+            onClose={() => setInvitationDialogOpen(false)}
+          />
+        </>
+      )}
+
+      {/* Collaborators Dialog */}
+      <Dialog
+        open={collaboratorsDialogOpen}
+        onClose={() => setCollaboratorsDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Session Collaborators</Typography>
+            <IconButton onClick={() => setCollaboratorsDialogOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {sessionId && (
+            <SessionCollaboratorsPanel
+              sessionId={sessionId}
+              isOwner={isOwner}
+              onUpdate={loadSession}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCollaboratorsDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Session Info Dialog */}
       <Dialog open={infoDialogOpen} onClose={() => setInfoDialogOpen(false)} maxWidth="sm" fullWidth>

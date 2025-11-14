@@ -15,6 +15,16 @@ import (
 	"github.com/streamspace/streamspace/api/internal/sync"
 	"github.com/streamspace/streamspace/api/internal/tracker"
 	"github.com/streamspace/streamspace/api/internal/websocket"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
+var (
+	sessionGVR = schema.GroupVersionResource{
+		Group:    "stream.streamspace.io",
+		Version:  "v1alpha1",
+		Resource: "sessions",
+	}
 )
 
 // Handler handles all API requests
@@ -96,15 +106,16 @@ func (h *Handler) CreateSession(c *gin.Context) {
 	ctx := context.Background()
 
 	var req struct {
-		User               string `json:"user" binding:"required"`
-		Template           string `json:"template" binding:"required"`
+		User               string   `json:"user" binding:"required"`
+		Template           string   `json:"template" binding:"required"`
 		Resources          *struct {
 			Memory string `json:"memory"`
 			CPU    string `json:"cpu"`
 		} `json:"resources"`
-		PersistentHome     *bool  `json:"persistentHome"`
-		IdleTimeout        string `json:"idleTimeout"`
-		MaxSessionDuration string `json:"maxSessionDuration"`
+		PersistentHome     *bool    `json:"persistentHome"`
+		IdleTimeout        string   `json:"idleTimeout"`
+		MaxSessionDuration string   `json:"maxSessionDuration"`
+		Tags               []string `json:"tags"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -195,6 +206,10 @@ func (h *Handler) CreateSession(c *gin.Context) {
 
 	if req.MaxSessionDuration != "" {
 		session.MaxSessionDuration = req.MaxSessionDuration
+	}
+
+	if len(req.Tags) > 0 {
+		session.Tags = req.Tags
 	}
 
 	// Create in Kubernetes
@@ -382,6 +397,104 @@ func (h *Handler) GetSessionConnections(c *gin.Context) {
 		"sessionId":    sessionID,
 		"connections":  connections,
 		"total":        len(connections),
+	})
+}
+
+// UpdateSessionTags updates tags for a session
+func (h *Handler) UpdateSessionTags(c *gin.Context) {
+	ctx := context.Background()
+	sessionID := c.Param("id")
+
+	var req struct {
+		Tags []string `json:"tags" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get the session first
+	obj, err := h.k8sClient.GetDynamicClient().Resource(sessionGVR).Namespace(h.namespace).Get(ctx, sessionID, metav1.GetOptions{})
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+		return
+	}
+
+	// Update the tags in spec
+	spec, ok := obj.Object["spec"].(map[string]interface{})
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid session spec"})
+		return
+	}
+
+	spec["tags"] = req.Tags
+
+	// Update the session
+	_, err = h.k8sClient.GetDynamicClient().Resource(sessionGVR).Namespace(h.namespace).Update(ctx, obj, metav1.UpdateOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get the updated session using the k8s client
+	session, err := h.k8sClient.GetSession(ctx, h.namespace, sessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, h.enrichSessionWithDBInfo(ctx, session))
+}
+
+// ListSessionsByTags returns sessions filtered by tags
+func (h *Handler) ListSessionsByTags(c *gin.Context) {
+	ctx := context.Background()
+	tags := c.QueryArray("tags")
+
+	if len(tags) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one tag is required"})
+		return
+	}
+
+	// Build label selector for tags
+	// Multiple tags are OR'd together
+	labelSelectors := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		if tag != "" {
+			labelSelectors = append(labelSelectors, fmt.Sprintf("tag.stream.space/%s=true", tag))
+		}
+	}
+
+	// Note: Kubernetes label selectors with comma are AND not OR
+	// For OR logic, we need to list all sessions and filter in code
+	allSessions, err := h.k8sClient.ListSessions(ctx, h.namespace)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Filter sessions that have any of the requested tags
+	filtered := make([]*k8s.Session, 0)
+	for _, session := range allSessions {
+		for _, sessionTag := range session.Tags {
+			for _, requestedTag := range tags {
+				if sessionTag == requestedTag {
+					filtered = append(filtered, session)
+					goto nextSession
+				}
+			}
+		}
+	nextSession:
+	}
+
+	// Enrich with database info
+	enriched := h.enrichSessionsWithDBInfo(ctx, filtered)
+
+	c.JSON(http.StatusOK, gin.H{
+		"sessions": enriched,
+		"total":    len(enriched),
+		"tags":     tags,
 	})
 }
 
@@ -733,6 +846,7 @@ func (h *Handler) enrichSessionWithDBInfo(ctx context.Context, session *k8s.Sess
 		"persistentHome":     session.PersistentHome,
 		"idleTimeout":        session.IdleTimeout,
 		"maxSessionDuration": session.MaxSessionDuration,
+		"tags":               session.Tags,
 		"status":             session.Status,
 		"createdAt":          session.CreatedAt,
 	}

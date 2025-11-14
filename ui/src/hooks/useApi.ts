@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api, { CreateSessionRequest } from '@/lib/api';
+import api, { CreateSessionRequest, CatalogFilters } from '../lib/api';
 
 // ============================================================================
 // Session Hooks
@@ -97,10 +97,10 @@ export function useDeleteTemplate() {
 // Catalog Hooks
 // ============================================================================
 
-export function useCatalogTemplates(category?: string, tag?: string) {
+export function useCatalogTemplates(filters?: CatalogFilters) {
   return useQuery({
-    queryKey: ['catalog', category, tag],
-    queryFn: () => api.listCatalogTemplates(category, tag),
+    queryKey: ['catalog', filters],
+    queryFn: () => api.listCatalogTemplates(filters),
   });
 }
 
@@ -161,6 +161,17 @@ export function useSyncAllRepositories() {
   });
 }
 
+export function useUpdateRepository() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.updateRepository(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['repositories'] });
+    },
+  });
+}
+
 export function useDeleteRepository() {
   const queryClient = useQueryClient();
 
@@ -169,6 +180,14 @@ export function useDeleteRepository() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repositories'] });
     },
+  });
+}
+
+export function useRepositoryStats(id: number) {
+  return useQuery({
+    queryKey: ['repository-stats', id],
+    queryFn: () => api.getRepositoryStats(id),
+    enabled: !!id,
   });
 }
 

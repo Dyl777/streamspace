@@ -22,7 +22,7 @@ type Database struct {
 	db *sql.DB
 }
 
-// NewDatabase creates a new database connection
+// NewDatabase creates a new database connection with connection pooling
 func NewDatabase(config Config) (*Database, error) {
 	if config.SSLMode == "" {
 		config.SSLMode = "disable"
@@ -35,6 +35,13 @@ func NewDatabase(config Config) (*Database, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// Configure connection pool for optimal performance
+	// These settings balance performance with resource usage
+	db.SetMaxOpenConns(25)                // Maximum number of open connections to the database
+	db.SetMaxIdleConns(5)                 // Maximum number of connections in the idle connection pool
+	db.SetConnMaxLifetime(5 * 60 * 1000)  // Maximum amount of time a connection may be reused (5 minutes)
+	db.SetConnMaxIdleTime(1 * 60 * 1000)  // Maximum amount of time a connection may be idle (1 minute)
 
 	// Test connection
 	if err := db.Ping(); err != nil {
@@ -207,6 +214,72 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_category ON catalog_templates(category)`,
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_app_type ON catalog_templates(app_type)`,
 
+		// Template versions (track template version history)
+		`CREATE TABLE IF NOT EXISTS template_versions (
+			id SERIAL PRIMARY KEY,
+			template_id INT REFERENCES catalog_templates(id) ON DELETE CASCADE,
+			version VARCHAR(50) NOT NULL,
+			changelog TEXT,
+			manifest JSONB,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(template_id, version)
+		)`,
+
+		// Template ratings (user ratings for templates)
+		`CREATE TABLE IF NOT EXISTS template_ratings (
+			id SERIAL PRIMARY KEY,
+			template_id INT REFERENCES catalog_templates(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			rating INT CHECK (rating >= 1 AND rating <= 5),
+			review TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(template_id, user_id)
+		)`,
+
+		// Create indexes for ratings
+		`CREATE INDEX IF NOT EXISTS idx_template_ratings_template_id ON template_ratings(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_ratings_user_id ON template_ratings(user_id)`,
+
+		// Template statistics (view and usage tracking)
+		`CREATE TABLE IF NOT EXISTS template_stats (
+			template_id INT PRIMARY KEY REFERENCES catalog_templates(id) ON DELETE CASCADE,
+			view_count INT DEFAULT 0,
+			install_count INT DEFAULT 0,
+			session_count INT DEFAULT 0,
+			avg_rating DECIMAL(3,2) DEFAULT 0.0,
+			rating_count INT DEFAULT 0,
+			last_viewed TIMESTAMP,
+			last_installed TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Featured templates (admin curated highlights)
+		`CREATE TABLE IF NOT EXISTS featured_templates (
+			id SERIAL PRIMARY KEY,
+			template_id INT REFERENCES catalog_templates(id) ON DELETE CASCADE,
+			title VARCHAR(255),
+			description TEXT,
+			display_order INT DEFAULT 0,
+			active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			created_by VARCHAR(255) REFERENCES users(id)
+		)`,
+
+		// Add featured column to catalog_templates
+		`ALTER TABLE catalog_templates ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT false`,
+		`ALTER TABLE catalog_templates ADD COLUMN IF NOT EXISTS version VARCHAR(50) DEFAULT '1.0.0'`,
+		`ALTER TABLE catalog_templates ADD COLUMN IF NOT EXISTS view_count INT DEFAULT 0`,
+		`ALTER TABLE catalog_templates ADD COLUMN IF NOT EXISTS avg_rating DECIMAL(3,2) DEFAULT 0.0`,
+		`ALTER TABLE catalog_templates ADD COLUMN IF NOT EXISTS rating_count INT DEFAULT 0`,
+
+		// Create indexes for featured templates
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_featured ON catalog_templates(is_featured)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_rating ON catalog_templates(avg_rating DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_views ON catalog_templates(view_count DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_installs ON catalog_templates(install_count DESC)`,
+
 		// Configuration table
 		`CREATE TABLE IF NOT EXISTS configuration (
 			key VARCHAR(255) PRIMARY KEY,
@@ -257,6 +330,169 @@ func (d *Database) Migrate() error {
 			('session.defaultIdleTimeout', '30m', 'session', 'Default idle timeout'),
 			('session.enableAutoHibernation', 'true', 'session', 'Enable auto-hibernation')
 		ON CONFLICT (key) DO NOTHING`,
+
+		// Session shares (collaboration)
+		`CREATE TABLE IF NOT EXISTS session_shares (
+			id VARCHAR(255) PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			owner_user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			shared_with_user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			permission_level VARCHAR(50) DEFAULT 'view',
+			share_token VARCHAR(255) UNIQUE,
+			expires_at TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			accepted_at TIMESTAMP,
+			revoked_at TIMESTAMP,
+			UNIQUE(session_id, shared_with_user_id)
+		)`,
+
+		// Create indexes for session shares
+		`CREATE INDEX IF NOT EXISTS idx_session_shares_session_id ON session_shares(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_shares_owner ON session_shares(owner_user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_shares_shared_with ON session_shares(shared_with_user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_shares_token ON session_shares(share_token)`,
+
+		// Session share invitations (for email/link based sharing)
+		`CREATE TABLE IF NOT EXISTS session_share_invitations (
+			id VARCHAR(255) PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			invitation_token VARCHAR(255) UNIQUE NOT NULL,
+			permission_level VARCHAR(50) DEFAULT 'view',
+			max_uses INT DEFAULT 1,
+			use_count INT DEFAULT 0,
+			expires_at TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create index for invitations
+		`CREATE INDEX IF NOT EXISTS idx_session_share_invitations_session_id ON session_share_invitations(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_share_invitations_token ON session_share_invitations(invitation_token)`,
+
+		// Session collaborators (active participants)
+		`CREATE TABLE IF NOT EXISTS session_collaborators (
+			id VARCHAR(255) PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			permission_level VARCHAR(50) DEFAULT 'view',
+			joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			is_active BOOLEAN DEFAULT true,
+			UNIQUE(session_id, user_id)
+		)`,
+
+		// Create indexes for collaborators
+		`CREATE INDEX IF NOT EXISTS idx_session_collaborators_session_id ON session_collaborators(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_collaborators_user_id ON session_collaborators(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_collaborators_active ON session_collaborators(is_active)`,
+
+		// Performance optimization: Composite indexes for common query patterns
+		// Sessions by user and state (dashboard queries showing active/hibernated sessions)
+		`CREATE INDEX IF NOT EXISTS idx_sessions_user_state ON sessions(user_id, state)`,
+
+		// Audit log by user and timestamp (user activity history queries)
+		`CREATE INDEX IF NOT EXISTS idx_audit_log_user_timestamp ON audit_log(user_id, timestamp DESC)`,
+
+		// Session shares - active shares (not revoked, not expired)
+		`CREATE INDEX IF NOT EXISTS idx_session_shares_active ON session_shares(session_id, shared_with_user_id) WHERE revoked_at IS NULL`,
+
+		// Catalog templates by category and rating (catalog page with sorting)
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_category_rating ON catalog_templates(category, avg_rating DESC)`,
+
+		// Catalog templates by category and popularity (catalog page sorted by installs)
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_category_installs ON catalog_templates(category, install_count DESC)`,
+
+		// Session collaborators - active collaborators by session (real-time collaboration queries)
+		`CREATE INDEX IF NOT EXISTS idx_session_collaborators_session_active ON session_collaborators(session_id, is_active) WHERE is_active = true`,
+
+		// Connections by session and heartbeat (detecting stale connections)
+		`CREATE INDEX IF NOT EXISTS idx_connections_session_heartbeat ON connections(session_id, last_heartbeat DESC)`,
+
+		// Templates by app_type and rating (filtering by app type with sorting)
+		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_apptype_rating ON catalog_templates(app_type, avg_rating DESC)`,
+
+		// ========== Plugin System ==========
+
+		// Catalog plugins (available plugins from repositories)
+		`CREATE TABLE IF NOT EXISTS catalog_plugins (
+			id SERIAL PRIMARY KEY,
+			repository_id INT REFERENCES catalog_repositories(id) ON DELETE CASCADE,
+			name VARCHAR(255) NOT NULL,
+			version VARCHAR(50) NOT NULL,
+			display_name VARCHAR(255),
+			description TEXT,
+			category VARCHAR(100),
+			plugin_type VARCHAR(50) DEFAULT 'extension',
+			icon_url TEXT,
+			manifest JSONB,
+			tags TEXT[],
+			install_count INT DEFAULT 0,
+			avg_rating DECIMAL(3,2) DEFAULT 0.00,
+			rating_count INT DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(repository_id, name, version)
+		)`,
+
+		// Create indexes for plugins
+		`CREATE INDEX IF NOT EXISTS idx_catalog_plugins_category ON catalog_plugins(category)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_plugins_type ON catalog_plugins(plugin_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_catalog_plugins_category_rating ON catalog_plugins(category, avg_rating DESC)`,
+
+		// Installed plugins (user-installed plugins)
+		`CREATE TABLE IF NOT EXISTS installed_plugins (
+			id SERIAL PRIMARY KEY,
+			catalog_plugin_id INT REFERENCES catalog_plugins(id) ON DELETE SET NULL,
+			name VARCHAR(255) NOT NULL,
+			version VARCHAR(50) NOT NULL,
+			enabled BOOLEAN DEFAULT true,
+			config JSONB,
+			installed_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(name)
+		)`,
+
+		// Create indexes for installed plugins
+		`CREATE INDEX IF NOT EXISTS idx_installed_plugins_enabled ON installed_plugins(enabled)`,
+		`CREATE INDEX IF NOT EXISTS idx_installed_plugins_user ON installed_plugins(installed_by)`,
+
+		// Plugin versions (track plugin version history)
+		`CREATE TABLE IF NOT EXISTS plugin_versions (
+			id SERIAL PRIMARY KEY,
+			plugin_id INT REFERENCES catalog_plugins(id) ON DELETE CASCADE,
+			version VARCHAR(50) NOT NULL,
+			changelog TEXT,
+			manifest JSONB,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(plugin_id, version)
+		)`,
+
+		// Plugin ratings (user ratings for plugins)
+		`CREATE TABLE IF NOT EXISTS plugin_ratings (
+			id SERIAL PRIMARY KEY,
+			plugin_id INT REFERENCES catalog_plugins(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			rating INT CHECK (rating >= 1 AND rating <= 5),
+			review TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(plugin_id, user_id)
+		)`,
+
+		// Create indexes for plugin ratings
+		`CREATE INDEX IF NOT EXISTS idx_plugin_ratings_plugin_id ON plugin_ratings(plugin_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_plugin_ratings_user_id ON plugin_ratings(user_id)`,
+
+		// Plugin statistics (view and usage tracking)
+		`CREATE TABLE IF NOT EXISTS plugin_stats (
+			plugin_id INT PRIMARY KEY REFERENCES catalog_plugins(id) ON DELETE CASCADE,
+			view_count INT DEFAULT 0,
+			install_count INT DEFAULT 0,
+			last_viewed_at TIMESTAMP,
+			last_installed_at TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	// Execute migrations

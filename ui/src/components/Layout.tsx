@@ -20,6 +20,7 @@ import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Computer as ComputerIcon,
+  Share as ShareIcon,
   Apps as AppsIcon,
   Folder as FolderIcon,
   Settings as SettingsIcon,
@@ -42,7 +43,9 @@ export default function Layout({ children }: LayoutProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { username, role, clearUser } = useUserStore();
+  const { user, clearAuth } = useUserStore();
+  const username = user?.username;
+  const role = user?.role;
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -57,13 +60,14 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const handleLogout = () => {
-    clearUser();
+    clearAuth();
     navigate('/login');
   };
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'My Sessions', icon: <ComputerIcon />, path: '/sessions' },
+    { text: 'Shared with Me', icon: <ShareIcon />, path: '/shared-sessions' },
     { text: 'Template Catalog', icon: <AppsIcon />, path: '/catalog' },
     { text: 'Repositories', icon: <FolderIcon />, path: '/repositories' },
   ];

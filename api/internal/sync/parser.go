@@ -271,3 +271,191 @@ func (p *TemplateParser) ValidateTemplateManifest(yamlContent string) error {
 
 	return nil
 }
+
+// ========== Plugin Parsing ==========
+
+// PluginParser parses plugin manifests from repositories
+type PluginParser struct{}
+
+// NewPluginParser creates a new plugin parser
+func NewPluginParser() *PluginParser {
+	return &PluginParser{}
+}
+
+// ParsedPlugin represents a parsed plugin from a repository
+type ParsedPlugin struct {
+	Name        string
+	Version     string
+	DisplayName string
+	Description string
+	Category    string
+	PluginType  string
+	Icon        string
+	Manifest    string   // JSON-encoded full manifest
+	Tags        []string
+}
+
+// PluginManifest represents the structure of a plugin manifest.json file
+type PluginManifest struct {
+	Name          string            `json:"name"`
+	Version       string            `json:"version"`
+	DisplayName   string            `json:"displayName"`
+	Description   string            `json:"description"`
+	Author        string            `json:"author"`
+	Homepage      string            `json:"homepage,omitempty"`
+	Repository    string            `json:"repository,omitempty"`
+	License       string            `json:"license,omitempty"`
+	Type          string            `json:"type"`
+	Category      string            `json:"category,omitempty"`
+	Tags          []string          `json:"tags,omitempty"`
+	Icon          string            `json:"icon,omitempty"`
+	Requirements  map[string]string `json:"requirements,omitempty"`
+	Entrypoints   map[string]string `json:"entrypoints,omitempty"`
+	ConfigSchema  map[string]interface{} `json:"configSchema,omitempty"`
+	DefaultConfig map[string]interface{} `json:"defaultConfig,omitempty"`
+	Permissions   []string          `json:"permissions,omitempty"`
+	Dependencies  map[string]string `json:"dependencies,omitempty"`
+}
+
+// ParseRepository parses all plugin manifests in a repository
+func (p *PluginParser) ParseRepository(repoPath string) ([]*ParsedPlugin, error) {
+	var plugins []*ParsedPlugin
+
+	// Walk through repository looking for manifest.json files
+	err := filepath.WalkDir(repoPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip .git directory
+		if d.IsDir() && d.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		// Only process manifest.json files
+		if !d.IsDir() && d.Name() == "manifest.json" {
+			plugin, err := p.ParsePluginFile(path)
+			if err != nil {
+				// Log error but continue processing other files
+				return nil
+			}
+
+			plugins = append(plugins, plugin)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk repository: %w", err)
+	}
+
+	return plugins, nil
+}
+
+// ParsePluginFile parses a single plugin manifest.json file
+func (p *PluginParser) ParsePluginFile(filePath string) (*ParsedPlugin, error) {
+	// Read file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Parse JSON
+	var manifest PluginManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	// Validate required fields
+	if manifest.Name == "" {
+		return nil, fmt.Errorf("plugin name is required")
+	}
+
+	if manifest.Version == "" {
+		return nil, fmt.Errorf("version is required")
+	}
+
+	if manifest.DisplayName == "" {
+		return nil, fmt.Errorf("displayName is required")
+	}
+
+	if manifest.Type == "" {
+		return nil, fmt.Errorf("type is required")
+	}
+
+	// Validate plugin type
+	validTypes := map[string]bool{
+		"extension": true,
+		"webhook":   true,
+		"api":       true,
+		"ui":        true,
+		"theme":     true,
+	}
+	if !validTypes[manifest.Type] {
+		return nil, fmt.Errorf("invalid plugin type: %s (must be extension, webhook, api, ui, or theme)", manifest.Type)
+	}
+
+	// Convert full manifest to JSON for storage
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode manifest: %w", err)
+	}
+
+	plugin := &ParsedPlugin{
+		Name:        manifest.Name,
+		Version:     manifest.Version,
+		DisplayName: manifest.DisplayName,
+		Description: manifest.Description,
+		Category:    manifest.Category,
+		PluginType:  manifest.Type,
+		Icon:        manifest.Icon,
+		Manifest:    string(manifestJSON),
+		Tags:        manifest.Tags,
+	}
+
+	if plugin.Tags == nil {
+		plugin.Tags = []string{}
+	}
+
+	return plugin, nil
+}
+
+// ValidatePluginManifest validates a plugin manifest structure
+func (p *PluginParser) ValidatePluginManifest(jsonContent string) error {
+	var manifest PluginManifest
+	if err := json.Unmarshal([]byte(jsonContent), &manifest); err != nil {
+		return fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	// Check required fields
+	if manifest.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+
+	if manifest.Version == "" {
+		return fmt.Errorf("version is required")
+	}
+
+	if manifest.DisplayName == "" {
+		return fmt.Errorf("displayName is required")
+	}
+
+	if manifest.Type == "" {
+		return fmt.Errorf("type is required")
+	}
+
+	// Validate plugin type
+	validTypes := map[string]bool{
+		"extension": true,
+		"webhook":   true,
+		"api":       true,
+		"ui":        true,
+		"theme":     true,
+	}
+	if !validTypes[manifest.Type] {
+		return fmt.Errorf("invalid type: %s (must be extension, webhook, api, ui, or theme)", manifest.Type)
+	}
+
+	return nil
+}

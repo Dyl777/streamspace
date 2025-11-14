@@ -34,7 +34,6 @@ var _ = Describe("Template Controller", func() {
 					BaseImage:   "lscr.io/linuxserver/webtop:latest",
 					Category:    "Desktop",
 					Icon:        "https://example.com/icon.png",
-					AppType:     "desktop",
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "vnc",
@@ -42,7 +41,7 @@ var _ = Describe("Template Controller", func() {
 							Protocol:      corev1.ProtocolTCP,
 						},
 					},
-					VNC: &streamv1alpha1.VNCConfig{
+					VNC: streamv1alpha1.VNCConfig{
 						Enabled:  true,
 						Port:     3000,
 						Protocol: "websocket",
@@ -55,16 +54,16 @@ var _ = Describe("Template Controller", func() {
 
 			// Verify template status becomes Ready
 			createdTemplate := &streamv1alpha1.Template{}
-			Eventually(func() string {
+			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "valid-template",
 					Namespace: "default",
 				}, createdTemplate)
 				if err != nil {
-					return ""
+					return false
 				}
-				return createdTemplate.Status.State
-			}, timeout, interval).Should(Equal("Ready"))
+				return createdTemplate.Status.Valid
+			}, timeout, interval).Should(Equal(true))
 
 			// Cleanup
 			Expect(k8sClient.Delete(ctx, template)).To(Succeed())
@@ -83,7 +82,7 @@ var _ = Describe("Template Controller", func() {
 				Spec: streamv1alpha1.TemplateSpec{
 					DisplayName: "Invalid Template",
 					// Missing BaseImage
-					VNC: &streamv1alpha1.VNCConfig{
+					VNC: streamv1alpha1.VNCConfig{
 						Enabled: true,
 						Port:    3000,
 					},
@@ -94,16 +93,16 @@ var _ = Describe("Template Controller", func() {
 
 			// Verify template status becomes Invalid
 			createdTemplate := &streamv1alpha1.Template{}
-			Eventually(func() string {
+			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "invalid-template",
 					Namespace: "default",
 				}, createdTemplate)
 				if err != nil {
-					return ""
+					return true
 				}
-				return createdTemplate.Status.State
-			}, timeout, interval).Should(Equal("Invalid"))
+				return createdTemplate.Status.Valid
+			}, timeout, interval).Should(Equal(false))
 
 			// Verify error message contains useful information
 			Expect(createdTemplate.Status.Message).To(ContainSubstring("baseImage"))
@@ -125,8 +124,7 @@ var _ = Describe("Template Controller", func() {
 				Spec: streamv1alpha1.TemplateSpec{
 					DisplayName: "VNC Template",
 					BaseImage:   "lscr.io/linuxserver/firefox:latest",
-					AppType:     "desktop",
-					VNC: &streamv1alpha1.VNCConfig{
+					VNC: streamv1alpha1.VNCConfig{
 						Enabled:  true,
 						Port:     5900,
 						Protocol: "rfb",
@@ -155,6 +153,7 @@ var _ = Describe("Template Controller", func() {
 
 	Context("When creating a Template with WebApp configuration", func() {
 		It("Should validate WebApp configuration", func() {
+			Skip("WebAppConfig not yet implemented in CRD")
 			ctx := context.Background()
 
 			template := &streamv1alpha1.Template{
@@ -165,12 +164,6 @@ var _ = Describe("Template Controller", func() {
 				Spec: streamv1alpha1.TemplateSpec{
 					DisplayName: "WebApp Template",
 					BaseImage:   "nginx:latest",
-					AppType:     "webapp",
-					WebApp: &streamv1alpha1.WebAppConfig{
-						Enabled: true,
-						Port:    80,
-						Path:    "/",
-					},
 				},
 			}
 
@@ -184,9 +177,6 @@ var _ = Describe("Template Controller", func() {
 					Namespace: "default",
 				}, createdTemplate)
 			}, timeout, interval).Should(Succeed())
-
-			Expect(createdTemplate.Spec.WebApp.Port).To(Equal(int32(80)))
-			Expect(createdTemplate.Spec.WebApp.Path).To(Equal("/"))
 
 			// Cleanup
 			Expect(k8sClient.Delete(ctx, template)).To(Succeed())

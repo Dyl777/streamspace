@@ -11,11 +11,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/streamspace/streamspace/api/internal/activity"
 	"github.com/streamspace/streamspace/api/internal/api"
 	"github.com/streamspace/streamspace/api/internal/auth"
+	"github.com/streamspace/streamspace/api/internal/cache"
 	"github.com/streamspace/streamspace/api/internal/db"
 	"github.com/streamspace/streamspace/api/internal/handlers"
 	"github.com/streamspace/streamspace/api/internal/k8s"
+	"github.com/streamspace/streamspace/api/internal/middleware"
 	"github.com/streamspace/streamspace/api/internal/quota"
 	"github.com/streamspace/streamspace/api/internal/sync"
 	"github.com/streamspace/streamspace/api/internal/tracker"
@@ -52,6 +55,30 @@ func main() {
 	if err := database.Migrate(); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
+
+	// Initialize Redis cache (optional)
+	log.Println("Initializing Redis cache...")
+	cacheEnabled := getEnv("CACHE_ENABLED", "false") == "true"
+	redisHost := getEnv("REDIS_HOST", "localhost")
+	redisPort := getEnv("REDIS_PORT", "6379")
+	redisPassword := getEnv("REDIS_PASSWORD", "")
+	redisCache, err := cache.NewCache(cache.Config{
+		Host:     redisHost,
+		Port:     redisPort,
+		Password: redisPassword,
+		DB:       0,
+		Enabled:  cacheEnabled,
+	})
+	if err != nil {
+		log.Printf("Failed to initialize Redis cache (continuing without caching): %v", err)
+		// Create disabled cache instance
+		redisCache, _ = cache.NewCache(cache.Config{Enabled: false})
+	} else if cacheEnabled {
+		log.Println("Redis cache enabled and connected")
+	} else {
+		log.Println("Redis cache disabled")
+	}
+	defer redisCache.Close()
 
 	// Initialize Kubernetes client
 	log.Println("Initializing Kubernetes client...")
@@ -91,6 +118,23 @@ func main() {
 	wsManager := websocket.NewManager(database, k8sClient)
 	wsManager.Start()
 
+	// Initialize activity tracker
+	log.Println("Initializing activity tracker...")
+	activityTracker := activity.NewTracker(k8sClient)
+
+	// Start idle session monitor (check every 1 minute)
+	idleCheckInterval := getEnv("IDLE_CHECK_INTERVAL", "1m")
+	idleInterval, err := time.ParseDuration(idleCheckInterval)
+	if err != nil {
+		log.Printf("Invalid IDLE_CHECK_INTERVAL, using default 1m: %v", err)
+		idleInterval = 1 * time.Minute
+	}
+
+	idleCtx, cancelIdle := context.WithCancel(context.Background())
+	defer cancelIdle()
+
+	go activityTracker.StartIdleMonitor(idleCtx, "streamspace", idleInterval)
+
 	// Create Gin router
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -99,6 +143,15 @@ func main() {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
+
+	// Add gzip compression (exclude WebSocket endpoints)
+	router.Use(middleware.GzipWithExclusions(
+		middleware.BestSpeed, // Use best speed for balance of compression vs CPU
+		[]string{"/api/v1/ws/"}, // Exclude WebSocket paths
+	))
+
+	// Add cache control headers to all responses
+	router.Use(cache.CacheControl(5 * time.Minute))
 
 	// Initialize database repositories
 	userDB := db.NewUserDB(database.DB())
@@ -120,9 +173,13 @@ func main() {
 	userHandler := handlers.NewUserHandler(userDB)
 	groupHandler := handlers.NewGroupHandler(groupDB, userDB)
 	authHandler := auth.NewAuthHandler(userDB, jwtManager)
+	activityHandler := handlers.NewActivityHandler(k8sClient, activityTracker)
+	catalogHandler := handlers.NewCatalogHandler(database)
+	sharingHandler := handlers.NewSharingHandler(database)
+	pluginHandler := handlers.NewPluginHandler(database)
 
 	// Setup routes
-	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, jwtManager, userDB)
+	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, jwtManager, userDB, redisCache)
 
 	// Create HTTP server
 	srv := &http.Server{
@@ -156,7 +213,7 @@ func main() {
 	log.Println("Server stopped")
 }
 
-func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, jwtManager *auth.JWTManager, userDB *db.UserDB) {
+func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache) {
 	// Health check (public)
 	router.GET("/health", h.Health)
 	router.GET("/version", h.Version)
@@ -169,11 +226,14 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 		// Sessions
 		sessions := v1.Group("/sessions")
 		{
-			sessions.GET("", h.ListSessions)
-			sessions.POST("", h.CreateSession)
-			sessions.GET("/:id", h.GetSession)
-			sessions.PATCH("/:id", h.UpdateSession)
-			sessions.DELETE("/:id", h.DeleteSession)
+			// Cache session lists for 30 seconds (frequently changing)
+			sessions.GET("", cache.CacheMiddleware(redisCache, 30*time.Second), h.ListSessions)
+			sessions.POST("", cache.InvalidateCacheMiddleware(redisCache, cache.SessionPattern()), h.CreateSession)
+			sessions.GET("/by-tags", cache.CacheMiddleware(redisCache, 30*time.Second), h.ListSessionsByTags)
+			sessions.GET("/:id", cache.CacheMiddleware(redisCache, 30*time.Second), h.GetSession)
+			sessions.PATCH("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.SessionPattern()), h.UpdateSession)
+			sessions.DELETE("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.SessionPattern()), h.DeleteSession)
+			sessions.PATCH("/:id/tags", cache.InvalidateCacheMiddleware(redisCache, cache.SessionPattern()), h.UpdateSessionTags)
 			sessions.GET("/:id/connect", h.ConnectSession)
 			sessions.POST("/:id/disconnect", h.DisconnectSession)
 			sessions.POST("/:id/heartbeat", h.SessionHeartbeat)
@@ -182,32 +242,35 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 		// Templates
 		templates := v1.Group("/templates")
 		{
-			templates.GET("", h.ListTemplates)
-			templates.POST("", h.CreateTemplate)
-			templates.GET("/:id", h.GetTemplate)
-			templates.PATCH("/:id", h.UpdateTemplate)
-			templates.DELETE("/:id", h.DeleteTemplate)
+			// Cache template lists for 5 minutes (rarely changing)
+			templates.GET("", cache.CacheMiddleware(redisCache, 5*time.Minute), h.ListTemplates)
+			templates.POST("", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.CreateTemplate)
+			templates.GET("/:id", cache.CacheMiddleware(redisCache, 5*time.Minute), h.GetTemplate)
+			templates.PATCH("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.UpdateTemplate)
+			templates.DELETE("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.DeleteTemplate)
 		}
 
 		// Catalog
 		catalog := v1.Group("/catalog")
 		{
-			catalog.GET("/repositories", h.ListRepositories)
+			// Cache catalog data for 10 minutes (changes on sync)
+			catalog.GET("/repositories", cache.CacheMiddleware(redisCache, 10*time.Minute), h.ListRepositories)
 			catalog.POST("/repositories", h.AddRepository)
 			catalog.DELETE("/repositories/:id", h.RemoveRepository)
 			catalog.POST("/sync", h.SyncCatalog)
-			catalog.GET("/templates", h.BrowseCatalog)
+			catalog.GET("/templates", cache.CacheMiddleware(redisCache, 10*time.Minute), h.BrowseCatalog)
 			catalog.POST("/install", h.InstallTemplate)
 		}
 
 		// Cluster management
 		cluster := v1.Group("/cluster")
 		{
-			cluster.GET("/nodes", h.ListNodes)
-			cluster.GET("/pods", h.ListPods)
-			cluster.GET("/deployments", h.ListDeployments)
-			cluster.GET("/services", h.ListServices)
-			cluster.GET("/namespaces", h.ListNamespaces)
+			// Cache cluster data for 1 minute (can change frequently)
+			cluster.GET("/nodes", cache.CacheMiddleware(redisCache, 1*time.Minute), h.ListNodes)
+			cluster.GET("/pods", cache.CacheMiddleware(redisCache, 30*time.Second), h.ListPods)
+			cluster.GET("/deployments", cache.CacheMiddleware(redisCache, 30*time.Second), h.ListDeployments)
+			cluster.GET("/services", cache.CacheMiddleware(redisCache, 1*time.Minute), h.ListServices)
+			cluster.GET("/namespaces", cache.CacheMiddleware(redisCache, 2*time.Minute), h.ListNamespaces)
 			cluster.POST("/resources", h.CreateResource)
 			cluster.PATCH("/resources", h.UpdateResource)
 			cluster.DELETE("/resources", h.DeleteResource)
@@ -217,8 +280,9 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 		// Configuration
 		config := v1.Group("/config")
 		{
-			config.GET("", h.GetConfig)
-			config.PATCH("", h.UpdateConfig)
+			// Cache configuration for 5 minutes (rarely changes)
+			config.GET("", cache.CacheMiddleware(redisCache, 5*time.Minute), h.GetConfig)
+			config.PATCH("", cache.InvalidateCacheMiddleware(redisCache, cache.ConfigKey("*")), h.UpdateConfig)
 		}
 
 		// User management - using dedicated handler
@@ -226,6 +290,18 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 
 		// Group management - using dedicated handler
 		groupHandler.RegisterRoutes(v1)
+
+		// Activity tracking - using dedicated handler
+		activityHandler.RegisterRoutes(v1)
+
+		// Enhanced catalog - using dedicated handler
+		catalogHandler.RegisterRoutes(v1)
+
+		// Session sharing and collaboration - using dedicated handler
+		sharingHandler.RegisterRoutes(v1)
+
+		// Plugin system - using dedicated handler
+		pluginHandler.RegisterRoutes(v1)
 
 		// Metrics
 		v1.GET("/metrics", h.GetMetrics)

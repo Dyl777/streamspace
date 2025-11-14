@@ -113,7 +113,7 @@ func (m *Manager) broadcastSessionUpdates() {
 			continue
 		}
 
-		// Enrich with database info (active connections)
+		// Enrich with database info (active connections) and activity status
 		enrichedSessions := make([]map[string]interface{}, 0, len(sessions))
 		for _, session := range sessions {
 			// Get active connections count from database
@@ -137,6 +137,23 @@ func (m *Manager) broadcastSessionUpdates() {
 				sessionData["resources"] = map[string]string{
 					"memory": session.Resources.Memory,
 					"cpu":    session.Resources.CPU,
+				}
+			}
+
+			// Add activity status
+			if session.Status.LastActivity != nil {
+				sessionData["lastActivity"] = session.Status.LastActivity.Format(time.RFC3339)
+
+				// Calculate idle status
+				if session.IdleTimeout != "" {
+					idleThreshold, err := time.ParseDuration(session.IdleTimeout)
+					if err == nil && idleThreshold > 0 {
+						idleDuration := time.Since(*session.Status.LastActivity)
+						sessionData["idleDuration"] = int64(idleDuration.Seconds())
+						sessionData["idleThreshold"] = int64(idleThreshold.Seconds())
+						sessionData["isIdle"] = idleDuration >= idleThreshold
+						sessionData["isActive"] = idleDuration < idleThreshold
+					}
 				}
 			}
 

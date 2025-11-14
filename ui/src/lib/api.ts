@@ -1,7 +1,16 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
+import { toast } from './toast';
 
 // API Base URL - uses Vite proxy in development, direct URL in production
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+
+// API Error Response Type
+export interface APIErrorResponse {
+  error: string;
+  message: string;
+  code?: string;
+  details?: string;
+}
 
 // Types
 export interface Session {
@@ -13,6 +22,7 @@ export interface Session {
   persistentHome: boolean;
   idleTimeout?: string;
   maxSessionDuration?: string;
+  tags?: string[];
   resources?: {
     memory?: string;
     cpu?: string;
@@ -20,6 +30,12 @@ export interface Session {
   status: SessionStatus;
   createdAt: string;
   activeConnections?: number;
+  // Activity tracking fields
+  lastActivity?: string;
+  idleDuration?: number; // seconds
+  idleThreshold?: number; // seconds
+  isIdle?: boolean;
+  isActive?: boolean;
 }
 
 export interface SessionStatus {
@@ -57,18 +73,49 @@ export interface Template {
 
 export interface CatalogTemplate {
   id: number;
+  repositoryId: number;
   name: string;
   displayName: string;
   description: string;
   category: string;
+  appType: string;
   icon?: string;
-  manifest: string;
+  manifest?: string;
   tags: string[];
   installCount: number;
+  isFeatured: boolean;
+  version: string;
+  viewCount: number;
+  avgRating: number;
+  ratingCount: number;
+  createdAt: string;
+  updatedAt: string;
   repository: {
     name: string;
     url: string;
   };
+}
+
+export interface TemplateRating {
+  id: number;
+  userId: string;
+  username: string;
+  fullName: string;
+  rating: number;
+  review?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CatalogFilters {
+  search?: string;
+  category?: string;
+  tag?: string;
+  appType?: string;
+  featured?: boolean;
+  sort?: 'popular' | 'rating' | 'recent' | 'installs' | 'views';
+  page?: number;
+  limit?: number;
 }
 
 export interface Repository {
@@ -95,6 +142,7 @@ export interface CreateSessionRequest {
   persistentHome?: boolean;
   idleTimeout?: string;
   maxSessionDuration?: string;
+  tags?: string[];
 }
 
 export interface ConnectSessionResponse {
@@ -122,6 +170,7 @@ export interface User {
 
 export interface UserQuota {
   userId: string;
+  username?: string;  // Add username for admin quota endpoints
   maxSessions: number;
   maxCpu: string;
   maxMemory: string;
@@ -130,6 +179,19 @@ export interface UserQuota {
   usedCpu: string;
   usedMemory: string;
   usedStorage: string;
+  // Alternative nested format for compatibility
+  limits?: {
+    maxSessions: number;
+    maxCpu: string;
+    maxMemory: string;
+    maxStorage: string;
+  };
+  used?: {
+    sessions: number;
+    cpu: string;
+    memory: string;
+    storage: string;
+  };
 }
 
 export interface CreateUserRequest {
@@ -139,6 +201,7 @@ export interface CreateUserRequest {
   role?: string;
   provider?: string;
   password?: string;
+  active?: boolean;
 }
 
 export interface UpdateUserRequest {
@@ -154,6 +217,7 @@ export interface SetQuotaRequest {
   maxCpu?: string;
   maxMemory?: string;
   maxStorage?: string;
+  username?: string;  // For admin quota endpoints
 }
 
 // Group Management Types
@@ -246,13 +310,69 @@ class APIClient {
     // Response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Clear token and redirect to login
-          localStorage.removeItem('streamspace_token');
-          localStorage.removeItem('streamspace_user');
-          window.location.href = '/login';
+      (error: AxiosError<APIErrorResponse>) => {
+        // Handle network errors
+        if (!error.response) {
+          toast.error('Network error. Please check your connection.');
+          return Promise.reject(error);
         }
+
+        const status = error.response.status;
+        const data = error.response.data;
+
+        // Handle different error types
+        switch (status) {
+          case 401:
+            // Unauthorized - clear auth and redirect to login
+            if (!window.location.pathname.includes('/login')) {
+              toast.error('Session expired. Please log in again.');
+              localStorage.removeItem('streamspace_token');
+              localStorage.removeItem('streamspace_user');
+              window.location.href = '/login';
+            }
+            break;
+
+          case 403:
+            // Forbidden - quota exceeded or permission denied
+            if (data?.code === 'QUOTA_EXCEEDED') {
+              toast.error('Resource quota exceeded. ' + (data.message || 'Please delete unused sessions.'));
+            } else {
+              toast.error(data?.message || 'You do not have permission to perform this action.');
+            }
+            break;
+
+          case 404:
+            // Not found - show friendly message
+            toast.error(data?.message || 'Resource not found.');
+            break;
+
+          case 409:
+            // Conflict - usually duplicate resources
+            toast.error(data?.message || 'A conflict occurred. Resource may already exist.');
+            break;
+
+          case 429:
+            // Rate limit exceeded
+            toast.error('Too many requests. Please slow down.');
+            break;
+
+          case 500:
+          case 502:
+          case 503:
+          case 504:
+            // Server errors
+            toast.error(data?.message || 'Server error. Please try again later.');
+            break;
+
+          default:
+            // Generic error
+            if (data?.message) {
+              toast.error(data.message);
+            } else {
+              toast.error('An unexpected error occurred.');
+            }
+        }
+
         return Promise.reject(error);
       }
     );
@@ -311,6 +431,19 @@ class APIClient {
     return response.data;
   }
 
+  async updateSessionTags(id: string, tags: string[]): Promise<Session> {
+    const response = await this.client.patch<Session>(`/sessions/${id}/tags`, { tags });
+    return response.data;
+  }
+
+  async listSessionsByTags(tags: string[]): Promise<Session[]> {
+    const response = await this.client.get<{ sessions: Session[]; total: number; tags: string[] }>(
+      '/sessions/by-tags',
+      { params: { tags } }
+    );
+    return response.data.sessions;
+  }
+
   // ============================================================================
   // Template Management
   // ============================================================================
@@ -339,15 +472,72 @@ class APIClient {
   // Catalog (Template Marketplace)
   // ============================================================================
 
-  async listCatalogTemplates(category?: string, tag?: string): Promise<CatalogTemplate[]> {
+  async listCatalogTemplates(filters?: CatalogFilters): Promise<{ templates: CatalogTemplate[]; total: number; page: number; limit: number; totalPages: number }> {
     const params: Record<string, string> = {};
-    if (category) params.category = category;
-    if (tag) params.tag = tag;
+    if (filters?.search) params.search = filters.search;
+    if (filters?.category) params.category = filters.category;
+    if (filters?.tag) params.tag = filters.tag;
+    if (filters?.appType) params.appType = filters.appType;
+    if (filters?.featured) params.featured = 'true';
+    if (filters?.sort) params.sort = filters.sort;
+    if (filters?.page) params.page = String(filters.page);
+    if (filters?.limit) params.limit = String(filters.limit);
 
-    const response = await this.client.get<{ templates: CatalogTemplate[]; total: number }>('/catalog/templates', {
-      params,
+    const response = await this.client.get('/catalog/templates', { params });
+    return response.data;
+  }
+
+  async getTemplateDetails(id: number): Promise<CatalogTemplate> {
+    const response = await this.client.get(`/catalog/templates/${id}`);
+    return response.data;
+  }
+
+  async getFeaturedTemplates(): Promise<CatalogTemplate[]> {
+    const response = await this.client.get<{ templates: CatalogTemplate[] }>('/catalog/templates', {
+      params: { featured: 'true', limit: '6' }
     });
     return response.data.templates;
+  }
+
+  async getTrendingTemplates(): Promise<CatalogTemplate[]> {
+    const response = await this.client.get<{ templates: CatalogTemplate[] }>('/catalog/templates', {
+      params: { sort: 'recent', limit: '12' }
+    });
+    return response.data.templates;
+  }
+
+  async getPopularTemplates(): Promise<CatalogTemplate[]> {
+    const response = await this.client.get<{ templates: CatalogTemplate[] }>('/catalog/templates', {
+      params: { sort: 'installs', limit: '12' }
+    });
+    return response.data.templates;
+  }
+
+  // Ratings
+  async addTemplateRating(templateId: number, rating: number, review?: string): Promise<void> {
+    await this.client.post(`/catalog/templates/${templateId}/ratings`, { rating, review });
+  }
+
+  async getTemplateRatings(templateId: number): Promise<{ ratings: TemplateRating[]; total: number }> {
+    const response = await this.client.get(`/catalog/templates/${templateId}/ratings`);
+    return response.data;
+  }
+
+  async updateTemplateRating(templateId: number, ratingId: number, rating: number, review?: string): Promise<void> {
+    await this.client.put(`/catalog/templates/${templateId}/ratings/${ratingId}`, { rating, review });
+  }
+
+  async deleteTemplateRating(templateId: number, ratingId: number): Promise<void> {
+    await this.client.delete(`/catalog/templates/${templateId}/ratings/${ratingId}`);
+  }
+
+  // Analytics
+  async recordTemplateView(templateId: number): Promise<void> {
+    await this.client.post(`/catalog/templates/${templateId}/view`);
+  }
+
+  async recordTemplateInstall(templateId: number): Promise<void> {
+    await this.client.post(`/catalog/templates/${templateId}/install`);
   }
 
   async installCatalogTemplate(id: number): Promise<void> {
@@ -382,8 +572,150 @@ class APIClient {
     await this.client.post('/catalog/sync');
   }
 
+  async updateRepository(id: number, data: {
+    name?: string;
+    url?: string;
+    branch?: string;
+    authType?: string;
+    authSecret?: string;
+  }): Promise<void> {
+    await this.client.put(`/catalog/repositories/${id}`, data);
+  }
+
   async deleteRepository(id: number): Promise<void> {
     await this.client.delete(`/catalog/repositories/${id}`);
+  }
+
+  async getRepositoryStats(id: number): Promise<{
+    templateCount: number;
+    syncHistory: Array<{
+      timestamp: string;
+      status: string;
+      duration?: number;
+      error?: string;
+    }>;
+  }> {
+    const response = await this.client.get(`/catalog/repositories/${id}/stats`);
+    return response.data;
+  }
+
+  // ============================================================================
+  // Session Sharing & Collaboration
+  // ============================================================================
+
+  async createShare(sessionId: string, data: {
+    sharedWithUserId: string;
+    permissionLevel: 'view' | 'collaborate' | 'control';
+    expiresAt?: string;
+  }): Promise<{ id: string; shareToken: string; message: string }> {
+    const response = await this.client.post(`/sessions/${sessionId}/share`, data);
+    return response.data;
+  }
+
+  async listShares(sessionId: string): Promise<Array<{
+    id: string;
+    sessionId: string;
+    ownerUserId: string;
+    sharedWithUserId: string;
+    permissionLevel: string;
+    shareToken: string;
+    createdAt: string;
+    expiresAt?: string;
+    acceptedAt?: string;
+    user: {
+      id: string;
+      username: string;
+      fullName: string;
+      email: string;
+    };
+  }>> {
+    const response = await this.client.get(`/sessions/${sessionId}/shares`);
+    return response.data.shares;
+  }
+
+  async revokeShare(sessionId: string, shareId: string): Promise<void> {
+    await this.client.delete(`/sessions/${sessionId}/shares/${shareId}`);
+  }
+
+  async transferOwnership(sessionId: string, newOwnerUserId: string): Promise<void> {
+    await this.client.post(`/sessions/${sessionId}/transfer`, { newOwnerUserId });
+  }
+
+  async createInvitation(sessionId: string, data: {
+    permissionLevel: 'view' | 'collaborate' | 'control';
+    maxUses?: number;
+    expiresAt?: string;
+  }): Promise<{ id: string; invitationToken: string; message: string }> {
+    const response = await this.client.post(`/sessions/${sessionId}/invitations`, data);
+    return response.data;
+  }
+
+  async listInvitations(sessionId: string): Promise<Array<{
+    id: string;
+    sessionId: string;
+    createdBy: string;
+    invitationToken: string;
+    permissionLevel: string;
+    maxUses: number;
+    useCount: number;
+    expiresAt?: string;
+    createdAt: string;
+    isExpired?: boolean;
+    isExhausted?: boolean;
+  }>> {
+    const response = await this.client.get(`/sessions/${sessionId}/invitations`);
+    return response.data.invitations;
+  }
+
+  async revokeInvitation(token: string): Promise<void> {
+    await this.client.delete(`/invitations/${token}`);
+  }
+
+  async acceptInvitation(token: string, userId: string): Promise<{ sessionId: string; message: string }> {
+    const response = await this.client.post(`/invitations/${token}/accept`, { userId });
+    return response.data;
+  }
+
+  async listCollaborators(sessionId: string): Promise<Array<{
+    id: string;
+    sessionId: string;
+    userId: string;
+    permissionLevel: string;
+    joinedAt: string;
+    lastActivity: string;
+    isActive: boolean;
+    user: {
+      username: string;
+      fullName: string;
+    };
+  }>> {
+    const response = await this.client.get(`/sessions/${sessionId}/collaborators`);
+    return response.data.collaborators;
+  }
+
+  async updateCollaboratorActivity(sessionId: string, userId: string): Promise<void> {
+    await this.client.post(`/sessions/${sessionId}/collaborators/${userId}/activity`);
+  }
+
+  async removeCollaborator(sessionId: string, userId: string): Promise<void> {
+    await this.client.delete(`/sessions/${sessionId}/collaborators/${userId}`);
+  }
+
+  async listSharedSessions(userId: string): Promise<Array<{
+    id: string;
+    ownerUserId: string;
+    ownerUsername: string;
+    templateName: string;
+    state: string;
+    appType: string;
+    createdAt: string;
+    sharedAt: string;
+    permissionLevel: string;
+    isShared: boolean;
+    url?: string;
+  }>> {
+    const response = await this.client.get(`/shared-sessions?userId=${userId}`);
+    return response.data.sessions;
   }
 
   // ============================================================================
@@ -451,6 +783,11 @@ class APIClient {
 
   async deleteUser(id: string): Promise<void> {
     await this.client.delete(`/users/${id}`);
+  }
+
+  async getCurrentUserQuota(): Promise<UserQuota> {
+    const response = await this.client.get<UserQuota>('/users/me/quota');
+    return response.data;
   }
 
   async getUserQuota(id: string): Promise<UserQuota> {
@@ -578,22 +915,22 @@ class APIClient {
   // User Quota Management (Admin)
   // ============================================================================
 
-  async listUserQuotas(): Promise<UserQuota[]> {
+  async listAllUserQuotas(): Promise<UserQuota[]> {
     const response = await this.client.get<{ quotas: UserQuota[] }>('/admin/quotas');
     return response.data.quotas;
   }
 
-  async getUserQuota(username: string): Promise<UserQuota> {
+  async getAdminUserQuota(username: string): Promise<UserQuota> {
     const response = await this.client.get<UserQuota>(`/admin/quotas/${username}`);
     return response.data;
   }
 
-  async setUserQuota(data: SetQuotaRequest): Promise<UserQuota> {
+  async setAdminUserQuota(data: SetQuotaRequest): Promise<UserQuota> {
     const response = await this.client.put<UserQuota>('/admin/quotas', data);
     return response.data;
   }
 
-  async deleteUserQuota(username: string): Promise<void> {
+  async deleteAdminUserQuota(username: string): Promise<void> {
     await this.client.delete(`/admin/quotas/${username}`);
   }
 

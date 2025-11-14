@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	streamv1alpha1 "github.com/streamspace/streamspace/api/v1alpha1"
 )
@@ -48,7 +47,7 @@ var _ = Describe("Session Controller", func() {
 							Protocol:      corev1.ProtocolTCP,
 						},
 					},
-					VNC: &streamv1alpha1.VNCConfig{
+					VNC: streamv1alpha1.VNCConfig{
 						Enabled:  true,
 						Port:     3000,
 						Protocol: "websocket",
@@ -238,11 +237,6 @@ var _ = Describe("Session Controller State Transitions", func() {
 		}, time.Second*5, time.Millisecond*100).Should(Equal(int32(1)))
 	})
 })
-
-// Helper function to create int32 pointer
-func int32Ptr(i int32) *int32 {
-	return &i
-}
 
 // Cleanup function to run after tests
 var _ = AfterSuite(func() {

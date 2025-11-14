@@ -45,7 +45,7 @@ var _ = Describe("Hibernation Controller", func() {
 							ContainerPort: 3000,
 						},
 					},
-					VNC: &streamv1alpha1.VNCConfig{
+					VNC: streamv1alpha1.VNCConfig{
 						Enabled: true,
 						Port:    3000,
 					},
@@ -156,9 +156,9 @@ var _ = Describe("Hibernation Controller", func() {
 					Namespace: "default",
 				},
 				Spec: streamv1alpha1.SessionSpec{
-					User:           "notimeoutuser",
-					Template:       "hibernate-template",
-					State:          "running",
+					User:     "notimeoutuser",
+					Template: "hibernate-template",
+					State:    "running",
 					// No IdleTimeout specified
 					PersistentHome: false,
 				},
