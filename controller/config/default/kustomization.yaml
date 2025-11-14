@@ -6,6 +6,8 @@ namespace: streamspace
 resources:
 - ../crd/bases/stream.streamspace.io_sessions.yaml
 - ../crd/bases/stream.streamspace.io_templates.yaml
+- ../crd/bases/stream.streamspace.io_connections.yaml
+- ../crd/bases/stream.streamspace.io_templaterepositories.yaml
 - ../rbac/rbac.yaml
 - ../manager/configmap.yaml
 - ../manager/deployment.yaml

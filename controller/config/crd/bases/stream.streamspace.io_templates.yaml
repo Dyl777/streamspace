@@ -44,6 +44,12 @@ spec:
                 items:
                   type: string
                 type: array
+              appType:
+                description: AppType specifies whether this is a desktop or webapp application
+                enum:
+                - desktop
+                - webapp
+                type: string
               category:
                 description: Category for organizing templates in the UI
                 type: string
@@ -209,6 +215,22 @@ spec:
                   protocol:
                     description: Protocol specifies the VNC protocol (rfb, websocket)
                     type: string
+                type: object
+              webapp:
+                description: WebApp defines native web application configuration
+                properties:
+                  enabled:
+                    description: Enabled indicates if this is a native webapp
+                    type: boolean
+                  healthCheck:
+                    description: HealthCheck path for checking if the webapp is ready
+                    type: string
+                  path:
+                    description: Path is the URL path for the webapp (default "/")
+                    type: string
+                  port:
+                    description: Port is the webapp HTTP port
+                    type: integer
                 type: object
               volumeMounts:
                 description: VolumeMounts specifies additional volume mounts
