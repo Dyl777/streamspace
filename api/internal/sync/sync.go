@@ -12,12 +12,13 @@ import (
 	"github.com/streamspace/streamspace/api/internal/db"
 )
 
-// SyncService manages template repository synchronization
+// SyncService manages template and plugin repository synchronization
 type SyncService struct {
-	db        *db.Database
-	workDir   string
-	gitClient *GitClient
-	parser    *TemplateParser
+	db           *db.Database
+	workDir      string
+	gitClient    *GitClient
+	parser       *TemplateParser
+	pluginParser *PluginParser
 }
 
 // NewSyncService creates a new sync service
@@ -34,12 +35,14 @@ func NewSyncService(database *db.Database) (*SyncService, error) {
 
 	gitClient := NewGitClient()
 	parser := NewTemplateParser()
+	pluginParser := NewPluginParser()
 
 	return &SyncService{
-		db:        database,
-		workDir:   workDir,
-		gitClient: gitClient,
-		parser:    parser,
+		db:           database,
+		workDir:      workDir,
+		gitClient:    gitClient,
+		parser:       parser,
+		pluginParser: pluginParser,
 	}, nil
 }
 
@@ -81,18 +84,37 @@ func (s *SyncService) SyncRepository(ctx context.Context, repoID int) error {
 	// Parse templates from repository
 	templates, err := s.parser.ParseRepository(repoPath)
 	if err != nil {
-		errMsg := fmt.Sprintf("Template parsing failed: %v", err)
-		s.updateRepositoryStatus(ctx, repoID, "failed", errMsg)
-		return fmt.Errorf("template parsing failed: %w", err)
+		log.Printf("Template parsing warning: %v", err)
+		templates = []*ParsedTemplate{} // Continue even if no templates found
 	}
 
 	log.Printf("Found %d templates in repository %d", len(templates), repoID)
 
-	// Update catalog
-	if err := s.updateCatalog(ctx, repoID, templates); err != nil {
-		errMsg := fmt.Sprintf("Catalog update failed: %v", err)
-		s.updateRepositoryStatus(ctx, repoID, "failed", errMsg)
-		return fmt.Errorf("catalog update failed: %w", err)
+	// Parse plugins from repository
+	plugins, err := s.pluginParser.ParseRepository(repoPath)
+	if err != nil {
+		log.Printf("Plugin parsing warning: %v", err)
+		plugins = []*ParsedPlugin{} // Continue even if no plugins found
+	}
+
+	log.Printf("Found %d plugins in repository %d", len(plugins), repoID)
+
+	// Update catalog with templates
+	if len(templates) > 0 {
+		if err := s.updateCatalog(ctx, repoID, templates); err != nil {
+			errMsg := fmt.Sprintf("Template catalog update failed: %v", err)
+			s.updateRepositoryStatus(ctx, repoID, "failed", errMsg)
+			return fmt.Errorf("template catalog update failed: %w", err)
+		}
+	}
+
+	// Update catalog with plugins
+	if len(plugins) > 0 {
+		if err := s.updatePluginCatalog(ctx, repoID, plugins); err != nil {
+			errMsg := fmt.Sprintf("Plugin catalog update failed: %v", err)
+			s.updateRepositoryStatus(ctx, repoID, "failed", errMsg)
+			return fmt.Errorf("plugin catalog update failed: %w", err)
+		}
 	}
 
 	// Update repository status to synced
@@ -100,9 +122,9 @@ func (s *SyncService) SyncRepository(ctx context.Context, repoID int) error {
 		log.Printf("Failed to update repository status: %v", err)
 	}
 
-	// Update last_sync timestamp and template_count
+	// Update last_sync timestamp and counts
 	_, err = s.db.DB().ExecContext(ctx, `
-		UPDATE repositories
+		UPDATE catalog_repositories
 		SET last_sync = $1, template_count = $2, updated_at = $3
 		WHERE id = $4
 	`, time.Now(), len(templates), time.Now(), repoID)
@@ -110,7 +132,7 @@ func (s *SyncService) SyncRepository(ctx context.Context, repoID int) error {
 		log.Printf("Failed to update repository sync time: %v", err)
 	}
 
-	log.Printf("Successfully synced repository %d with %d templates", repoID, len(templates))
+	log.Printf("Successfully synced repository %d with %d templates and %d plugins", repoID, len(templates), len(plugins))
 	return nil
 }
 
@@ -232,6 +254,48 @@ func (s *SyncService) updateCatalog(ctx context.Context, repoID int, templates [
 	}
 
 	log.Printf("Updated catalog with %d templates for repository %d", len(templates), repoID)
+	return nil
+}
+
+// updatePluginCatalog updates the plugin catalog with parsed plugins
+func (s *SyncService) updatePluginCatalog(ctx context.Context, repoID int, plugins []*ParsedPlugin) error {
+	// Start transaction
+	tx, err := s.db.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Delete existing plugins for this repository
+	_, err = tx.ExecContext(ctx, `
+		DELETE FROM catalog_plugins WHERE repository_id = $1
+	`, repoID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old plugins: %w", err)
+	}
+
+	// Insert new plugins
+	for _, plugin := range plugins {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO catalog_plugins (
+				repository_id, name, version, display_name, description, category,
+				plugin_type, icon_url, manifest, tags, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		`, repoID, plugin.Name, plugin.Version, plugin.DisplayName, plugin.Description,
+			plugin.Category, plugin.PluginType, plugin.Icon, plugin.Manifest,
+			plugin.Tags, time.Now(), time.Now())
+
+		if err != nil {
+			return fmt.Errorf("failed to insert plugin %s: %w", plugin.Name, err)
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	log.Printf("Updated catalog with %d plugins for repository %d", len(plugins), repoID)
 	return nil
 }
 
