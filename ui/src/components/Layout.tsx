@@ -20,6 +20,7 @@ import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Computer as ComputerIcon,
+  Share as ShareIcon,
   Apps as AppsIcon,
   Folder as FolderIcon,
   Settings as SettingsIcon,
@@ -66,6 +67,7 @@ export default function Layout({ children }: LayoutProps) {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'My Sessions', icon: <ComputerIcon />, path: '/sessions' },
+    { text: 'Shared with Me', icon: <ShareIcon />, path: '/shared-sessions' },
     { text: 'Template Catalog', icon: <AppsIcon />, path: '/catalog' },
     { text: 'Repositories', icon: <FolderIcon />, path: '/repositories' },
   ];

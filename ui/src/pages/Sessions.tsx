@@ -25,11 +25,16 @@ import {
   SignalWifiStatusbar4Bar as ConnectedIcon,
   SignalWifiStatusbarConnectedNoInternet4 as DisconnectedIcon,
   LocalOffer as TagIcon,
+  Share as ShareIcon,
+  Link as LinkIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import TagChip from '../components/TagChip';
 import TagManager from '../components/TagManager';
+import SessionShareDialog from '../components/SessionShareDialog';
+import SessionInvitationDialog from '../components/SessionInvitationDialog';
 import QuotaAlert from '../components/QuotaAlert';
 import ActivityIndicator from '../components/ActivityIndicator';
 import IdleTimer from '../components/IdleTimer';
@@ -50,6 +55,11 @@ export default function Sessions() {
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
+
+  // Sharing state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [invitationDialogOpen, setInvitationDialogOpen] = useState(false);
+  const [sessionToShare, setSessionToShare] = useState<Session | null>(null);
 
   // Real-time sessions updates via WebSocket
   const sessionsWs = useSessionsWebSocket((updatedSessions) => {
@@ -122,6 +132,16 @@ export default function Sessions() {
     setSessions(sessions.map(s =>
       s.name === selectedSession.name ? { ...s, tags } : s
     ));
+  };
+
+  const handleOpenShareDialog = (session: Session) => {
+    setSessionToShare(session);
+    setShareDialogOpen(true);
+  };
+
+  const handleOpenInvitationDialog = (session: Session) => {
+    setSessionToShare(session);
+    setInvitationDialogOpen(true);
   };
 
   // Get all unique tags from sessions
@@ -306,6 +326,22 @@ export default function Sessions() {
                       <IconButton
                         size="small"
                         color="primary"
+                        onClick={() => handleOpenShareDialog(session)}
+                        title="Share with User"
+                      >
+                        <ShareIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleOpenInvitationDialog(session)}
+                        title="Create Invitation Link"
+                      >
+                        <LinkIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="primary"
                         onClick={() => handleManageTags(session)}
                         title="Manage Tags"
                       >
@@ -352,6 +388,29 @@ export default function Sessions() {
             }}
             onSave={handleSaveTags}
           />
+        )}
+
+        {sessionToShare && (
+          <>
+            <SessionShareDialog
+              open={shareDialogOpen}
+              sessionId={sessionToShare.name}
+              sessionName={sessionToShare.name}
+              onClose={() => {
+                setShareDialogOpen(false);
+                setSessionToShare(null);
+              }}
+            />
+            <SessionInvitationDialog
+              open={invitationDialogOpen}
+              sessionId={sessionToShare.name}
+              sessionName={sessionToShare.name}
+              onClose={() => {
+                setInvitationDialogOpen(false);
+                setSessionToShare(null);
+              }}
+            />
+          </>
         )}
       </Box>
     </Layout>

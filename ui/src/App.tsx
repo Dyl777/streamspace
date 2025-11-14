@@ -6,6 +6,8 @@ import { useUserStore } from './store/userStore';
 // Pages
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
+import SharedSessions from './pages/SharedSessions';
+import InvitationAccept from './pages/InvitationAccept';
 import EnhancedCatalog from './pages/EnhancedCatalog';
 import EnhancedRepositories from './pages/EnhancedRepositories';
 import Login from './pages/Login';
@@ -118,6 +120,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <SessionViewer />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shared-sessions"
+              element={
+                <ProtectedRoute>
+                  <SharedSessions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/invite/:token"
+              element={
+                <ProtectedRoute>
+                  <InvitationAccept />
                 </ProtectedRoute>
               }
             />
