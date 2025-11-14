@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,7 @@ import (
 	"github.com/streamspace/streamspace/api/internal/sync"
 	"github.com/streamspace/streamspace/api/internal/tracker"
 	"github.com/streamspace/streamspace/api/internal/websocket"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -40,7 +42,10 @@ type Handler struct {
 
 // NewHandler creates a new API handler
 func NewHandler(database *db.Database, k8sClient *k8s.Client, connTracker *tracker.ConnectionTracker, syncService *sync.SyncService, wsManager *websocket.Manager, quotaEnforcer *quota.Enforcer) *Handler {
-	namespace := "streamspace" // TODO: Make configurable
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		namespace = "streamspace" // Default namespace
+	}
 	return &Handler{
 		db:            database,
 		k8sClient:     k8sClient,
@@ -655,26 +660,90 @@ func (h *Handler) ListCatalogTemplates(c *gin.Context) {
 
 // InstallCatalogTemplate installs a template from the catalog to the cluster
 func (h *Handler) InstallCatalogTemplate(c *gin.Context) {
-	ctx := context.Background()
+	ctx := c.Request.Context()
 	catalogID := c.Param("id")
 
-	// Get template manifest from database
-	var manifest string
+	// Get template manifest and metadata from database
+	var manifest, name, displayName, description, category string
 	err := h.db.DB().QueryRowContext(ctx, `
-		SELECT manifest FROM catalog_templates WHERE id = $1
-	`, catalogID).Scan(&manifest)
+		SELECT manifest, name, display_name, description, category
+		FROM catalog_templates
+		WHERE id = $1
+	`, catalogID).Scan(&manifest, &name, &displayName, &description, &category)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Catalog template not found"})
 		return
 	}
 
-	// TODO: Parse manifest and create Template CRD
-	// For now, return the manifest
-	c.JSON(http.StatusOK, gin.H{
-		"message":  "Template installation not yet implemented",
-		"manifest": manifest,
-	})
+	// Parse the YAML manifest to get template configuration
+	// The manifest is stored as YAML, we need to extract key fields
+	var templateData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(manifest), &templateData); err != nil {
+		log.Printf("Error parsing template manifest: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid template manifest",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Build Template struct from manifest
+	template := &k8s.Template{
+		Name:        name,
+		Namespace:   h.namespace,
+		DisplayName: displayName,
+		Description: description,
+		Category:    category,
+	}
+
+	// Extract spec fields if they exist in the manifest
+	if spec, ok := templateData["spec"].(map[string]interface{}); ok {
+		if baseImage, ok := spec["baseImage"].(string); ok {
+			template.BaseImage = baseImage
+		}
+		if icon, ok := spec["icon"].(string); ok {
+			template.Icon = icon
+		}
+		if appType, ok := spec["appType"].(string); ok {
+			template.AppType = appType
+		}
+		if defaultRes, ok := spec["defaultResources"].(map[string]interface{}); ok {
+			if memory, ok := defaultRes["memory"].(string); ok {
+				template.DefaultResources.Memory = memory
+			}
+			if cpu, ok := defaultRes["cpu"].(string); ok {
+				template.DefaultResources.CPU = cpu
+			}
+		}
+		if tags, ok := spec["tags"].([]interface{}); ok {
+			template.Tags = make([]string, 0, len(tags))
+			for _, tag := range tags {
+				if tagStr, ok := tag.(string); ok {
+					template.Tags = append(template.Tags, tagStr)
+				}
+			}
+		}
+		if capabilities, ok := spec["capabilities"].([]interface{}); ok {
+			template.Capabilities = make([]string, 0, len(capabilities))
+			for _, cap := range capabilities {
+				if capStr, ok := cap.(string); ok {
+					template.Capabilities = append(template.Capabilities, capStr)
+				}
+			}
+		}
+	}
+
+	// Create Template CRD in Kubernetes
+	createdTemplate, err := h.k8sClient.CreateTemplate(ctx, template)
+	if err != nil {
+		log.Printf("Error creating template in Kubernetes: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to install template",
+			"message": err.Error(),
+		})
+		return
+	}
 
 	// Increment install count (best effort, don't fail the request if this fails)
 	_, err = h.db.DB().ExecContext(ctx, `
@@ -684,6 +753,13 @@ func (h *Handler) InstallCatalogTemplate(c *gin.Context) {
 		// Log error but don't fail the request - install count is not critical
 		log.Printf("Warning: Failed to increment install count for template %s: %v", catalogID, err)
 	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message":  "Template installed successfully",
+		"template": createdTemplate,
+		"name":     createdTemplate.Name,
+		"namespace": createdTemplate.Namespace,
+	})
 }
 
 // ============================================================================
@@ -783,7 +859,15 @@ func (h *Handler) AddRepository(c *gin.Context) {
 		"message": "Repository added. Sync will begin shortly.",
 	})
 
-	// TODO: Trigger repository sync in background
+	// Trigger repository sync in background
+	go func() {
+		syncCtx := context.Background()
+		if err := h.syncService.SyncRepository(syncCtx, int(id)); err != nil {
+			log.Printf("Background sync failed for repository %d: %v", id, err)
+		} else {
+			log.Printf("Background sync completed for repository %d", id)
+		}
+	}()
 }
 
 // SyncRepository triggers a sync for a repository

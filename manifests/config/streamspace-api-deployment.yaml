@@ -69,9 +69,11 @@ spec:
           - name: GIN_MODE
             value: release
 
-          # CORS (update for your domain)
+          # CORS and WebSocket origins (SECURITY: Update for your domain in production)
           - name: CORS_ORIGINS
-            value: "*"  # TODO: Restrict in production
+            value: "https://streamspace.yourdomain.com"  # Comma-separated list or "*" for all (dev only)
+          - name: ALLOWED_ORIGINS
+            value: "https://streamspace.yourdomain.com"  # WebSocket origins (comma-separated)
 
         resources:
           requests:
