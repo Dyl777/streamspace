@@ -36,6 +36,10 @@ type SessionSpec struct {
 	// Maximum session duration before forced termination
 	// +optional
 	MaxSessionDuration string `json:"maxSessionDuration,omitempty"`
+
+	// Tags for organizing and filtering sessions
+	// +optional
+	Tags []string `json:"tags,omitempty"`
 }
 
 // SessionStatus defines the observed state of Session

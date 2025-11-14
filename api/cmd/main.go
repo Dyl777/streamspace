@@ -171,9 +171,11 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 		{
 			sessions.GET("", h.ListSessions)
 			sessions.POST("", h.CreateSession)
+			sessions.GET("/by-tags", h.ListSessionsByTags)
 			sessions.GET("/:id", h.GetSession)
 			sessions.PATCH("/:id", h.UpdateSession)
 			sessions.DELETE("/:id", h.DeleteSession)
+			sessions.PATCH("/:id/tags", h.UpdateSessionTags)
 			sessions.GET("/:id/connect", h.ConnectSession)
 			sessions.POST("/:id/disconnect", h.DisconnectSession)
 			sessions.POST("/:id/heartbeat", h.SessionHeartbeat)

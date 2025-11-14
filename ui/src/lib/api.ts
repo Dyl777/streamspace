@@ -13,6 +13,7 @@ export interface Session {
   persistentHome: boolean;
   idleTimeout?: string;
   maxSessionDuration?: string;
+  tags?: string[];
   resources?: {
     memory?: string;
     cpu?: string;
@@ -95,6 +96,7 @@ export interface CreateSessionRequest {
   persistentHome?: boolean;
   idleTimeout?: string;
   maxSessionDuration?: string;
+  tags?: string[];
 }
 
 export interface ConnectSessionResponse {
@@ -325,6 +327,19 @@ class APIClient {
   async getSessionConnections(id: string) {
     const response = await this.client.get(`/sessions/${id}/connections`);
     return response.data;
+  }
+
+  async updateSessionTags(id: string, tags: string[]): Promise<Session> {
+    const response = await this.client.patch<Session>(`/sessions/${id}/tags`, { tags });
+    return response.data;
+  }
+
+  async listSessionsByTags(tags: string[]): Promise<Session[]> {
+    const response = await this.client.get<{ sessions: Session[]; total: number; tags: string[] }>(
+      '/sessions/by-tags',
+      { params: { tags } }
+    );
+    return response.data.sessions;
   }
 
   // ============================================================================

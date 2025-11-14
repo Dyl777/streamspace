@@ -32,6 +32,7 @@ type Session struct {
 	PersistentHome      bool
 	IdleTimeout         string
 	MaxSessionDuration  string
+	Tags                []string
 	Status              SessionStatus
 	CreatedAt           time.Time
 }
@@ -224,6 +225,10 @@ func (c *Client) CreateSession(ctx context.Context, session *Session) (*Session,
 		spec["maxSessionDuration"] = session.MaxSessionDuration
 	}
 
+	if len(session.Tags) > 0 {
+		spec["tags"] = session.Tags
+	}
+
 	result, err := c.dynamicClient.Resource(sessionGVR).Namespace(session.Namespace).Create(ctx, obj, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
@@ -369,6 +374,15 @@ func parseSession(obj *unstructured.Unstructured) (*Session, error) {
 		}
 		if cpu, ok := resources["cpu"].(string); ok {
 			session.Resources.CPU = cpu
+		}
+	}
+
+	if tags, ok := spec["tags"].([]interface{}); ok {
+		session.Tags = make([]string, 0, len(tags))
+		for _, tag := range tags {
+			if tagStr, ok := tag.(string); ok {
+				session.Tags = append(session.Tags, tagStr)
+			}
 		}
 	}
 

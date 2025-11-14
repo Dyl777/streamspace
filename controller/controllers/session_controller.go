@@ -296,6 +296,15 @@ func (r *SessionReconciler) createDeployment(session *streamv1alpha1.Session, te
 		"session":  session.Name,
 	}
 
+	// Add tags as labels with prefix for easy filtering
+	for _, tag := range session.Spec.Tags {
+		if tag != "" {
+			// Use label-safe format: convert to lowercase, replace spaces with dashes
+			safeTag := fmt.Sprintf("tag.stream.space/%s", tag)
+			labels[safeTag] = "true"
+		}
+	}
+
 	// Determine VNC port (use template's VNC config or default)
 	vncPort := int32(5900) // Standard VNC port
 	if template.Spec.VNC.Port != 0 {
@@ -390,6 +399,14 @@ func (r *SessionReconciler) createService(session *streamv1alpha1.Session, templ
 		"session":  session.Name,
 	}
 
+	// Add tags as labels
+	for _, tag := range session.Spec.Tags {
+		if tag != "" {
+			safeTag := fmt.Sprintf("tag.stream.space/%s", tag)
+			labels[safeTag] = "true"
+		}
+	}
+
 	// Determine VNC port
 	vncPort := int32(5900)
 	if template.Spec.VNC.Port != 0 {
@@ -460,6 +477,14 @@ func (r *SessionReconciler) createIngress(session *streamv1alpha1.Session, templ
 		"user":     session.Spec.User,
 		"template": session.Spec.Template,
 		"session":  session.Name,
+	}
+
+	// Add tags as labels with prefix for easy filtering
+	for _, tag := range session.Spec.Tags {
+		if tag != "" {
+			safeTag := fmt.Sprintf("tag.stream.space/%s", tag)
+			labels[safeTag] = "true"
+		}
 	}
 
 	// Get ingress configuration from environment

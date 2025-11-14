@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -14,6 +14,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  MenuItem,
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -22,13 +24,17 @@ import {
   OpenInNew as OpenIcon,
   SignalWifiStatusbar4Bar as ConnectedIcon,
   SignalWifiStatusbarConnectedNoInternet4 as DisconnectedIcon,
+  LocalOffer as TagIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import TagChip from '../components/TagChip';
+import TagManager from '../components/TagManager';
 import { useUpdateSessionState, useDeleteSession } from '../hooks/useApi';
 import { useSessionsWebSocket } from '../hooks/useWebSocket';
 import { useUserStore } from '../store/userStore';
 import { Session } from '../lib/api';
+import { api } from '../lib/api';
 
 export default function Sessions() {
   const navigate = useNavigate();
@@ -38,6 +44,9 @@ export default function Sessions() {
   const deleteSession = useDeleteSession();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('');
 
   // Real-time sessions updates via WebSocket
   const sessionsWs = useSessionsWebSocket((updatedSessions) => {
@@ -96,6 +105,39 @@ export default function Sessions() {
     }
   };
 
+  const handleManageTags = (session: Session) => {
+    setSelectedSession(session);
+    setTagManagerOpen(true);
+  };
+
+  const handleSaveTags = async (tags: string[]) => {
+    if (!selectedSession) return;
+
+    await api.updateSessionTags(selectedSession.name, tags);
+
+    // Update local state
+    setSessions(sessions.map(s =>
+      s.name === selectedSession.name ? { ...s, tags } : s
+    ));
+  };
+
+  // Get all unique tags from sessions
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    sessions.forEach(session => {
+      session.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [sessions]);
+
+  // Filter sessions by selected tag
+  const filteredSessions = useMemo(() => {
+    if (!selectedTagFilter) return sessions;
+    return sessions.filter(session =>
+      session.tags?.includes(selectedTagFilter)
+    );
+  }, [sessions, selectedTagFilter]);
+
   return (
     <Layout>
       <Box>
@@ -104,6 +146,23 @@ export default function Sessions() {
             My Sessions
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            {allTags.length > 0 && (
+              <TextField
+                select
+                size="small"
+                label="Filter by Tag"
+                value={selectedTagFilter}
+                onChange={(e) => setSelectedTagFilter(e.target.value)}
+                sx={{ minWidth: 150 }}
+              >
+                <MenuItem value="">All Sessions</MenuItem>
+                {allTags.map(tag => (
+                  <MenuItem key={tag} value={tag}>
+                    {tag}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <Chip
               icon={sessionsWs.isConnected ? <ConnectedIcon /> : <DisconnectedIcon />}
               label={sessionsWs.isConnected ? 'Live Updates' : 'Reconnecting...'}
@@ -119,13 +178,17 @@ export default function Sessions() {
           </Box>
         </Box>
 
-        {sessions.length === 0 ? (
+        {filteredSessions.length === 0 && sessions.length > 0 ? (
+          <Alert severity="info">
+            No sessions found with the selected tag. Clear the filter to see all sessions.
+          </Alert>
+        ) : sessions.length === 0 ? (
           <Alert severity="info">
             You don't have any sessions yet. Visit the Template Catalog to create one!
           </Alert>
         ) : (
           <Grid container spacing={3}>
-            {sessions.map((session) => (
+            {filteredSessions.map((session) => (
               <Grid item xs={12} md={6} lg={4} key={session.name}>
                 <Card>
                   <CardContent>
@@ -171,6 +234,18 @@ export default function Sessions() {
                           </Typography>
                         </Box>
                       )}
+                      {session.tags && session.tags.length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                            Tags
+                          </Typography>
+                          <Box display="flex" flexWrap="wrap" gap={0.5}>
+                            {session.tags.map(tag => (
+                              <TagChip key={tag} tag={tag} />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
                     </Box>
                   </CardContent>
                   <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
@@ -205,16 +280,26 @@ export default function Sessions() {
                         </IconButton>
                       )}
                     </Box>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => {
-                        setSessionToDelete(session.name);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    <Box>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleManageTags(session)}
+                        title="Manage Tags"
+                      >
+                        <TagIcon />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          setSessionToDelete(session.name);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
                   </CardActions>
                 </Card>
               </Grid>
@@ -234,6 +319,18 @@ export default function Sessions() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {selectedSession && (
+          <TagManager
+            open={tagManagerOpen}
+            session={selectedSession}
+            onClose={() => {
+              setTagManagerOpen(false);
+              setSelectedSession(null);
+            }}
+            onSave={handleSaveTags}
+          />
+        )}
       </Box>
     </Layout>
   );
