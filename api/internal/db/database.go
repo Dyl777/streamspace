@@ -936,6 +936,24 @@ func (d *Database) Migrate() error {
 		// Composite index for public templates sorted by usage
 		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_public_usage ON user_session_templates(visibility, usage_count DESC) WHERE visibility = 'public'`,
 
+		// User session template versions (version control for user templates)
+		`CREATE TABLE IF NOT EXISTS user_session_template_versions (
+			id SERIAL PRIMARY KEY,
+			template_id VARCHAR(255) NOT NULL,
+			version_number INT NOT NULL,
+			template_data JSONB NOT NULL,
+			description TEXT,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			tags TEXT[],
+			UNIQUE(template_id, version_number)
+		)`,
+
+		// Create indexes for template versions
+		`CREATE INDEX IF NOT EXISTS idx_user_session_template_versions_template_id ON user_session_template_versions(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_template_versions_created_by ON user_session_template_versions(created_by)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_template_versions_created_at ON user_session_template_versions(created_at DESC)`,
+
 		// ========== Batch Operations ==========
 
 		// Batch operations table (tracks bulk operation jobs)
