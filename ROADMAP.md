@@ -314,6 +314,32 @@ StreamSpace is now a **100% feature-complete**, production-ready open source con
   - ✅ Comprehensive real-time monitoring across platform
   - ✅ 584 insertions, 156 deletions (8 files changed)
 
+#### 5.7 Expand WebSocket Coverage to Core Pages - ✅ COMPLETE
+- ✅ New WebSocket Event Hooks
+  - ✅ useTemplateEvents (template.event) - Template creation, updates, deletion, featured
+  - ✅ useRepositoryEvents (repository.event) - Repository sync events, add/delete
+  - ✅ useIntegrationEvents (integration.event) - Integration test and webhook events
+- ✅ Template & Repository Pages (4 pages)
+  - ✅ EnhancedCatalog - Real-time template updates, new templates, featured notifications
+  - ✅ Catalog - Real-time template additions with Enhanced WebSocket status
+  - ✅ EnhancedRepositories - Real-time sync status, repository events, failure alerts
+  - ✅ Repositories - Real-time repository sync notifications
+- ✅ Feature Pages (1 page)
+  - ✅ InstalledPlugins - Real-time plugin install/update/error notifications
+  - ✅ Scheduling - Enhanced schedule execution alerts, improved notification system
+- ✅ Production Features
+  - ✅ Persistent critical alerts for repository sync failures
+  - ✅ Template featured notifications (high priority)
+  - ✅ Plugin error tracking (non-dismissible critical alerts)
+  - ✅ Enhanced notification queue integration across all pages
+  - ✅ Consistent EnhancedWebSocketStatus across all pages
+  - ✅ WebSocketErrorBoundary on all 5 enhanced pages
+- ✅ Implementation Impact
+  - ✅ 5 total pages enhanced with production-ready WebSocket features
+  - ✅ 3 new event hooks added (template, repository, integration)
+  - ✅ 13 total pages now with comprehensive real-time monitoring
+  - ✅ Improved notification system with priority-based stacking
+
 ---
 
 ### Phase 6: VNC Independence (Months 16-21) ⏳ **PLANNED**
