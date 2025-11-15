@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  Snackbar,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -25,9 +26,16 @@ import {
   Share as ShareIcon,
   People as PeopleIcon,
   Link as LinkIcon,
+  Wifi as ConnectedIcon,
+  WifiOff as DisconnectedIcon,
 } from '@mui/icons-material';
 import { api } from '../lib/api';
 import { useUserStore } from '../store/userStore';
+import { useSessionsWebSocket } from '../hooks/useWebSocket';
+import { useEnhancedWebSocket } from '../hooks/useWebSocketEnhancements';
+import { useNotificationQueue } from '../components/NotificationQueue';
+import EnhancedWebSocketStatus from '../components/EnhancedWebSocketStatus';
+import WebSocketErrorBoundary from '../components/WebSocketErrorBoundary';
 import SessionShareDialog from '../components/SessionShareDialog';
 import SessionInvitationDialog from '../components/SessionInvitationDialog';
 import SessionCollaboratorsPanel from '../components/SessionCollaboratorsPanel';
@@ -53,6 +61,41 @@ export default function SessionViewer() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const prevStateRef = useRef<string | null>(null);
+
+  // Enhanced notification system
+  const { addNotification } = useNotificationQueue();
+
+  // Real-time session updates via WebSocket with notifications
+  const baseWebSocket = useSessionsWebSocket((updatedSessions) => {
+    if (!sessionId) return;
+
+    // Find this session in the update
+    const updatedSession = updatedSessions.find((s: any) => s.id === sessionId);
+    if (updatedSession && session) {
+      // Check if state changed
+      if (updatedSession.state !== prevStateRef.current && prevStateRef.current !== null) {
+        // Show notification for state changes
+        addNotification({
+          message: `Session state: ${prevStateRef.current} → ${updatedSession.state}`,
+          severity: updatedSession.state === 'running' ? 'success' : updatedSession.state === 'hibernated' ? 'warning' : 'error',
+          priority: updatedSession.state === 'terminated' ? 'high' : 'medium',
+          title: 'Session Status Changed',
+        });
+
+        // If session was hibernated or terminated, show critical alert
+        if (updatedSession.state === 'hibernated' || updatedSession.state === 'terminated') {
+          setError(`Session has been ${updatedSession.state}. Please close this viewer.`);
+        }
+      }
+
+      prevStateRef.current = updatedSession.state;
+      setSession(updatedSession);
+    }
+  });
+
+  // Enhanced WebSocket with connection quality and manual reconnect
+  const enhanced = useEnhancedWebSocket(baseWebSocket);
 
   useEffect(() => {
     if (!sessionId || !username) {
@@ -239,12 +282,16 @@ export default function SessionViewer() {
   }
 
   return (
-    <Box ref={containerRef} sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <AppBar position="static" elevation={1}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {session.template} - {session.name}
-          </Typography>
+    <WebSocketErrorBoundary>
+      <Box ref={containerRef} sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <AppBar position="static" elevation={1}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              {session.template} - {session.name}
+            </Typography>
+
+            {/* Enhanced WebSocket Connection Status */}
+            <EnhancedWebSocketStatus {...enhanced} size="small" showDetails={true} />
 
           <Chip
             label={`${session.activeConnections || 0} connection(s)`}
@@ -469,6 +516,7 @@ export default function SessionViewer() {
           <Button onClick={() => setInfoDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </Box>
+    </WebSocketErrorBoundary>
   );
 }

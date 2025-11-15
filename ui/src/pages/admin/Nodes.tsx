@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -7,7 +7,7 @@ import {
   Grid,
   Chip,
   Button,
-  
+
   Dialog,
   DialogTitle,
   DialogContent,
@@ -18,7 +18,7 @@ import {
   FormControl,
   InputLabel,
   Alert,
-  
+
   CircularProgress,
 } from '@mui/material';
 import {
@@ -35,6 +35,10 @@ import {
 } from '@mui/icons-material';
 import Layout from '../../components/Layout';
 import { api } from '../../lib/api';
+import { useNodeHealthEvents } from '../../hooks/useEnterpriseWebSocket';
+import { useNotificationQueue } from '../../components/NotificationQueue';
+import EnhancedWebSocketStatus from '../../components/EnhancedWebSocketStatus';
+import WebSocketErrorBoundary from '../../components/WebSocketErrorBoundary';
 
 interface NodeInfo {
   name: string;
@@ -115,6 +119,51 @@ export default function AdminNodes() {
   const [taintValue, setTaintValue] = useState('');
   const [taintEffect, setTaintEffect] = useState<string>('NoSchedule');
 
+  // Track WebSocket connection state and node health statuses
+  const [wsConnected, setWsConnected] = useState(false);
+  const prevNodeStatusesRef = useRef<Map<string, string>>(new Map());
+
+  // Enhanced notification system
+  const { addNotification } = useNotificationQueue();
+
+  // Real-time node health updates via WebSocket with notifications
+  const baseWebSocket = useNodeHealthEvents((data: any) => {
+    console.log('Node health event:', data);
+    setWsConnected(true);
+
+    // Show notification for node health changes
+    if (data.node_name && data.status) {
+      const prevStatus = prevNodeStatusesRef.current.get(data.node_name);
+
+      if (prevStatus && prevStatus !== data.status) {
+        addNotification({
+          message: `Node ${data.node_name}: ${prevStatus} → ${data.status}`,
+          severity: data.status === 'Ready' ? 'success' : data.status === 'NotReady' ? 'error' : 'warning',
+          priority: data.status === 'NotReady' ? 'high' : 'medium',
+          title: 'Node Status Changed',
+        });
+      }
+
+      prevNodeStatusesRef.current.set(data.node_name, data.status);
+    }
+
+    // Show critical alerts for node failures
+    if (data.status === 'NotReady' || data.event_type === 'node_failure') {
+      addNotification({
+        message: `Node ${data.node_name} is experiencing issues: ${data.message || 'Not Ready'}`,
+        severity: 'error',
+        priority: 'critical',
+        title: 'Node Health Alert',
+        duration: null, // Don't auto-dismiss critical alerts
+      });
+    }
+
+    // Refresh node data when we receive a health update
+    if (data.node_name) {
+      loadNodesAndStats();
+    }
+  });
+
   useEffect(() => {
     loadNodesAndStats();
   }, []);
@@ -144,13 +193,26 @@ export default function AdminNodes() {
 
     try {
       await api.addNodeLabel(selectedNode.name, labelKey, labelValue);
+      addNotification({
+        message: `Label ${labelKey}=${labelValue} added to ${selectedNode.name}`,
+        severity: 'success',
+        priority: 'medium',
+        title: 'Label Added',
+      });
       setLabelDialogOpen(false);
       setLabelKey('');
       setLabelValue('');
       loadNodesAndStats();
     } catch (err: any) {
       console.error('Failed to add label:', err);
-      setError(err.response?.data?.message || 'Failed to add label');
+      const errorMsg = err.response?.data?.message || 'Failed to add label';
+      setError(errorMsg);
+      addNotification({
+        message: errorMsg,
+        severity: 'error',
+        priority: 'high',
+        title: 'Label Addition Failed',
+      });
     }
   };
 
@@ -197,20 +259,46 @@ export default function AdminNodes() {
   const handleCordon = async (nodeName: string) => {
     try {
       await api.cordonNode(nodeName);
+      addNotification({
+        message: `Node ${nodeName} has been cordoned (unschedulable)`,
+        severity: 'warning',
+        priority: 'medium',
+        title: 'Node Cordoned',
+      });
       loadNodesAndStats();
     } catch (err: any) {
       console.error('Failed to cordon node:', err);
-      setError(err.response?.data?.message || 'Failed to cordon node');
+      const errorMsg = err.response?.data?.message || 'Failed to cordon node';
+      setError(errorMsg);
+      addNotification({
+        message: errorMsg,
+        severity: 'error',
+        priority: 'high',
+        title: 'Cordon Failed',
+      });
     }
   };
 
   const handleUncordon = async (nodeName: string) => {
     try {
       await api.uncordonNode(nodeName);
+      addNotification({
+        message: `Node ${nodeName} has been uncordoned (schedulable)`,
+        severity: 'success',
+        priority: 'medium',
+        title: 'Node Uncordoned',
+      });
       loadNodesAndStats();
     } catch (err: any) {
       console.error('Failed to uncordon node:', err);
-      setError(err.response?.data?.message || 'Failed to uncordon node');
+      const errorMsg = err.response?.data?.message || 'Failed to uncordon node';
+      setError(errorMsg);
+      addNotification({
+        message: errorMsg,
+        severity: 'error',
+        priority: 'high',
+        title: 'Uncordon Failed',
+      });
     }
   };
 
@@ -220,11 +308,32 @@ export default function AdminNodes() {
     }
 
     try {
+      addNotification({
+        message: `Draining node ${nodeName}... This may take a few minutes.`,
+        severity: 'info',
+        priority: 'high',
+        title: 'Draining Node',
+      });
+
       await api.drainNode(nodeName, 30);
+
+      addNotification({
+        message: `Node ${nodeName} has been drained successfully`,
+        severity: 'success',
+        priority: 'high',
+        title: 'Node Drained',
+      });
       loadNodesAndStats();
     } catch (err: any) {
       console.error('Failed to drain node:', err);
-      setError(err.response?.data?.message || 'Failed to drain node');
+      const errorMsg = err.response?.data?.message || 'Failed to drain node';
+      setError(errorMsg);
+      addNotification({
+        message: errorMsg,
+        severity: 'error',
+        priority: 'critical',
+        title: 'Drain Failed',
+      });
     }
   };
 
@@ -265,12 +374,23 @@ export default function AdminNodes() {
   }
 
   return (
-    <Layout>
-      <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            Cluster Nodes
-          </Typography>
+    <WebSocketErrorBoundary>
+      <Layout>
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                Cluster Nodes
+              </Typography>
+
+              {/* Enhanced WebSocket Connection Status */}
+              <EnhancedWebSocketStatus
+                isConnected={wsConnected}
+                reconnectAttempts={0}
+                size="small"
+                showDetails={true}
+              />
+            </Box>
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
@@ -630,5 +750,6 @@ export default function AdminNodes() {
         </Dialog>
       </Box>
     </Layout>
+    </WebSocketErrorBoundary>
   );
 }

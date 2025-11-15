@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -42,6 +42,10 @@ import {
 import Layout from '../../components/Layout';
 import api from '../../lib/api';
 import { toast } from '../../lib/toast';
+import { useScalingEvents } from '../../hooks/useEnterpriseWebSocket';
+import { useNotificationQueue } from '../../components/NotificationQueue';
+import EnhancedWebSocketStatus from '../../components/EnhancedWebSocketStatus';
+import WebSocketErrorBoundary from '../../components/WebSocketErrorBoundary';
 
 interface LoadBalancingPolicy {
   id: number;
@@ -91,9 +95,56 @@ export default function Scaling() {
   const [asPolicies, setAsPolicies] = useState<AutoScalingPolicy[]>([]);
   const [scalingHistory, setScalingHistory] = useState<ScalingEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
 
   const [lbDialog, setLbDialog] = useState(false);
   const [asDialog, setAsDialog] = useState(false);
+
+  // Track previous scaling states for change notifications
+  const prevScalingEventsRef = useRef<Set<number>>(new Set());
+
+  // Enhanced notification system
+  const { addNotification } = useNotificationQueue();
+
+  // Load all data function
+  const loadAllData = () => {
+    loadLBPolicies();
+    loadNodes();
+    loadASPolicies();
+    loadScalingHistory();
+  };
+
+  // Real-time scaling events via WebSocket with notifications
+  useScalingEvents((data: any) => {
+    console.log('Scaling event:', data);
+    setWsConnected(true);
+
+    // Show notification for scaling events
+    if (data.action && data.policy_name) {
+      const eventKey = `${data.policy_id}-${data.action}-${Date.now()}`;
+
+      addNotification({
+        message: `${data.policy_name}: ${data.previous_replicas} → ${data.new_replicas} replicas`,
+        severity: data.action === 'scale_up' ? 'info' : data.action === 'scale_down' ? 'warning' : 'success',
+        priority: 'high',
+        title: `Scaling ${data.action === 'scale_up' ? 'Up' : data.action === 'scale_down' ? 'Down' : 'Event'}`,
+      });
+
+      // Show critical alert for scaling failures
+      if (data.status === 'failed') {
+        addNotification({
+          message: `Scaling failed for ${data.policy_name}: ${data.error || 'Unknown error'}`,
+          severity: 'error',
+          priority: 'critical',
+          title: 'Scaling Failed',
+          duration: null, // Don't auto-dismiss critical alerts
+        });
+      }
+    }
+
+    // Refresh data when we receive a scaling event
+    loadAllData();
+  });
 
   const [lbForm, setLbForm] = useState({
     name: '',
@@ -164,12 +215,25 @@ export default function Scaling() {
         strategy: lbForm.strategy,
         session_affinity: lbForm.session_affinity,
       });
+      addNotification({
+        message: `Load balancing policy "${lbForm.name}" created successfully`,
+        severity: 'success',
+        priority: 'medium',
+        title: 'Policy Created',
+      });
       toast.success('Load balancing policy created');
       setLbDialog(false);
       setLbForm({ name: '', strategy: 'round_robin', session_affinity: false });
       loadLBPolicies();
-    } catch (error) {
-      toast.error('Failed to create load balancing policy');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to create load balancing policy';
+      addNotification({
+        message: errorMsg,
+        severity: 'error',
+        priority: 'high',
+        title: 'Policy Creation Failed',
+      });
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -212,10 +276,24 @@ export default function Scaling() {
     setLoading(true);
     try {
       await api.triggerScaling(policyId, { action });
-      toast.success(`Scaling ${action === 'scale_up' ? 'up' : 'down'} triggered`);
+      const actionText = action === 'scale_up' ? 'up' : 'down';
+      addNotification({
+        message: `Scaling ${actionText} initiated successfully. Check scaling history for results.`,
+        severity: 'info',
+        priority: 'high',
+        title: `Scaling ${action === 'scale_up' ? 'Up' : 'Down'}`,
+      });
+      toast.success(`Scaling ${actionText} triggered`);
       loadScalingHistory();
-    } catch (error) {
-      toast.error('Failed to trigger scaling');
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.message || 'Failed to trigger scaling';
+      addNotification({
+        message: errorMsg,
+        severity: 'error',
+        priority: 'critical',
+        title: 'Scaling Trigger Failed',
+      });
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -241,13 +319,24 @@ export default function Scaling() {
   };
 
   return (
-    <Layout>
-      <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            Load Balancing & Auto-scaling
-          </Typography>
-        </Box>
+    <WebSocketErrorBoundary>
+      <Layout>
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                Load Balancing & Auto-scaling
+              </Typography>
+
+              {/* Enhanced WebSocket Connection Status */}
+              <EnhancedWebSocketStatus
+                isConnected={wsConnected}
+                reconnectAttempts={0}
+                size="small"
+                showDetails={true}
+              />
+            </Box>
+          </Box>
 
         <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)} sx={{ mb: 3 }}>
           <Tab label="Node Status" />
@@ -705,5 +794,6 @@ export default function Scaling() {
         </Dialog>
       </Box>
     </Layout>
+    </WebSocketErrorBoundary>
   );
 }
