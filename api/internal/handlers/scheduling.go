@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -847,10 +850,6 @@ func (h *Handler) getOutlookCalendarAuthURL(userID string) string {
 
 // exchangeGoogleOAuthToken exchanges authorization code for access/refresh tokens
 func (h *Handler) exchangeGoogleOAuthToken(code string) (accessToken, refreshToken, email string, expiry time.Time, err error) {
-	// In production, this would use golang.org/x/oauth2/google
-	// For now, return placeholder values that indicate OAuth is configured
-	// Real implementation would make HTTP POST to https://oauth2.googleapis.com/token
-
 	clientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	redirectURI := os.Getenv("GOOGLE_OAUTH_REDIRECT_URI")
@@ -859,25 +858,100 @@ func (h *Handler) exchangeGoogleOAuthToken(code string) (accessToken, refreshTok
 		return "", "", "", time.Time{}, fmt.Errorf("Google OAuth not configured - set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET")
 	}
 
-	// Placeholder implementation - in production this would make actual API call
-	accessToken = "google_access_token_placeholder"
-	refreshToken = "google_refresh_token_placeholder"
-	email = "user@gmail.com"
-	expiry = time.Now().Add(3600 * time.Second)
+	if redirectURI == "" {
+		redirectURI = "http://localhost:3000/api/scheduling/calendar/oauth/callback"
+	}
 
-	// Store these values for actual implementation reference
-	_, _ = clientID, clientSecret
-	_, _ = redirectURI, code
+	// Build token request payload
+	data := url.Values{}
+	data.Set("code", code)
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("redirect_uri", redirectURI)
+	data.Set("grant_type", "authorization_code")
 
-	return accessToken, refreshToken, email, expiry, nil
+	// Make HTTP POST request to Google OAuth2 token endpoint
+	resp, err := http.Post(
+		"https://oauth2.googleapis.com/token",
+		"application/x-www-form-urlencoded",
+		bytes.NewBufferString(data.Encode()),
+	)
+	if err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("failed to exchange token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for HTTP errors
+	if resp.StatusCode != http.StatusOK {
+		return "", "", "", time.Time{}, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse JSON response
+	var tokenResponse struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json:"token_type"`
+		Scope        string `json:"scope"`
+	}
+
+	if err := json.Unmarshal(body, &tokenResponse); err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("failed to parse token response: %w", err)
+	}
+
+	// Get user email from Google userinfo endpoint
+	email, err = h.getGoogleUserEmail(tokenResponse.AccessToken)
+	if err != nil {
+		// If we can't get email, use a placeholder but continue
+		email = "unknown@gmail.com"
+	}
+
+	// Calculate token expiry time
+	expiry = time.Now().Add(time.Duration(tokenResponse.ExpiresIn) * time.Second)
+
+	return tokenResponse.AccessToken, tokenResponse.RefreshToken, email, expiry, nil
+}
+
+// getGoogleUserEmail fetches the user's email from Google userinfo API
+func (h *Handler) getGoogleUserEmail(accessToken string) (string, error) {
+	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v2/userinfo", nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("userinfo request failed with status %d", resp.StatusCode)
+	}
+
+	var userInfo struct {
+		Email         string `json:"email"`
+		VerifiedEmail bool   `json:"verified_email"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return "", err
+	}
+
+	return userInfo.Email, nil
 }
 
 // exchangeOutlookOAuthToken exchanges authorization code for access/refresh tokens
 func (h *Handler) exchangeOutlookOAuthToken(code string) (accessToken, refreshToken, email string, expiry time.Time, err error) {
-	// In production, this would use Microsoft Graph SDK
-	// For now, return placeholder values that indicate OAuth is configured
-	// Real implementation would make HTTP POST to https://login.microsoftonline.com/common/oauth2/v2.0/token
-
 	clientID := os.Getenv("MICROSOFT_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("MICROSOFT_OAUTH_CLIENT_SECRET")
 	redirectURI := os.Getenv("MICROSOFT_OAUTH_REDIRECT_URI")
@@ -886,17 +960,101 @@ func (h *Handler) exchangeOutlookOAuthToken(code string) (accessToken, refreshTo
 		return "", "", "", time.Time{}, fmt.Errorf("Microsoft OAuth not configured - set MICROSOFT_OAUTH_CLIENT_ID and MICROSOFT_OAUTH_CLIENT_SECRET")
 	}
 
-	// Placeholder implementation - in production this would make actual API call
-	accessToken = "microsoft_access_token_placeholder"
-	refreshToken = "microsoft_refresh_token_placeholder"
-	email = "user@outlook.com"
-	expiry = time.Now().Add(3600 * time.Second)
+	if redirectURI == "" {
+		redirectURI = "http://localhost:3000/api/scheduling/calendar/oauth/callback"
+	}
 
-	// Store these values for actual implementation reference
-	_, _ = clientID, clientSecret
-	_, _ = redirectURI, code
+	// Build token request payload
+	data := url.Values{}
+	data.Set("code", code)
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("redirect_uri", redirectURI)
+	data.Set("grant_type", "authorization_code")
+	data.Set("scope", "Calendars.ReadWrite offline_access User.Read")
 
-	return accessToken, refreshToken, email, expiry, nil
+	// Make HTTP POST request to Microsoft OAuth2 token endpoint
+	resp, err := http.Post(
+		"https://login.microsoftonline.com/common/oauth2/v2.0/token",
+		"application/x-www-form-urlencoded",
+		bytes.NewBufferString(data.Encode()),
+	)
+	if err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("failed to exchange token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for HTTP errors
+	if resp.StatusCode != http.StatusOK {
+		return "", "", "", time.Time{}, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse JSON response
+	var tokenResponse struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		TokenType    string `json:"token_type"`
+		Scope        string `json:"scope"`
+	}
+
+	if err := json.Unmarshal(body, &tokenResponse); err != nil {
+		return "", "", "", time.Time{}, fmt.Errorf("failed to parse token response: %w", err)
+	}
+
+	// Get user email from Microsoft Graph API
+	email, err = h.getMicrosoftUserEmail(tokenResponse.AccessToken)
+	if err != nil {
+		// If we can't get email, use a placeholder but continue
+		email = "unknown@outlook.com"
+	}
+
+	// Calculate token expiry time
+	expiry = time.Now().Add(time.Duration(tokenResponse.ExpiresIn) * time.Second)
+
+	return tokenResponse.AccessToken, tokenResponse.RefreshToken, email, expiry, nil
+}
+
+// getMicrosoftUserEmail fetches the user's email from Microsoft Graph API
+func (h *Handler) getMicrosoftUserEmail(accessToken string) (string, error) {
+	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("user info request failed with status %d", resp.StatusCode)
+	}
+
+	var userInfo struct {
+		Mail                string `json:"mail"`
+		UserPrincipalName   string `json:"userPrincipalName"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return "", err
+	}
+
+	// Use mail if available, otherwise use userPrincipalName
+	if userInfo.Mail != "" {
+		return userInfo.Mail, nil
+	}
+	return userInfo.UserPrincipalName, nil
 }
 
 // syncScheduledSessionsToCalendar syncs user's scheduled sessions to their calendar
@@ -965,40 +1123,170 @@ func (h *Handler) syncScheduledSessionsToCalendar(userID string, ci *CalendarInt
 
 // createGoogleCalendarEvent creates an event in Google Calendar
 func (h *Handler) createGoogleCalendarEvent(ci *CalendarIntegration, title, description string, startTime time.Time, durationMinutes int) (string, error) {
-	// In production, this would use Google Calendar API
-	// For now, return a placeholder event ID
-	// Real implementation would make HTTP POST to https://www.googleapis.com/calendar/v3/calendars/primary/events
-
 	if ci.AccessToken == "" {
 		return "", fmt.Errorf("no access token available")
 	}
 
-	// Placeholder event ID
-	eventID := fmt.Sprintf("google_event_%d", time.Now().Unix())
+	// Calculate end time
+	endTime := startTime.Add(time.Duration(durationMinutes) * time.Minute)
 
-	// Store values for actual implementation reference
-	_, _, _, _ = title, description, startTime, durationMinutes
+	// Build event payload for Google Calendar API
+	eventPayload := map[string]interface{}{
+		"summary":     title,
+		"description": fmt.Sprintf("StreamSpace Session: %s\n\n%s", title, description),
+		"start": map[string]string{
+			"dateTime": startTime.Format(time.RFC3339),
+			"timeZone": "UTC",
+		},
+		"end": map[string]string{
+			"dateTime": endTime.Format(time.RFC3339),
+			"timeZone": "UTC",
+		},
+		"reminders": map[string]interface{}{
+			"useDefault": false,
+			"overrides": []map[string]interface{}{
+				{
+					"method":  "popup",
+					"minutes": 15,
+				},
+			},
+		},
+	}
 
-	return eventID, nil
+	// Encode JSON payload
+	payloadBytes, err := json.Marshal(eventPayload)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode event payload: %w", err)
+	}
+
+	// Determine calendar ID (use "primary" if not specified)
+	calendarID := "primary"
+	if ci.CalendarID != "" {
+		calendarID = ci.CalendarID
+	}
+
+	// Create HTTP request
+	apiURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/%s/events", calendarID)
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+ci.AccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make API request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to create calendar event: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("calendar event creation failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response to get event ID
+	var eventResponse struct {
+		ID          string `json:"id"`
+		HtmlLink    string `json:"htmlLink"`
+		Status      string `json:"status"`
+	}
+
+	if err := json.Unmarshal(body, &eventResponse); err != nil {
+		return "", fmt.Errorf("failed to parse event response: %w", err)
+	}
+
+	return eventResponse.ID, nil
 }
 
 // createOutlookCalendarEvent creates an event in Outlook Calendar
 func (h *Handler) createOutlookCalendarEvent(ci *CalendarIntegration, title, description string, startTime time.Time, durationMinutes int) (string, error) {
-	// In production, this would use Microsoft Graph API
-	// For now, return a placeholder event ID
-	// Real implementation would make HTTP POST to https://graph.microsoft.com/v1.0/me/events
-
 	if ci.AccessToken == "" {
 		return "", fmt.Errorf("no access token available")
 	}
 
-	// Placeholder event ID
-	eventID := fmt.Sprintf("outlook_event_%d", time.Now().Unix())
+	// Calculate end time
+	endTime := startTime.Add(time.Duration(durationMinutes) * time.Minute)
 
-	// Store values for actual implementation reference
-	_, _, _, _ = title, description, startTime, durationMinutes
+	// Build event payload for Microsoft Graph API
+	eventPayload := map[string]interface{}{
+		"subject": title,
+		"body": map[string]string{
+			"contentType": "text",
+			"content":     fmt.Sprintf("StreamSpace Session: %s\n\n%s", title, description),
+		},
+		"start": map[string]string{
+			"dateTime": startTime.Format(time.RFC3339),
+			"timeZone": "UTC",
+		},
+		"end": map[string]string{
+			"dateTime": endTime.Format(time.RFC3339),
+			"timeZone": "UTC",
+		},
+		"isReminderOn": true,
+		"reminderMinutesBeforeStart": 15,
+	}
 
-	return eventID, nil
+	// Encode JSON payload
+	payloadBytes, err := json.Marshal(eventPayload)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode event payload: %w", err)
+	}
+
+	// Create HTTP request to Microsoft Graph API
+	apiURL := "https://graph.microsoft.com/v1.0/me/events"
+	if ci.CalendarID != "" {
+		apiURL = fmt.Sprintf("https://graph.microsoft.com/v1.0/me/calendars/%s/events", ci.CalendarID)
+	}
+
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+ci.AccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make API request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to create calendar event: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("calendar event creation failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response to get event ID
+	var eventResponse struct {
+		ID              string `json:"id"`
+		WebLink         string `json:"webLink"`
+		ICalUId         string `json:"iCalUId"`
+	}
+
+	if err := json.Unmarshal(body, &eventResponse); err != nil {
+		return "", fmt.Errorf("failed to parse event response: %w", err)
+	}
+
+	return eventResponse.ID, nil
 }
 
 // Helper: check if int slice contains value
