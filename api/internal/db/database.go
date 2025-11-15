@@ -1762,6 +1762,86 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_autoscaling_policies_target ON autoscaling_policies(target_type, target_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_scaling_events_policy_id ON scaling_events(policy_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_scaling_events_created_at ON scaling_events(created_at DESC)`,
+
+		// ========== Compliance & Governance ==========
+
+		// Compliance frameworks (GDPR, HIPAA, SOC2, etc.)
+		`CREATE TABLE IF NOT EXISTS compliance_frameworks (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(100) NOT NULL UNIQUE,
+			display_name VARCHAR(255) NOT NULL,
+			description TEXT,
+			version VARCHAR(50),
+			enabled BOOLEAN DEFAULT true,
+			controls JSONB,
+			requirements JSONB,
+			metadata JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Compliance policies
+		`CREATE TABLE IF NOT EXISTS compliance_policies (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL UNIQUE,
+			framework_id INT REFERENCES compliance_frameworks(id) ON DELETE SET NULL,
+			applies_to JSONB NOT NULL,
+			enabled BOOLEAN DEFAULT true,
+			enforcement_level VARCHAR(50) DEFAULT 'warning',
+			data_retention JSONB,
+			data_classification JSONB,
+			access_controls JSONB,
+			audit_requirements JSONB,
+			violation_actions JSONB,
+			metadata JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Compliance violations
+		`CREATE TABLE IF NOT EXISTS compliance_violations (
+			id SERIAL PRIMARY KEY,
+			policy_id INT REFERENCES compliance_policies(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			violation_type VARCHAR(100) NOT NULL,
+			severity VARCHAR(50) DEFAULT 'medium',
+			description TEXT NOT NULL,
+			details JSONB,
+			status VARCHAR(50) DEFAULT 'open',
+			resolution TEXT,
+			resolved_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			resolved_at TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Compliance reports
+		`CREATE TABLE IF NOT EXISTS compliance_reports (
+			id SERIAL PRIMARY KEY,
+			framework_id INT REFERENCES compliance_frameworks(id) ON DELETE SET NULL,
+			report_type VARCHAR(50) NOT NULL,
+			start_date DATE NOT NULL,
+			end_date DATE NOT NULL,
+			overall_status VARCHAR(50),
+			controls_summary JSONB,
+			violations JSONB,
+			recommendations TEXT[],
+			generated_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for compliance tables
+		`CREATE INDEX IF NOT EXISTS idx_compliance_frameworks_enabled ON compliance_frameworks(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_frameworks_name ON compliance_frameworks(name)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_policies_framework_id ON compliance_policies(framework_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_policies_enabled ON compliance_policies(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_violations_policy_id ON compliance_violations(policy_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_violations_user_id ON compliance_violations(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_violations_status ON compliance_violations(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_violations_severity ON compliance_violations(severity)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_reports_framework_id ON compliance_reports(framework_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_compliance_reports_generated_at ON compliance_reports(generated_at DESC)`,
 	}
 
 	// Execute migrations

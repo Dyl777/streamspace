@@ -624,6 +624,28 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 			scaling.GET("/autoscaling/history", h.GetScalingHistory)
 		}
 
+		// Compliance & Governance - Admin only
+		compliance := protected.Group("/compliance")
+		compliance.Use(adminMiddleware)
+		{
+			// Frameworks
+			compliance.GET("/frameworks", h.ListComplianceFrameworks)
+			compliance.POST("/frameworks", h.CreateComplianceFramework)
+
+			// Policies
+			compliance.GET("/policies", h.ListCompliancePolicies)
+			compliance.POST("/policies", h.CreateCompliancePolicy)
+
+			// Violations
+			compliance.GET("/violations", h.ListViolations)
+			compliance.POST("/violations", h.RecordViolation)
+			compliance.POST("/violations/:violationId/resolve", h.ResolveViolation)
+
+			// Reports & Dashboard
+			compliance.POST("/reports/generate", h.GenerateComplianceReport)
+			compliance.GET("/dashboard", h.GetComplianceDashboard)
+		}
+
 			// Templates (read: all users, write: operators/admins)
 			templates := protected.Group("/templates")
 			{
