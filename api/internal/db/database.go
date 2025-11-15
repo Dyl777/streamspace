@@ -1290,6 +1290,71 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_id ON workflow_executions(workflow_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status)`,
 		`CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_executions(started_at DESC)`,
+
+		// ========== In-Browser Console & File Manager ==========
+
+		// Console sessions table (terminal and file manager)
+		`CREATE TABLE IF NOT EXISTS console_sessions (
+			id VARCHAR(255) PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			type VARCHAR(50) NOT NULL,
+			status VARCHAR(50) DEFAULT 'active',
+			current_path TEXT,
+			shell_type VARCHAR(50),
+			columns INT,
+			rows INT,
+			metadata JSONB,
+			connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			disconnected_at TIMESTAMP
+		)`,
+
+		// Console file operations log
+		`CREATE TABLE IF NOT EXISTS console_file_operations (
+			id SERIAL PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			operation VARCHAR(50) NOT NULL,
+			source_path TEXT NOT NULL,
+			target_path TEXT,
+			bytes_processed BIGINT DEFAULT 0,
+			success BOOLEAN DEFAULT true,
+			error_message TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for console
+		`CREATE INDEX IF NOT EXISTS idx_console_sessions_session_id ON console_sessions(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_console_sessions_user_id ON console_sessions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_console_sessions_status ON console_sessions(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_console_file_operations_session_id ON console_file_operations(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_console_file_operations_created_at ON console_file_operations(created_at DESC)`,
+
+		// ========== Multi-Monitor Support ==========
+
+		// Monitor configurations table
+		`CREATE TABLE IF NOT EXISTS monitor_configurations (
+			id SERIAL PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			monitors JSONB NOT NULL,
+			layout VARCHAR(50) DEFAULT 'horizontal',
+			total_width INT NOT NULL,
+			total_height INT NOT NULL,
+			primary_monitor INT DEFAULT 0,
+			metadata JSONB,
+			is_active BOOLEAN DEFAULT false,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for multi-monitor
+		`CREATE INDEX IF NOT EXISTS idx_monitor_configurations_session_id ON monitor_configurations(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_monitor_configurations_user_id ON monitor_configurations(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_monitor_configurations_is_active ON monitor_configurations(is_active) WHERE is_active = true`,
 	}
 
 	// Execute migrations

@@ -477,6 +477,42 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 				workflows.GET("/stats", h.GetWorkflowStats)
 			}
 
+			// In-Browser Console & File Manager
+			console := protected.Group("/console")
+			{
+				// Console sessions (terminal and file manager)
+				console.POST("/sessions/:sessionId", h.CreateConsoleSession)
+				console.GET("/sessions/:sessionId", h.ListConsoleSessions)
+				console.POST("/:consoleId/disconnect", h.DisconnectConsoleSession)
+
+				// File Manager operations
+				console.GET("/files/:sessionId", h.ListFiles)
+				console.GET("/files/:sessionId/content", h.GetFileContent)
+				console.POST("/files/:sessionId/upload", h.UploadFile)
+				console.GET("/files/:sessionId/download", h.DownloadFile)
+				console.POST("/files/:sessionId/directory", h.CreateDirectory)
+				console.DELETE("/files/:sessionId", h.DeleteFile)
+				console.PATCH("/files/:sessionId/rename", h.RenameFile)
+
+				// File operation history
+				console.GET("/files/:sessionId/history", h.GetFileOperationHistory)
+			}
+
+			// Multi-Monitor Support
+			monitors := protected.Group("/monitors")
+			{
+				monitors.GET("/sessions/:sessionId", h.GetMonitorConfiguration)
+				monitors.POST("/sessions/:sessionId", h.CreateMonitorConfiguration)
+				monitors.GET("/sessions/:sessionId/list", h.ListMonitorConfigurations)
+				monitors.PATCH("/configurations/:configId", h.UpdateMonitorConfiguration)
+				monitors.POST("/configurations/:configId/activate", h.ActivateMonitorConfiguration)
+				monitors.DELETE("/configurations/:configId", h.DeleteMonitorConfiguration)
+				monitors.GET("/sessions/:sessionId/streams", h.GetMonitorStreams)
+
+				// Preset configurations
+				monitors.POST("/sessions/:sessionId/presets/:preset", h.CreatePresetConfiguration)
+			}
+
 			// Templates (read: all users, write: operators/admins)
 			templates := protected.Group("/templates")
 			{
