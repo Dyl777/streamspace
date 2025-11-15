@@ -407,6 +407,74 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 				sessions.GET("/:id/connect", h.ConnectSession)
 				sessions.POST("/:id/disconnect", h.DisconnectSession)
 				sessions.POST("/:id/heartbeat", h.SessionHeartbeat)
+
+				// Session recording endpoints (nested under sessions)
+				sessions.POST("/:sessionId/recordings/start", h.StartSessionRecording)
+				sessions.POST("/recordings/:recordingId/stop", h.StopSessionRecording)
+			}
+
+			// Session Recordings (recording management and playback)
+			recordings := protected.Group("/recordings")
+			{
+				recordings.GET("", h.ListSessionRecordings)
+				recordings.GET("/:recordingId", h.GetSessionRecording)
+				recordings.GET("/:recordingId/stream", h.StreamRecording)
+				recordings.GET("/:recordingId/download", h.DownloadRecording)
+				recordings.DELETE("/:recordingId", h.DeleteRecording)
+				recordings.GET("/stats", h.GetRecordingStats)
+
+				// Recording policies (admin/operator only)
+				recordingPolicies := recordings.Group("/policies")
+				recordingPolicies.Use(operatorMiddleware)
+				{
+					recordingPolicies.GET("", h.ListRecordingPolicies)
+					recordingPolicies.POST("", h.CreateRecordingPolicy)
+					recordingPolicies.PATCH("/:policyId", h.UpdateRecordingPolicy)
+					recordingPolicies.DELETE("/:policyId", h.DeleteRecordingPolicy)
+				}
+
+				// Cleanup expired recordings (admin only)
+				recordings.POST("/cleanup", operatorMiddleware, h.CleanupExpiredRecordings)
+			}
+
+			// Data Loss Prevention (DLP) - Admin/Operator only
+			dlp := protected.Group("/dlp")
+			dlp.Use(operatorMiddleware)
+			{
+				// DLP Policies
+				dlp.GET("/policies", h.ListDLPPolicies)
+				dlp.POST("/policies", h.CreateDLPPolicy)
+				dlp.GET("/policies/:policyId", h.GetDLPPolicy)
+				dlp.PATCH("/policies/:policyId", h.UpdateDLPPolicy)
+				dlp.DELETE("/policies/:policyId", h.DeleteDLPPolicy)
+
+				// DLP Violations
+				dlp.POST("/violations", h.LogDLPViolation)
+				dlp.GET("/violations", h.ListDLPViolations)
+				dlp.POST("/violations/:violationId/resolve", h.ResolveDLPViolation)
+
+				// DLP Statistics
+				dlp.GET("/stats", h.GetDLPStats)
+			}
+
+			// Workflow Automation - Operator/Admin only
+			workflows := protected.Group("/workflows")
+			workflows.Use(operatorMiddleware)
+			{
+				workflows.GET("", h.ListWorkflows)
+				workflows.POST("", h.CreateWorkflow)
+				workflows.GET("/:workflowId", h.GetWorkflow)
+				workflows.PATCH("/:workflowId", h.UpdateWorkflow)
+				workflows.DELETE("/:workflowId", h.DeleteWorkflow)
+				workflows.POST("/:workflowId/execute", h.ExecuteWorkflow)
+
+				// Workflow Executions
+				workflows.GET("/executions", h.ListWorkflowExecutions)
+				workflows.GET("/executions/:executionId", h.GetWorkflowExecution)
+				workflows.POST("/executions/:executionId/cancel", h.CancelWorkflowExecution)
+
+				// Workflow Statistics
+				workflows.GET("/stats", h.GetWorkflowStats)
 			}
 
 			// Templates (read: all users, write: operators/admins)
@@ -431,6 +499,23 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 					templatesWrite.POST("", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.CreateTemplate)
 					templatesWrite.PATCH("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.UpdateTemplate)
 					templatesWrite.DELETE("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.DeleteTemplate)
+
+					// Template Versioning (operator only)
+					templatesWrite.POST("/:templateId/versions", h.CreateTemplateVersion)
+					templatesWrite.GET("/:templateId/versions", h.ListTemplateVersions)
+					templatesWrite.GET("/versions/:versionId", h.GetTemplateVersion)
+					templatesWrite.POST("/versions/:versionId/publish", h.PublishTemplateVersion)
+					templatesWrite.POST("/versions/:versionId/deprecate", h.DeprecateTemplateVersion)
+					templatesWrite.POST("/versions/:versionId/set-default", h.SetDefaultTemplateVersion)
+					templatesWrite.POST("/versions/:versionId/clone", h.CloneTemplateVersion)
+
+					// Template Testing (operator only)
+					templatesWrite.POST("/versions/:versionId/tests", h.CreateTemplateTest)
+					templatesWrite.GET("/versions/:versionId/tests", h.ListTemplateTests)
+					templatesWrite.PATCH("/tests/:testId", h.UpdateTemplateTestStatus)
+
+					// Template Inheritance
+					templatesWrite.GET("/:templateId/inheritance", h.GetTemplateInheritance)
 				}
 			}
 

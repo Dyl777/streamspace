@@ -1035,6 +1035,261 @@ func (d *Database) Migrate() error {
 		// Create indexes for payment methods
 		`CREATE INDEX IF NOT EXISTS idx_payment_methods_user_id ON payment_methods(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_payment_methods_is_default ON payment_methods(is_default) WHERE is_default = true`,
+
+		// ========== Session Recording Enhancements ==========
+
+		// Extend session_recordings table with additional fields
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS file_hash VARCHAR(64)`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS format VARCHAR(50) DEFAULT 'webm'`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS metadata JSONB`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS retention_days INT DEFAULT 30`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS is_automatic BOOLEAN DEFAULT false`,
+		`ALTER TABLE session_recordings ADD COLUMN IF NOT EXISTS reason VARCHAR(255)`,
+
+		// Recording policies table
+		`CREATE TABLE IF NOT EXISTS recording_policies (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			auto_record BOOLEAN DEFAULT false,
+			recording_format VARCHAR(50) DEFAULT 'webm',
+			retention_days INT DEFAULT 30,
+			apply_to_users JSONB,
+			apply_to_teams JSONB,
+			apply_to_templates JSONB,
+			require_reason BOOLEAN DEFAULT false,
+			allow_user_playback BOOLEAN DEFAULT true,
+			allow_user_download BOOLEAN DEFAULT true,
+			require_approval BOOLEAN DEFAULT false,
+			notify_on_recording BOOLEAN DEFAULT true,
+			metadata JSONB,
+			enabled BOOLEAN DEFAULT true,
+			priority INT DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Recording access log table for audit trail
+		`CREATE TABLE IF NOT EXISTS recording_access_log (
+			id SERIAL PRIMARY KEY,
+			recording_id INT REFERENCES session_recordings(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			action VARCHAR(50) NOT NULL,
+			accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			ip_address VARCHAR(45),
+			user_agent TEXT
+		)`,
+
+		// Create indexes for recording enhancements
+		`CREATE INDEX IF NOT EXISTS idx_session_recordings_user_id ON session_recordings(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_recordings_expires_at ON session_recordings(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_policies_enabled ON recording_policies(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_policies_priority ON recording_policies(priority DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_access_log_recording_id ON recording_access_log(recording_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_access_log_user_id ON recording_access_log(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_recording_access_log_accessed_at ON recording_access_log(accessed_at DESC)`,
+
+		// ========== Data Loss Prevention (DLP) ==========
+
+		// DLP policies table
+		`CREATE TABLE IF NOT EXISTS dlp_policies (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			enabled BOOLEAN DEFAULT true,
+			priority INT DEFAULT 0,
+
+			-- Clipboard controls
+			clipboard_enabled BOOLEAN DEFAULT true,
+			clipboard_direction VARCHAR(50) DEFAULT 'bidirectional',
+			clipboard_max_size INT DEFAULT 1048576,
+			clipboard_content_filter JSONB,
+
+			-- File transfer controls
+			file_transfer_enabled BOOLEAN DEFAULT true,
+			file_upload_enabled BOOLEAN DEFAULT true,
+			file_download_enabled BOOLEAN DEFAULT true,
+			file_max_size BIGINT DEFAULT 104857600,
+			file_type_whitelist JSONB,
+			file_type_blacklist JSONB,
+			scan_files_for_malware BOOLEAN DEFAULT false,
+
+			-- Screen capture and printing
+			screen_capture_enabled BOOLEAN DEFAULT true,
+			printing_enabled BOOLEAN DEFAULT true,
+			watermark_enabled BOOLEAN DEFAULT false,
+			watermark_text VARCHAR(255),
+			watermark_opacity DECIMAL(3,2) DEFAULT 0.3,
+			watermark_position VARCHAR(50) DEFAULT 'center',
+
+			-- USB and peripheral devices
+			usb_devices_enabled BOOLEAN DEFAULT false,
+			audio_enabled BOOLEAN DEFAULT true,
+			microphone_enabled BOOLEAN DEFAULT false,
+			webcam_enabled BOOLEAN DEFAULT false,
+
+			-- Network controls
+			network_access_enabled BOOLEAN DEFAULT true,
+			allowed_domains JSONB,
+			blocked_domains JSONB,
+			allowed_ip_ranges JSONB,
+			blocked_ip_ranges JSONB,
+
+			-- Session controls
+			idle_timeout INT,
+			max_session_duration INT,
+			require_reason BOOLEAN DEFAULT false,
+			require_approval BOOLEAN DEFAULT false,
+
+			-- Monitoring and logging
+			log_all_activity BOOLEAN DEFAULT true,
+			alert_on_violation BOOLEAN DEFAULT true,
+			block_on_violation BOOLEAN DEFAULT true,
+			notify_user BOOLEAN DEFAULT true,
+			notify_admin BOOLEAN DEFAULT true,
+
+			-- Application scope
+			apply_to_users JSONB,
+			apply_to_teams JSONB,
+			apply_to_templates JSONB,
+			apply_to_sessions JSONB,
+
+			-- Metadata
+			metadata JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// DLP violations table
+		`CREATE TABLE IF NOT EXISTS dlp_violations (
+			id SERIAL PRIMARY KEY,
+			policy_id INT REFERENCES dlp_policies(id) ON DELETE CASCADE,
+			policy_name VARCHAR(255) NOT NULL,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			violation_type VARCHAR(100) NOT NULL,
+			severity VARCHAR(50) DEFAULT 'medium',
+			description TEXT,
+			details JSONB,
+			action VARCHAR(50) DEFAULT 'blocked',
+			resolved BOOLEAN DEFAULT false,
+			resolved_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			resolved_at TIMESTAMP,
+			occurred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for DLP
+		`CREATE INDEX IF NOT EXISTS idx_dlp_policies_enabled ON dlp_policies(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_policies_priority ON dlp_policies(priority DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_policy_id ON dlp_violations(policy_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_session_id ON dlp_violations(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_user_id ON dlp_violations(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_occurred_at ON dlp_violations(occurred_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_resolved ON dlp_violations(resolved) WHERE resolved = false`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_severity ON dlp_violations(severity)`,
+		`CREATE INDEX IF NOT EXISTS idx_dlp_violations_type ON dlp_violations(violation_type)`,
+
+		// ========== Template Versioning & Testing ==========
+
+		// Template versions table
+		`CREATE TABLE IF NOT EXISTS template_versions (
+			id SERIAL PRIMARY KEY,
+			template_id VARCHAR(255) NOT NULL,
+			version VARCHAR(50) NOT NULL,
+			major_version INT NOT NULL,
+			minor_version INT NOT NULL,
+			patch_version INT NOT NULL,
+			display_name VARCHAR(255) NOT NULL,
+			description TEXT,
+			configuration JSONB,
+			base_image TEXT,
+			parent_template_id VARCHAR(255),
+			parent_version VARCHAR(50),
+			changelog TEXT,
+			status VARCHAR(50) DEFAULT 'draft',
+			is_default BOOLEAN DEFAULT false,
+			test_results JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			published_at TIMESTAMP,
+			deprecated_at TIMESTAMP,
+			UNIQUE(template_id, version)
+		)`,
+
+		// Template tests table
+		`CREATE TABLE IF NOT EXISTS template_tests (
+			id SERIAL PRIMARY KEY,
+			template_id VARCHAR(255) NOT NULL,
+			version_id INT REFERENCES template_versions(id) ON DELETE CASCADE,
+			version VARCHAR(50) NOT NULL,
+			test_type VARCHAR(50) NOT NULL,
+			status VARCHAR(50) DEFAULT 'pending',
+			results JSONB,
+			duration INT DEFAULT 0,
+			error_message TEXT,
+			started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for template versioning
+		`CREATE INDEX IF NOT EXISTS idx_template_versions_template_id ON template_versions(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_versions_version ON template_versions(version)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_versions_status ON template_versions(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_versions_is_default ON template_versions(is_default) WHERE is_default = true`,
+		`CREATE INDEX IF NOT EXISTS idx_template_versions_parent ON template_versions(parent_template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_tests_version_id ON template_tests(version_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_tests_status ON template_tests(status)`,
+
+		// ========== Workflow Automation ==========
+
+		// Workflows table
+		`CREATE TABLE IF NOT EXISTS workflows (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			trigger JSONB NOT NULL,
+			steps JSONB NOT NULL,
+			enabled BOOLEAN DEFAULT true,
+			execution_mode VARCHAR(50) DEFAULT 'sequential',
+			timeout_minutes INT DEFAULT 60,
+			retry_policy JSONB,
+			metadata JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Workflow executions table
+		`CREATE TABLE IF NOT EXISTS workflow_executions (
+			id SERIAL PRIMARY KEY,
+			workflow_id INT REFERENCES workflows(id) ON DELETE CASCADE,
+			workflow_name VARCHAR(255) NOT NULL,
+			status VARCHAR(50) DEFAULT 'pending',
+			current_step VARCHAR(255),
+			step_results JSONB,
+			trigger_data JSONB,
+			context JSONB,
+			error_message TEXT,
+			started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP,
+			duration INT DEFAULT 0,
+			triggered_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for workflows
+		`CREATE INDEX IF NOT EXISTS idx_workflows_enabled ON workflows(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_workflows_created_by ON workflows(created_by)`,
+		`CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_id ON workflow_executions(workflow_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_executions(started_at DESC)`,
 	}
 
 	// Execute migrations
