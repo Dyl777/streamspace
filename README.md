@@ -290,30 +290,43 @@ Admin panel: `https://streamspace.example.com/admin`
 
 ## 📱 Available Applications
 
-StreamSpace includes **200+ pre-configured templates** from LinuxServer.io:
+StreamSpace provides **200+ pre-configured templates** via the [streamspace-templates](https://github.com/JoshuaAFerguson/streamspace-templates) repository:
 
-### Web Browsers (5)
-Firefox, Chromium, Chrome, Brave, LibreWolf
+### Web Browsers
+Firefox, Chromium, Brave, LibreWolf
 
-### Development (10+)
-VS Code, GitHub Desktop, GitQlient, Gitea, JupyterLab
+### Development
+VS Code, GitHub Desktop, GitQlient, Sublime Text
 
-### Productivity (20+)
-LibreOffice, Calligra, GIMP, Inkscape, Krita, Blender
+### Productivity
+LibreOffice, Calligra, OnlyOffice
 
-### Media (15+)
-Audacity, Kdenlive, Jellyfin, Plex, Radarr, Sonarr
+### Design & Graphics
+GIMP, Krita, Inkscape, Blender, FreeCAD, KiCad, darktable
 
-### Design (10+)
-GIMP, Krita, Inkscape, Blender, FreeCAD, KiCad
+### Media Production
+Audacity, Kdenlive
 
-### Desktop Environments (16)
-Ubuntu (XFCE, KDE, MATE), Alpine (i3), Fedora, Arch
+### Gaming & Emulation
+Dolphin (GameCube/Wii), DuckStation (PlayStation)
 
-### Gaming (8+)
-Dolphin, DuckStation, MAME, GZDoom, Flycast
+### Desktop Environments
+Ubuntu (XFCE, KDE), Alpine (i3), Arch
 
-See full catalog: [docs/APPLICATIONS.md](docs/APPLICATIONS.md)
+**Full Template Catalog**: [streamspace-templates](https://github.com/JoshuaAFerguson/streamspace-templates)
+
+### Automatic Template Sync
+
+Templates are automatically synced from the external repository:
+
+```yaml
+# In chart/values.yaml
+repositories:
+  templates:
+    enabled: true
+    url: https://github.com/JoshuaAFerguson/streamspace-templates
+    syncInterval: 1h
+```
 
 ## 🔌 Plugin System
 
@@ -363,9 +376,28 @@ kubectl get -n streamspace cm plugin-registry -o yaml
 - View plugin usage statistics
 - Manage plugin permissions
 
-### Plugin Repositories
+### Official Plugin Repository
 
-Add custom plugin repositories to access more plugins:
+Plugins are automatically synced from the [streamspace-plugins](https://github.com/JoshuaAFerguson/streamspace-plugins) repository:
+
+```yaml
+# In chart/values.yaml
+repositories:
+  plugins:
+    enabled: true
+    url: https://github.com/JoshuaAFerguson/streamspace-plugins
+    syncInterval: 1h
+```
+
+**Browse Plugin Catalog**: [streamspace-plugins](https://github.com/JoshuaAFerguson/streamspace-plugins)
+
+**Available Plugin Categories**:
+- **Official** - Maintained by StreamSpace team
+- **Community** - User-contributed plugins
+
+### Custom Plugin Repositories
+
+Add additional plugin repositories to access more plugins:
 
 1. Go to **Repositories** in the web UI
 2. Click **Add Repository**
@@ -374,17 +406,12 @@ Add custom plugin repositories to access more plugins:
 5. Click **Sync** to load plugins from the repository
 
 ```yaml
-# Example: Add via kubectl
-apiVersion: stream.space/v1alpha1
-kind: Repository
-metadata:
-  name: company-plugins
-  namespace: streamspace
-spec:
-  url: https://github.com/mycompany/streamspace-plugins
-  branch: main
-  authType: ssh
-  authSecret: github-ssh-key
+# Example: Add custom repository via Helm values
+repositories:
+  plugins:
+    enabled: true
+    url: https://github.com/mycompany/streamspace-plugins
+    branch: main
 ```
 
 ### Security & Permissions

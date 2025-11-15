@@ -119,7 +119,7 @@ api:
     # CORS settings
     corsOrigins: "*"  # Restrict in production
 
-    # Repository sync
+    # Repository sync (deprecated - use repositories section below)
     syncInterval: "1h"
     syncWorkDir: /tmp/streamspace-repos
 
@@ -482,18 +482,58 @@ secrets:
 
 ## Application Templates
 templates:
-  # Deploy sample templates on install
+  # Deploy bundled sample templates on install (minimal set)
+  # For full catalog, enable external repository below
   deploy: true
 
-  # Categories to deploy
+  # Categories to deploy from bundled templates
   categories:
-    browsers: true      # Firefox, Chromium, Brave, LibreWolf
-    development: true   # VS Code, GitHub Desktop
-    productivity: true  # LibreOffice, Calligra
-    design: false       # GIMP, Krita, Inkscape, Blender (large images)
-    media: false        # Audacity, Kdenlive
-    gaming: false       # DuckStation, Dolphin
-    webtop: false       # Desktop environments
+    browsers: true      # Firefox only (minimal default)
+    development: false  # Use external repository
+    productivity: false # Use external repository
+    design: false       # Use external repository
+    media: false        # Use external repository
+    gaming: false       # Use external repository
+    webtop: false       # Use external repository
+
+## External Repositories
+# StreamSpace can sync templates and plugins from external Git repositories
+repositories:
+  # Application templates repository
+  templates:
+    enabled: true
+    url: https://github.com/JoshuaAFerguson/streamspace-templates
+    branch: main
+    syncInterval: 1h  # How often to sync (e.g., 15m, 1h, 24h)
+
+    # Categories to sync from external repository
+    categories:
+      browsers: true      # Firefox, Chromium, Brave, LibreWolf
+      development: true   # VS Code, GitHub Desktop
+      productivity: true  # LibreOffice, Calligra
+      design: true        # GIMP, Krita, Inkscape, Blender
+      media: true         # Audacity, Kdenlive
+      gaming: true        # DuckStation, Dolphin
+      webtop: true        # Desktop environments
+
+  # Plugin repository
+  plugins:
+    enabled: true
+    url: https://github.com/JoshuaAFerguson/streamspace-plugins
+    branch: main
+    syncInterval: 1h
+
+    # Auto-install official plugins
+    autoInstall:
+      official: false  # Set to true to auto-install all official plugins
+      community: false # Set to true to auto-install all community plugins (not recommended)
+
+    # Specific plugins to auto-install
+    install:
+      []
+      # - session-recorder
+      # - audit-logger
+      # - slack-integration
 
 ## Monitoring & Observability
 monitoring:

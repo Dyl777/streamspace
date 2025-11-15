@@ -338,14 +338,8 @@ streamspace/
 │   │   ├── database-init.yaml           # PostgreSQL initialization
 │   │   └── ingress.yaml                 # Traefik ingress configuration
 │   │
-│   ├── templates/         # Application template manifests (22 pre-built)
-│   │   ├── browsers/      # Firefox, Chromium, Brave, LibreWolf (4)
-│   │   ├── development/   # VS Code, GitHub Desktop, etc. (3)
-│   │   ├── productivity/  # LibreOffice, Calligra, etc. (3)
-│   │   ├── design/        # GIMP, Krita, Inkscape, Blender, etc. (5)
-│   │   ├── media/         # Audacity, Kdenlive, etc. (2)
-│   │   ├── gaming/        # DuckStation, Dolphin, etc. (2)
-│   │   └── webtop/        # Desktop environments (3)
+│   ├── templates/         # Minimal bundled templates (1-2 defaults)
+│   │   └── browsers/      # Firefox only (minimal default)
 │   │
 │   └── monitoring/        # Observability stack
 │       ├── servicemonitor.yaml              # Prometheus ServiceMonitor
@@ -401,10 +395,11 @@ streamspace/
 - **`manifests/`**: All Kubernetes YAML manifests, organized by purpose
   - `crds/`: Custom Resource Definitions for Sessions and Templates
   - `config/`: Platform deployment configurations
-  - `templates/`: Pre-built application templates
+  - `templates/`: **Minimal bundled templates** (1-2 defaults for offline/air-gapped use)
   - `monitoring/`: Prometheus and Grafana configurations
 
 - **`chart/`**: Helm chart for easy deployment and configuration management
+  - Includes repository sync configuration for external templates and plugins
 
 - **`docs/`**: Comprehensive technical documentation
   - Architecture diagrams and data flows
@@ -421,11 +416,32 @@ streamspace/
   - Authentication and session management
   - Plugin system backend
   - WebSocket proxy for VNC connections
+  - **Repository sync** for external templates and plugins
 
 - **`ui/`**: React web UI with TypeScript
   - User dashboard for session management
   - Admin panel for platform administration
   - Plugin catalog and management UI
+
+### External Repositories
+
+StreamSpace uses separate repositories for templates and plugins to enable:
+- Independent versioning and releases
+- Community contributions without main repo access
+- Flexible deployment (online/offline modes)
+- Multiple repository sources
+
+**Template Repository**: [streamspace-templates](https://github.com/JoshuaAFerguson/streamspace-templates)
+- 22+ official application templates
+- Organized by category (browsers, development, design, etc.)
+- Auto-synced by API backend (configurable interval)
+- Catalog metadata for discovery
+
+**Plugin Repository**: [streamspace-plugins](https://github.com/JoshuaAFerguson/streamspace-plugins)
+- Official and community plugins
+- Extension points for platform functionality
+- Auto-discovery via catalog
+- Optional auto-install on deployment
 
 ---
 
