@@ -18,6 +18,82 @@ import (
 )
 
 // ============================================================================
+// INPUT VALIDATION
+// ============================================================================
+
+// validateIPWhitelistInput validates IP whitelist entry input
+func validateIPWhitelistInput(ipOrCIDR, description string) error {
+	// Validate IP/CIDR is provided
+	if ipOrCIDR == "" {
+		return fmt.Errorf("ip_address is required")
+	}
+
+	// Length check
+	if len(ipOrCIDR) > 50 {
+		return fmt.Errorf("ip_address must be 50 characters or less")
+	}
+
+	// Try parsing as CIDR first
+	_, _, err := net.ParseCIDR(ipOrCIDR)
+	if err != nil {
+		// Not a CIDR, try parsing as IP
+		ip := net.ParseIP(ipOrCIDR)
+		if ip == nil {
+			return fmt.Errorf("invalid IP address or CIDR format")
+		}
+	}
+
+	// Description length
+	if len(description) > 500 {
+		return fmt.Errorf("description must be 500 characters or less")
+	}
+
+	return nil
+}
+
+// validateMFASetupInput validates MFA setup request input
+func validateMFASetupInput(mfaType, phoneNumber, email string) error {
+	// Type validation
+	validTypes := []string{"totp", "sms", "email"}
+	valid := false
+	for _, t := range validTypes {
+		if mfaType == t {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("invalid MFA type, must be one of: %s", strings.Join(validTypes, ", "))
+	}
+
+	// Phone number validation for SMS
+	if mfaType == "sms" {
+		if phoneNumber == "" {
+			return fmt.Errorf("phone number is required for SMS MFA")
+		}
+		if len(phoneNumber) < 10 || len(phoneNumber) > 20 {
+			return fmt.Errorf("phone number must be 10-20 characters")
+		}
+	}
+
+	// Email validation for email MFA
+	if mfaType == "email" {
+		if email == "" {
+			return fmt.Errorf("email is required for Email MFA")
+		}
+		if len(email) > 255 {
+			return fmt.Errorf("email must be 255 characters or less")
+		}
+		// Basic email format check
+		if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+			return fmt.Errorf("invalid email format")
+		}
+	}
+
+	return nil
+}
+
+// ============================================================================
 // MULTI-FACTOR AUTHENTICATION (MFA)
 // ============================================================================
 
@@ -80,6 +156,15 @@ func (h *Handler) SetupMFA(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// INPUT VALIDATION: Validate MFA setup input
+	if err := validateMFASetupInput(req.Type, req.PhoneNumber, req.Email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
 		return
 	}
 
@@ -516,9 +601,12 @@ func (h *Handler) CreateIPWhitelist(c *gin.Context) {
 		return
 	}
 
-	// Validate IP address or CIDR
-	if !isValidIPOrCIDR(req.IPAddress) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid IP address or CIDR"})
+	// INPUT VALIDATION: Validate IP whitelist input
+	if err := validateIPWhitelistInput(req.IPAddress, req.Description); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
 		return
 	}
 
@@ -669,23 +757,32 @@ func (h *Handler) DeleteIPWhitelist(c *gin.Context) {
 	userID := c.GetString("user_id")
 	role := c.GetString("role")
 
-	// Check ownership
-	var ownerID sql.NullString
-	err := h.DB.QueryRow(`SELECT user_id FROM ip_whitelist WHERE id = $1`, entryID).Scan(&ownerID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"error": "entry not found"})
-		return
+	// SECURITY: Combine authorization check with query to prevent enumeration
+	// Returns "not found" whether the entry doesn't exist OR user lacks permission
+	var result sql.Result
+	var err error
+
+	if role == "admin" {
+		// Admins can delete any entry
+		result, err = h.DB.Exec(`DELETE FROM ip_whitelist WHERE id = $1`, entryID)
+	} else {
+		// Non-admins can only delete their own entries or org-wide entries (NULL user_id)
+		result, err = h.DB.Exec(`
+			DELETE FROM ip_whitelist
+			WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)
+		`, entryID, userID)
 	}
 
-	// Only admins can delete org-wide rules or other users' rules
-	if ownerID.Valid && ownerID.String != userID && role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "cannot delete other users' IP rules"})
-		return
-	}
-
-	_, err = h.DB.Exec(`DELETE FROM ip_whitelist WHERE id = $1`, entryID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete entry"})
+		return
+	}
+
+	// Check if any rows were affected
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		// Could be not found OR not authorized - don't reveal which
+		c.JSON(http.StatusNotFound, gin.H{"error": "entry not found"})
 		return
 	}
 

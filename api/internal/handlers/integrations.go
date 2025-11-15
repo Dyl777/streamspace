@@ -19,6 +19,95 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ============================================================================
+// INPUT VALIDATION
+// ============================================================================
+
+// validateWebhookInput validates webhook creation/update input
+func validateWebhookInput(webhook *Webhook) error {
+	// Name validation
+	if len(webhook.Name) == 0 {
+		return fmt.Errorf("webhook name is required")
+	}
+	if len(webhook.Name) > 200 {
+		return fmt.Errorf("webhook name must be 200 characters or less")
+	}
+
+	// URL validation
+	if webhook.URL == "" {
+		return fmt.Errorf("webhook URL is required")
+	}
+	if len(webhook.URL) > 2048 {
+		return fmt.Errorf("webhook URL must be 2048 characters or less")
+	}
+	if _, err := url.Parse(webhook.URL); err != nil {
+		return fmt.Errorf("invalid webhook URL format")
+	}
+
+	// Events validation
+	if len(webhook.Events) == 0 {
+		return fmt.Errorf("at least one event type is required")
+	}
+	if len(webhook.Events) > 50 {
+		return fmt.Errorf("maximum 50 event types allowed")
+	}
+
+	// Description length
+	if len(webhook.Description) > 1000 {
+		return fmt.Errorf("webhook description must be 1000 characters or less")
+	}
+
+	// Headers validation
+	if len(webhook.Headers) > 50 {
+		return fmt.Errorf("maximum 50 custom headers allowed")
+	}
+	for key, value := range webhook.Headers {
+		if len(key) > 100 {
+			return fmt.Errorf("header key must be 100 characters or less")
+		}
+		if len(value) > 1000 {
+			return fmt.Errorf("header value must be 1000 characters or less")
+		}
+	}
+
+	return nil
+}
+
+// validateIntegrationInput validates integration creation/update input
+func validateIntegrationInput(integration *Integration) error {
+	// Name validation
+	if len(integration.Name) == 0 {
+		return fmt.Errorf("integration name is required")
+	}
+	if len(integration.Name) > 200 {
+		return fmt.Errorf("integration name must be 200 characters or less")
+	}
+
+	// Type validation
+	validTypes := []string{"slack", "teams", "discord", "pagerduty", "email", "custom"}
+	validType := false
+	for _, t := range validTypes {
+		if integration.Type == t {
+			validType = true
+			break
+		}
+	}
+	if !validType {
+		return fmt.Errorf("invalid integration type, must be one of: %s", strings.Join(validTypes, ", "))
+	}
+
+	// Description length
+	if len(integration.Description) > 1000 {
+		return fmt.Errorf("integration description must be 1000 characters or less")
+	}
+
+	return nil
+}
+
+// ============================================================================
+// DATA STRUCTURES
+// ============================================================================
+
 // Webhook represents a webhook configuration
 type Webhook struct {
 	ID          int64                  `json:"id"`
@@ -131,9 +220,12 @@ func (h *Handler) CreateWebhook(c *gin.Context) {
 	userID := c.GetString("user_id")
 	webhook.CreatedBy = userID
 
-	// Validate URL
-	if webhook.URL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "URL is required"})
+	// INPUT VALIDATION: Validate all webhook input fields
+	if err := validateWebhookInput(&webhook); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
 		return
 	}
 
@@ -143,12 +235,6 @@ func (h *Handler) CreateWebhook(c *gin.Context) {
 			"error":   "Invalid webhook URL",
 			"message": err.Error(),
 		})
-		return
-	}
-
-	// Validate events
-	if len(webhook.Events) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one event is required"})
 		return
 	}
 
@@ -272,24 +358,70 @@ func (h *Handler) UpdateWebhook(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetString("user_id")
+	role := c.GetString("role")
+
 	var webhook Webhook
 	if err := c.ShouldBindJSON(&webhook); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	_, err = h.DB.Exec(`
-		UPDATE webhooks SET
-			name = $1, description = $2, url = $3, events = $4, headers = $5,
-			enabled = $6, retry_policy = $7, filters = $8, metadata = $9,
-			updated_at = $10
-		WHERE id = $11
-	`, webhook.Name, webhook.Description, webhook.URL, toJSONB(webhook.Events),
-		toJSONB(webhook.Headers), webhook.Enabled, toJSONB(webhook.RetryPolicy),
-		toJSONB(webhook.Filters), toJSONB(webhook.Metadata), time.Now(), webhookID)
+	// INPUT VALIDATION: Validate all webhook input fields
+	if err := validateWebhookInput(&webhook); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// SECURITY: Validate webhook URL to prevent SSRF attacks
+	if err := h.validateWebhookURL(webhook.URL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid webhook URL",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// SECURITY: Add authorization check to prevent updating other users' webhooks
+	// Returns "not found" whether webhook doesn't exist OR user lacks permission
+	var result sql.Result
+	if role == "admin" {
+		// Admins can update any webhook
+		result, err = h.DB.Exec(`
+			UPDATE webhooks SET
+				name = $1, description = $2, url = $3, events = $4, headers = $5,
+				enabled = $6, retry_policy = $7, filters = $8, metadata = $9,
+				updated_at = $10
+			WHERE id = $11
+		`, webhook.Name, webhook.Description, webhook.URL, toJSONB(webhook.Events),
+			toJSONB(webhook.Headers), webhook.Enabled, toJSONB(webhook.RetryPolicy),
+			toJSONB(webhook.Filters), toJSONB(webhook.Metadata), time.Now(), webhookID)
+	} else {
+		// Non-admins can only update their own webhooks
+		result, err = h.DB.Exec(`
+			UPDATE webhooks SET
+				name = $1, description = $2, url = $3, events = $4, headers = $5,
+				enabled = $6, retry_policy = $7, filters = $8, metadata = $9,
+				updated_at = $10
+			WHERE id = $11 AND created_by = $12
+		`, webhook.Name, webhook.Description, webhook.URL, toJSONB(webhook.Events),
+			toJSONB(webhook.Headers), webhook.Enabled, toJSONB(webhook.RetryPolicy),
+			toJSONB(webhook.Filters), toJSONB(webhook.Metadata), time.Now(), webhookID, userID)
+	}
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update webhook"})
+		return
+	}
+
+	// Check if any rows were affected
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		// Could be not found OR not authorized - don't reveal which
+		c.JSON(http.StatusNotFound, gin.H{"error": "webhook not found"})
 		return
 	}
 
@@ -304,9 +436,30 @@ func (h *Handler) DeleteWebhook(c *gin.Context) {
 		return
 	}
 
-	_, err = h.DB.Exec("DELETE FROM webhooks WHERE id = $1", webhookID)
+	userID := c.GetString("user_id")
+	role := c.GetString("role")
+
+	// SECURITY: Add authorization check to prevent deleting other users' webhooks
+	// Returns "not found" whether webhook doesn't exist OR user lacks permission
+	var result sql.Result
+	if role == "admin" {
+		// Admins can delete any webhook
+		result, err = h.DB.Exec("DELETE FROM webhooks WHERE id = $1", webhookID)
+	} else {
+		// Non-admins can only delete their own webhooks
+		result, err = h.DB.Exec("DELETE FROM webhooks WHERE id = $1 AND created_by = $2", webhookID, userID)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete webhook"})
+		return
+	}
+
+	// Check if any rows were affected
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		// Could be not found OR not authorized - don't reveal which
+		c.JSON(http.StatusNotFound, gin.H{"error": "webhook not found"})
 		return
 	}
 
@@ -321,16 +474,32 @@ func (h *Handler) TestWebhook(c *gin.Context) {
 		return
 	}
 
-	// Get webhook details
+	userID := c.GetString("user_id")
+	role := c.GetString("role")
+
+	// SECURITY: Add authorization check to prevent testing other users' webhooks
+	// Returns "not found" whether webhook doesn't exist OR user lacks permission
 	var webhook Webhook
 	var events, headers, retryPolicy sql.NullString
-	err = h.DB.QueryRow(`
-		SELECT id, name, url, secret, events, headers, enabled, retry_policy
-		FROM webhooks WHERE id = $1
-	`, webhookID).Scan(&webhook.ID, &webhook.Name, &webhook.URL, &webhook.Secret,
-		&events, &headers, &webhook.Enabled, &retryPolicy)
+
+	if role == "admin" {
+		// Admins can test any webhook
+		err = h.DB.QueryRow(`
+			SELECT id, name, url, secret, events, headers, enabled, retry_policy
+			FROM webhooks WHERE id = $1
+		`, webhookID).Scan(&webhook.ID, &webhook.Name, &webhook.URL, &webhook.Secret,
+			&events, &headers, &webhook.Enabled, &retryPolicy)
+	} else {
+		// Non-admins can only test their own webhooks
+		err = h.DB.QueryRow(`
+			SELECT id, name, url, secret, events, headers, enabled, retry_policy
+			FROM webhooks WHERE id = $1 AND created_by = $2
+		`, webhookID, userID).Scan(&webhook.ID, &webhook.Name, &webhook.URL, &webhook.Secret,
+			&events, &headers, &webhook.Enabled, &retryPolicy)
+	}
 
 	if err == sql.ErrNoRows {
+		// Could be not found OR not authorized - don't reveal which
 		c.JSON(http.StatusNotFound, gin.H{"error": "webhook not found"})
 		return
 	}
@@ -447,17 +616,12 @@ func (h *Handler) CreateIntegration(c *gin.Context) {
 	userID := c.GetString("user_id")
 	integration.CreatedBy = userID
 
-	// Validate type
-	validTypes := []string{"slack", "teams", "discord", "pagerduty", "email", "custom"}
-	valid := false
-	for _, t := range validTypes {
-		if integration.Type == t {
-			valid = true
-			break
-		}
-	}
-	if !valid {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid integration type"})
+	// INPUT VALIDATION: Validate all integration input fields
+	if err := validateIntegrationInput(&integration); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
 		return
 	}
 
@@ -543,16 +707,32 @@ func (h *Handler) TestIntegration(c *gin.Context) {
 		return
 	}
 
-	// Get integration details
+	userID := c.GetString("user_id")
+	role := c.GetString("role")
+
+	// SECURITY: Add authorization check to prevent testing other users' integrations
+	// Returns "not found" whether integration doesn't exist OR user lacks permission
 	var integration Integration
 	var config, events sql.NullString
-	err = h.DB.QueryRow(`
-		SELECT id, type, name, config, enabled, events
-		FROM integrations WHERE id = $1
-	`, integrationID).Scan(&integration.ID, &integration.Type, &integration.Name,
-		&config, &integration.Enabled, &events)
+
+	if role == "admin" {
+		// Admins can test any integration
+		err = h.DB.QueryRow(`
+			SELECT id, type, name, config, enabled, events
+			FROM integrations WHERE id = $1
+		`, integrationID).Scan(&integration.ID, &integration.Type, &integration.Name,
+			&config, &integration.Enabled, &events)
+	} else {
+		// Non-admins can only test their own integrations
+		err = h.DB.QueryRow(`
+			SELECT id, type, name, config, enabled, events
+			FROM integrations WHERE id = $1 AND created_by = $2
+		`, integrationID, userID).Scan(&integration.ID, &integration.Type, &integration.Name,
+			&config, &integration.Enabled, &events)
+	}
 
 	if err == sql.ErrNoRows {
+		// Could be not found OR not authorized - don't reveal which
 		c.JSON(http.StatusNotFound, gin.H{"error": "integration not found"})
 		return
 	}
