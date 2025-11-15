@@ -1,19 +1,23 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/streamspace/streamspace/api/internal/db"
+	"github.com/streamspace/streamspace/api/internal/k8s"
 )
 
 // SnapshotsHandler handles session snapshot and restore operations
@@ -30,20 +34,20 @@ func NewSnapshotsHandler(database *db.Database) *SnapshotsHandler {
 
 // Snapshot represents a session snapshot
 type Snapshot struct {
-	ID            string                 `json:"id"`
-	SessionID     string                 `json:"sessionId"`
-	UserID        string                 `json:"userId"`
-	Name          string                 `json:"name"`
-	Description   string                 `json:"description,omitempty"`
-	Type          string                 `json:"type"` // manual, automatic, scheduled
-	Status        string                 `json:"status"` // creating, available, restoring, failed, deleted
-	StoragePath   string                 `json:"storagePath,omitempty"`
-	SizeBytes     int64                  `json:"sizeBytes"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
-	CreatedAt     time.Time              `json:"createdAt"`
-	CompletedAt   *time.Time             `json:"completedAt,omitempty"`
-	ExpiresAt     *time.Time             `json:"expiresAt,omitempty"`
-	ErrorMessage  string                 `json:"errorMessage,omitempty"`
+	ID           string                 `json:"id"`
+	SessionID    string                 `json:"sessionId"`
+	UserID       string                 `json:"userId"`
+	Name         string                 `json:"name"`
+	Description  string                 `json:"description,omitempty"`
+	Type         string                 `json:"type"`   // manual, automatic, scheduled
+	Status       string                 `json:"status"` // creating, available, restoring, failed, deleted
+	StoragePath  string                 `json:"storagePath,omitempty"`
+	SizeBytes    int64                  `json:"sizeBytes"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	CreatedAt    time.Time              `json:"createdAt"`
+	CompletedAt  *time.Time             `json:"completedAt,omitempty"`
+	ExpiresAt    *time.Time             `json:"expiresAt,omitempty"`
+	ErrorMessage string                 `json:"errorMessage,omitempty"`
 }
 
 // RegisterRoutes registers snapshot routes
@@ -145,7 +149,7 @@ func (h *SnapshotsHandler) CreateSnapshot(c *gin.Context) {
 	var req struct {
 		Name        string                 `json:"name" binding:"required"`
 		Description string                 `json:"description"`
-		Type        string                 `json:"type"` // manual, automatic
+		Type        string                 `json:"type"`      // manual, automatic
 		ExpiresIn   string                 `json:"expiresIn"` // duration like "7d", "30d", "90d"
 		Metadata    map[string]interface{} `json:"metadata"`
 	}
@@ -584,31 +588,129 @@ func (h *SnapshotsHandler) createSnapshotAsync(snapshotID, sessionID, storagePat
 		UPDATE session_snapshots SET status = 'creating', updated_at = CURRENT_TIMESTAMP WHERE id = $1
 	`, snapshotID)
 
-	// Simulate snapshot creation (in production, this would:
-	// 1. Stop/pause the session
-	// 2. Create filesystem snapshot using rsync, tar, or volume snapshot
-	// 3. Calculate size
-	// 4. Compress if needed
-	// 5. Update status
-	time.Sleep(2 * time.Second)
+	// Real snapshot creation implementation
+	sizeBytes, err := h.performSnapshotCreation(ctx, sessionID, snapshotID, storagePath)
 
-	// For now, just mark as available
-	sizeBytes := int64(1024 * 1024 * 100) // Simulated 100MB
+	if err != nil {
+		// Mark as failed
+		log.Printf("[ERROR] Snapshot creation failed for %s: %v", snapshotID, err)
+		h.db.DB().ExecContext(ctx, `
+			UPDATE session_snapshots
+			SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2
+		`, err.Error(), snapshotID)
+		return
+	}
 
-	_, err := h.db.DB().ExecContext(ctx, `
+	// Mark as available with real size
+	_, err = h.db.DB().ExecContext(ctx, `
 		UPDATE session_snapshots
 		SET status = 'available', size_bytes = $1, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
 	`, sizeBytes, snapshotID)
 
 	if err != nil {
-		// Mark as failed
-		h.db.DB().ExecContext(ctx, `
-			UPDATE session_snapshots
-			SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP
-			WHERE id = $2
-		`, err.Error(), snapshotID)
+		log.Printf("[ERROR] Failed to update snapshot status: %v", err)
+	} else {
+		log.Printf("[INFO] Snapshot %s created successfully (%d bytes)", snapshotID, sizeBytes)
 	}
+}
+
+func (h *SnapshotsHandler) performSnapshotCreation(ctx context.Context, sessionID, snapshotID, storagePath string) (int64, error) {
+	// Get Kubernetes client
+	k8sClient, err := k8s.NewClient()
+	if err != nil {
+		return 0, fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	// Get namespace from environment
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		namespace = "streamspace"
+	}
+
+	// Get session to find pod name
+	session, err := k8sClient.GetSession(ctx, namespace, sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	if session.Status.PodName == "" {
+		return 0, fmt.Errorf("session pod not found or not running")
+	}
+
+	podName := session.Status.PodName
+	log.Printf("[INFO] Creating snapshot for session %s (pod: %s)", sessionID, podName)
+
+	// Create snapshot storage directory
+	if err := os.MkdirAll(storagePath, 0755); err != nil {
+		return 0, fmt.Errorf("failed to create snapshot directory: %w", err)
+	}
+
+	// Define tar file path
+	tarFileName := fmt.Sprintf("snapshot-%s.tar.gz", snapshotID)
+	tarFilePath := filepath.Join(storagePath, tarFileName)
+
+	// Execute tar command inside the pod to create compressed archive
+	// Using kubectl exec to tar /config directory (where session data is stored)
+	log.Printf("[INFO] Executing tar command in pod %s", podName)
+
+	kubectlPath := os.Getenv("KUBECTL_PATH")
+	if kubectlPath == "" {
+		kubectlPath = "kubectl"
+	}
+
+	// Create tar.gz archive of /config directory
+	tarCmd := exec.CommandContext(ctx,
+		kubectlPath, "exec", "-n", namespace, podName, "--",
+		"tar", "-czf", "-", "-C", "/config", ".",
+	)
+
+	// Create output file
+	outFile, err := os.Create(tarFilePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create tar file: %w", err)
+	}
+	defer outFile.Close()
+
+	// Capture stderr for error messages
+	var stderr bytes.Buffer
+	tarCmd.Stdout = outFile
+	tarCmd.Stderr = &stderr
+
+	// Execute tar command
+	if err := tarCmd.Run(); err != nil {
+		return 0, fmt.Errorf("failed to execute tar command: %w, stderr: %s", err, stderr.String())
+	}
+
+	// Get file size
+	fileInfo, err := os.Stat(tarFilePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get snapshot file size: %w", err)
+	}
+
+	sizeBytes := fileInfo.Size()
+	log.Printf("[INFO] Snapshot created: %s (%d bytes, %.2f MB)", tarFilePath, sizeBytes, float64(sizeBytes)/(1024*1024))
+
+	// Create metadata file
+	metadataPath := filepath.Join(storagePath, "metadata.json")
+	metadata := map[string]interface{}{
+		"snapshot_id": snapshotID,
+		"session_id":  sessionID,
+		"pod_name":    podName,
+		"created_at":  time.Now().UTC().Format(time.RFC3339),
+		"size_bytes":  sizeBytes,
+		"tar_file":    tarFileName,
+		"compression": "gzip",
+		"source_path": "/config",
+	}
+
+	metadataJSON, err := json.MarshalIndent(metadata, "", "  ")
+	if err == nil {
+		os.WriteFile(metadataPath, metadataJSON, 0644)
+	}
+
+	return sizeBytes, nil
 }
 
 func (h *SnapshotsHandler) restoreSnapshotAsync(restoreID, snapshotID, sessionID, targetSession, storagePath string) {
@@ -619,27 +721,154 @@ func (h *SnapshotsHandler) restoreSnapshotAsync(restoreID, snapshotID, sessionID
 		UPDATE snapshot_restore_jobs SET status = 'in_progress', started_at = CURRENT_TIMESTAMP WHERE id = $1
 	`, restoreID)
 
-	// Simulate restore operation (in production, this would:
-	// 1. Stop target session
-	// 2. Restore filesystem from snapshot
-	// 3. Start session
-	// 4. Verify restoration
-	time.Sleep(3 * time.Second)
+	// Real snapshot restore implementation
+	err := h.performSnapshotRestore(ctx, snapshotID, targetSession, storagePath)
+
+	if err != nil {
+		log.Printf("[ERROR] Snapshot restore failed for %s: %v", restoreID, err)
+		h.db.DB().ExecContext(ctx, `
+			UPDATE snapshot_restore_jobs
+			SET status = 'failed', error_message = $1, completed_at = CURRENT_TIMESTAMP
+			WHERE id = $2
+		`, err.Error(), restoreID)
+		return
+	}
 
 	// Mark as completed
-	_, err := h.db.DB().ExecContext(ctx, `
+	_, err = h.db.DB().ExecContext(ctx, `
 		UPDATE snapshot_restore_jobs
 		SET status = 'completed', completed_at = CURRENT_TIMESTAMP
 		WHERE id = $1
 	`, restoreID)
 
 	if err != nil {
-		h.db.DB().ExecContext(ctx, `
-			UPDATE snapshot_restore_jobs
-			SET status = 'failed', error_message = $1, completed_at = CURRENT_TIMESTAMP
-			WHERE id = $2
-		`, err.Error(), restoreID)
+		log.Printf("[ERROR] Failed to update restore job status: %v", err)
+	} else {
+		log.Printf("[INFO] Snapshot %s restored successfully to session %s", snapshotID, targetSession)
 	}
+}
+
+func (h *SnapshotsHandler) performSnapshotRestore(ctx context.Context, snapshotID, targetSession, storagePath string) error {
+	// Get Kubernetes client
+	k8sClient, err := k8s.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	// Get namespace from environment
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		namespace = "streamspace"
+	}
+
+	// Get target session to find pod name
+	session, err := k8sClient.GetSession(ctx, namespace, targetSession)
+	if err != nil {
+		return fmt.Errorf("failed to get target session: %w", err)
+	}
+
+	if session.Status.PodName == "" {
+		return fmt.Errorf("target session pod not found or not running")
+	}
+
+	podName := session.Status.PodName
+	log.Printf("[INFO] Restoring snapshot %s to session %s (pod: %s)", snapshotID, targetSession, podName)
+
+	// Find the snapshot tar file
+	tarFileName := fmt.Sprintf("snapshot-%s.tar.gz", snapshotID)
+	tarFilePath := filepath.Join(storagePath, tarFileName)
+
+	// Verify snapshot file exists
+	if _, err := os.Stat(tarFilePath); err != nil {
+		return fmt.Errorf("snapshot file not found: %w", err)
+	}
+
+	log.Printf("[INFO] Found snapshot file: %s", tarFilePath)
+
+	kubectlPath := os.Getenv("KUBECTL_PATH")
+	if kubectlPath == "" {
+		kubectlPath = "kubectl"
+	}
+
+	// Step 1: Backup existing data (optional but recommended)
+	log.Printf("[INFO] Creating backup of existing data before restore")
+	backupCmd := exec.CommandContext(ctx,
+		kubectlPath, "exec", "-n", namespace, podName, "--",
+		"sh", "-c", "cd /config && tar -czf /tmp/pre-restore-backup.tar.gz . 2>/dev/null || true",
+	)
+	var backupStderr bytes.Buffer
+	backupCmd.Stderr = &backupStderr
+	if err := backupCmd.Run(); err != nil {
+		log.Printf("[WARN] Failed to create pre-restore backup: %v, stderr: %s", err, backupStderr.String())
+		// Continue anyway - backup is optional
+	}
+
+	// Step 2: Clear existing /config directory
+	log.Printf("[INFO] Clearing existing data in /config")
+	clearCmd := exec.CommandContext(ctx,
+		kubectlPath, "exec", "-n", namespace, podName, "--",
+		"sh", "-c", "rm -rf /config/* /config/.[!.]* 2>/dev/null || true",
+	)
+	var clearStderr bytes.Buffer
+	clearCmd.Stderr = &clearStderr
+	if err := clearCmd.Run(); err != nil {
+		log.Printf("[WARN] Error clearing directory: %v, stderr: %s", err, clearStderr.String())
+		// Continue anyway - some files may be locked
+	}
+
+	// Step 3: Extract snapshot tar file into pod
+	log.Printf("[INFO] Extracting snapshot into pod")
+
+	// Open tar file for reading
+	tarFile, err := os.Open(tarFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open tar file: %w", err)
+	}
+	defer tarFile.Close()
+
+	// Extract tar.gz to /config directory
+	extractCmd := exec.CommandContext(ctx,
+		kubectlPath, "exec", "-i", "-n", namespace, podName, "--",
+		"tar", "-xzf", "-", "-C", "/config",
+	)
+	extractCmd.Stdin = tarFile
+
+	var extractStderr bytes.Buffer
+	extractCmd.Stderr = &extractStderr
+
+	if err := extractCmd.Run(); err != nil {
+		return fmt.Errorf("failed to extract snapshot: %w, stderr: %s", err, extractStderr.String())
+	}
+
+	log.Printf("[INFO] Snapshot extracted successfully")
+
+	// Step 4: Verify restoration by checking file count
+	verifyCmd := exec.CommandContext(ctx,
+		kubectlPath, "exec", "-n", namespace, podName, "--",
+		"sh", "-c", "find /config -type f | wc -l",
+	)
+
+	var verifyOutput bytes.Buffer
+	verifyCmd.Stdout = &verifyOutput
+	if err := verifyCmd.Run(); err == nil {
+		log.Printf("[INFO] Restored file count: %s", strings.TrimSpace(verifyOutput.String()))
+	}
+
+	// Step 5: Fix permissions
+	log.Printf("[INFO] Fixing permissions on restored files")
+	chownCmd := exec.CommandContext(ctx,
+		kubectlPath, "exec", "-n", namespace, podName, "--",
+		"sh", "-c", "chown -R 1000:1000 /config 2>/dev/null || true",
+	)
+	var chownStderr bytes.Buffer
+	chownCmd.Stderr = &chownStderr
+	if err := chownCmd.Run(); err != nil {
+		log.Printf("[WARN] Failed to fix permissions: %v, stderr: %s", err, chownStderr.String())
+		// Continue - permissions may already be correct
+	}
+
+	log.Printf("[INFO] Snapshot restore completed successfully")
+	return nil
 }
 
 func (h *SnapshotsHandler) deleteSnapshotFiles(storagePath string) {
@@ -726,9 +955,9 @@ func (h *SnapshotsHandler) getDefaultSnapshotConfig() map[string]interface{} {
 			"schedule": "0 2 * * *", // Daily at 2 AM
 		},
 		"retention": map[string]interface{}{
-			"maxSnapshots":       10,
-			"retentionDays":      30,
-			"deleteExpiredAuto":  true,
+			"maxSnapshots":      10,
+			"retentionDays":     30,
+			"deleteExpiredAuto": true,
 		},
 		"compression": map[string]interface{}{
 			"enabled": true,
