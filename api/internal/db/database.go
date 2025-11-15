@@ -218,10 +218,50 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_group_memberships_user_id ON group_memberships(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_group_memberships_group_id ON group_memberships(group_id)`,
 
+		// Team role permissions (defines what each team role can do)
+		`CREATE TABLE IF NOT EXISTS team_role_permissions (
+			id SERIAL PRIMARY KEY,
+			role VARCHAR(50) NOT NULL,
+			permission VARCHAR(100) NOT NULL,
+			description TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(role, permission)
+		)`,
+
+		// Insert default team role permissions
+		`INSERT INTO team_role_permissions (role, permission, description) VALUES
+			('owner', 'team.manage', 'Manage team settings and delete team'),
+			('owner', 'team.members.manage', 'Add/remove team members and change roles'),
+			('owner', 'team.sessions.create', 'Create new team sessions'),
+			('owner', 'team.sessions.view', 'View all team sessions'),
+			('owner', 'team.sessions.update', 'Update team session settings'),
+			('owner', 'team.sessions.delete', 'Delete team sessions'),
+			('owner', 'team.sessions.connect', 'Connect to team sessions'),
+			('owner', 'team.quota.view', 'View team quota and usage'),
+			('owner', 'team.quota.manage', 'Manage team resource quotas'),
+
+			('admin', 'team.members.manage', 'Add/remove team members'),
+			('admin', 'team.sessions.create', 'Create new team sessions'),
+			('admin', 'team.sessions.view', 'View all team sessions'),
+			('admin', 'team.sessions.update', 'Update team session settings'),
+			('admin', 'team.sessions.delete', 'Delete team sessions'),
+			('admin', 'team.sessions.connect', 'Connect to team sessions'),
+			('admin', 'team.quota.view', 'View team quota and usage'),
+
+			('member', 'team.sessions.create', 'Create new team sessions'),
+			('member', 'team.sessions.view', 'View all team sessions'),
+			('member', 'team.sessions.connect', 'Connect to team sessions'),
+			('member', 'team.quota.view', 'View team quota and usage'),
+
+			('viewer', 'team.sessions.view', 'View all team sessions'),
+			('viewer', 'team.quota.view', 'View team quota and usage')
+		ON CONFLICT (role, permission) DO NOTHING`,
+
 		// Sessions table (cache of K8s Sessions)
 		`CREATE TABLE IF NOT EXISTS sessions (
 			id VARCHAR(255) PRIMARY KEY,
 			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			team_id VARCHAR(255) REFERENCES groups(id) ON DELETE SET NULL,
 			template_name VARCHAR(255),
 			state VARCHAR(50),
 			app_type VARCHAR(50) DEFAULT 'desktop',
@@ -234,8 +274,9 @@ func (d *Database) Migrate() error {
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 
-		// Create index on user_id
+		// Create indexes on sessions
 		`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_team_id ON sessions(team_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_state ON sessions(state)`,
 
 		// Connections table (active connections)
