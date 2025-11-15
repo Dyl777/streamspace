@@ -1671,6 +1671,97 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_calendar_events_schedule_id ON calendar_events(schedule_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_calendar_events_user_id ON calendar_events(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_calendar_events_start_time ON calendar_events(start_time)`,
+
+		// ========== Load Balancing & Auto-scaling ==========
+
+		// Load balancing policies
+		`CREATE TABLE IF NOT EXISTS load_balancing_policies (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL UNIQUE,
+			description TEXT,
+			strategy VARCHAR(50) NOT NULL,
+			enabled BOOLEAN DEFAULT true,
+			session_affinity BOOLEAN DEFAULT false,
+			health_check_config JSONB,
+			node_selector JSONB,
+			node_weights JSONB,
+			geo_preferences TEXT[],
+			resource_thresholds JSONB,
+			metadata JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Node status tracking
+		`CREATE TABLE IF NOT EXISTS node_status (
+			id SERIAL PRIMARY KEY,
+			node_name VARCHAR(255) NOT NULL UNIQUE,
+			status VARCHAR(50) DEFAULT 'unknown',
+			cpu_allocated DECIMAL(10,2) DEFAULT 0,
+			cpu_capacity DECIMAL(10,2) DEFAULT 0,
+			memory_allocated BIGINT DEFAULT 0,
+			memory_capacity BIGINT DEFAULT 0,
+			active_sessions INT DEFAULT 0,
+			health_status VARCHAR(50) DEFAULT 'unknown',
+			last_health_check TIMESTAMP,
+			region VARCHAR(100),
+			zone VARCHAR(100),
+			labels JSONB,
+			taints TEXT[],
+			weight INT DEFAULT 1,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Auto-scaling policies
+		`CREATE TABLE IF NOT EXISTS autoscaling_policies (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL UNIQUE,
+			description TEXT,
+			target_type VARCHAR(50) NOT NULL,
+			target_id VARCHAR(255) NOT NULL,
+			enabled BOOLEAN DEFAULT true,
+			scaling_mode VARCHAR(50) DEFAULT 'horizontal',
+			min_replicas INT DEFAULT 1,
+			max_replicas INT DEFAULT 10,
+			metric_type VARCHAR(50) DEFAULT 'cpu',
+			target_metric_value DECIMAL(10,2),
+			scale_up_policy JSONB,
+			scale_down_policy JSONB,
+			predictive_scaling JSONB,
+			cooldown_period INT DEFAULT 300,
+			metadata JSONB,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Scaling events (audit log for scaling actions)
+		`CREATE TABLE IF NOT EXISTS scaling_events (
+			id SERIAL PRIMARY KEY,
+			policy_id INT REFERENCES autoscaling_policies(id) ON DELETE CASCADE,
+			target_type VARCHAR(50) NOT NULL,
+			target_id VARCHAR(255) NOT NULL,
+			action VARCHAR(50) NOT NULL,
+			previous_replicas INT NOT NULL,
+			new_replicas INT NOT NULL,
+			trigger VARCHAR(50) NOT NULL,
+			metric_value DECIMAL(10,2),
+			reason TEXT,
+			status VARCHAR(50) DEFAULT 'pending',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for load balancing and autoscaling
+		`CREATE INDEX IF NOT EXISTS idx_load_balancing_policies_enabled ON load_balancing_policies(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_load_balancing_policies_strategy ON load_balancing_policies(strategy)`,
+		`CREATE INDEX IF NOT EXISTS idx_node_status_status ON node_status(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_node_status_health ON node_status(health_status)`,
+		`CREATE INDEX IF NOT EXISTS idx_node_status_region ON node_status(region)`,
+		`CREATE INDEX IF NOT EXISTS idx_autoscaling_policies_enabled ON autoscaling_policies(enabled) WHERE enabled = true`,
+		`CREATE INDEX IF NOT EXISTS idx_autoscaling_policies_target ON autoscaling_policies(target_type, target_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_scaling_events_policy_id ON scaling_events(policy_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_scaling_events_created_at ON scaling_events(created_at DESC)`,
 	}
 
 	// Execute migrations

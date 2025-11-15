@@ -607,6 +607,23 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 			scheduling.GET("/calendar/export.ics", h.ExportICalendar)
 		}
 
+		// Load Balancing & Auto-scaling - Admin/Operator only
+		scaling := protected.Group("/scaling")
+		scaling.Use(operatorMiddleware)
+		{
+			// Load balancing policies
+			scaling.GET("/load-balancing/policies", h.ListLoadBalancingPolicies)
+			scaling.POST("/load-balancing/policies", h.CreateLoadBalancingPolicy)
+			scaling.GET("/load-balancing/nodes", h.GetNodeStatus)
+			scaling.POST("/load-balancing/select-node", h.SelectNode)
+
+			// Auto-scaling policies
+			scaling.GET("/autoscaling/policies", h.ListAutoScalingPolicies)
+			scaling.POST("/autoscaling/policies", h.CreateAutoScalingPolicy)
+			scaling.POST("/autoscaling/policies/:policyId/trigger", h.TriggerScaling)
+			scaling.GET("/autoscaling/history", h.GetScalingHistory)
+		}
+
 			// Templates (read: all users, write: operators/admins)
 			templates := protected.Group("/templates")
 			{
