@@ -1,3 +1,30 @@
+// Package middleware provides HTTP middleware for the StreamSpace API.
+// This file implements rate limiting to prevent brute force and DoS attacks.
+//
+// SECURITY ENHANCEMENT (2025-11-14):
+// Added in-memory rate limiting for MFA verification to prevent brute force attacks.
+//
+// Rate limiting is critical for security:
+// - MFA codes are only 6 digits (1 million combinations)
+// - Without rate limiting, codes can be brute forced in minutes
+// - With 5 attempts/minute limit, brute force takes ~160 days
+//
+// Current Implementation: In-Memory (Development/Single-Server)
+// - Fast: No network round-trips
+// - Simple: No external dependencies
+// - Limitations: Not distributed (doesn't work across multiple API servers)
+//
+// Production Recommendation: Redis-Backed Rate Limiting
+// - Distributed: Works across multiple API servers
+// - Persistent: Survives API server restarts
+// - Scalable: Handles millions of concurrent rate limit entries
+//
+// Usage:
+//   // In handler
+//   limiter := middleware.GetRateLimiter()
+//   if !limiter.CheckLimit("user:123:mfa", 5, 1*time.Minute) {
+//     return errors.New("rate limit exceeded")
+//   }
 package middleware
 
 import (
@@ -5,8 +32,23 @@ import (
 	"time"
 )
 
-// RateLimiter implements a simple in-memory rate limiter
-// For production, use Redis-backed rate limiting for distributed systems
+// RateLimiter implements a simple in-memory sliding window rate limiter.
+//
+// Thread Safety: Uses sync.RWMutex for concurrent access protection.
+//
+// Algorithm: Sliding Window
+// - Records timestamp of each attempt
+// - Filters out attempts outside the time window
+// - Counts remaining attempts
+// - Allows if count < maxAttempts
+//
+// Memory Management:
+// - Automatic cleanup runs every 5 minutes
+// - Removes entries older than 10 minutes
+// - Prevents memory leaks from abandoned rate limits
+//
+// For production use with multiple API servers, replace with Redis-backed
+// implementation for distributed rate limiting.
 type RateLimiter struct {
 	attempts map[string][]time.Time
 	mu       sync.RWMutex

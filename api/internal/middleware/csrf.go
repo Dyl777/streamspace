@@ -1,3 +1,38 @@
+// Package middleware provides HTTP middleware for the StreamSpace API.
+// This file implements CSRF (Cross-Site Request Forgery) protection.
+//
+// SECURITY ENHANCEMENT (2025-11-14):
+// Added CSRF protection using double-submit cookie pattern with constant-time comparison.
+//
+// CSRF Attack Scenario (Without Protection):
+// 1. User logs into StreamSpace (gets session cookie)
+// 2. User visits malicious site evil.com
+// 3. evil.com contains: <form action="https://streamspace.io/api/delete-account" method="POST">
+// 4. Browser automatically sends session cookie with the malicious request
+// 5. StreamSpace deletes user's account (thinks it's a legitimate request)
+//
+// CSRF Protection (Double-Submit Cookie Pattern):
+// 1. GET request: Server generates random CSRF token, sends in both cookie AND header
+// 2. Client stores header token (JavaScript can read it)
+// 3. POST request: Client sends token in both cookie AND custom header
+// 4. Server compares: cookie token == header token (using constant-time comparison)
+// 5. If match: Request is from legitimate client (evil.com can't read/set custom headers)
+// 6. If mismatch: Request is CSRF attack (blocked)
+//
+// Why This Works:
+// - Malicious sites can trigger POST requests (via forms, fetch)
+// - Browsers automatically send cookies with requests (even cross-site)
+// - BUT: Malicious sites CANNOT read cookies or set custom headers (Same-Origin Policy)
+// - So attacker cannot get the token to put in the custom header
+//
+// Implementation Details:
+// - Token: 32 random bytes, base64-encoded (256 bits of entropy)
+// - Comparison: Constant-time (prevents timing attacks)
+// - Storage: In-memory map with automatic cleanup (24-hour expiry)
+// - Exempt: GET, HEAD, OPTIONS requests (safe methods, no state change)
+//
+// Usage:
+//   router.Use(middleware.CSRFProtection())
 package middleware
 
 import (
@@ -11,7 +46,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CSRF Constants
+// CSRF Constants define CSRF protection configuration.
 const (
 	// CSRFTokenLength is the length of CSRF tokens in bytes
 	CSRFTokenLength = 32

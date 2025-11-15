@@ -1,3 +1,25 @@
+// Package middleware provides HTTP middleware for the StreamSpace API.
+// This file implements request size limiting to prevent DoS attacks.
+//
+// SECURITY ENHANCEMENT (2025-11-14):
+// Added request size limits to prevent denial of service via oversized payloads.
+//
+// Why Request Size Limits are Critical:
+// - Prevents memory exhaustion from giant JSON payloads
+// - Prevents disk exhaustion from huge file uploads
+// - Prevents slow-loris attacks with endless request bodies
+// - Forces attackers to use many small requests (easier to detect/rate-limit)
+//
+// Implementation:
+// - Uses http.MaxBytesReader for hard limits (prevents buffer overflow)
+// - Checks Content-Length header before processing (fail fast)
+// - Skips for GET/HEAD/OPTIONS (no request body)
+// - Returns 413 Payload Too Large with informative error message
+//
+// Limits:
+// - Default request body: 10MB (general API endpoints)
+// - JSON payloads: 5MB (structured data)
+// - File uploads: 50MB (larger files like logs, exports)
 package middleware
 
 import (
@@ -6,7 +28,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Request Size Limits
+// Request Size Limits define maximum allowed payload sizes.
+//
+// These values balance security (prevent DoS) with usability (allow reasonable uploads).
 const (
 	// MaxRequestBodySize is the maximum allowed request body size (10MB)
 	MaxRequestBodySize int64 = 10 * 1024 * 1024 // 10 MB

@@ -1,8 +1,29 @@
+// Package handlers defines constants for HTTP handlers.
+//
+// This file centralizes all "magic numbers" and timeout values to:
+// - Make configuration changes easier (single source of truth)
+// - Improve code readability (named constants vs. bare numbers)
+// - Document the reasoning behind specific values
+// - Enable easy tuning for different environments
+//
+// SECURITY FIX (2025-11-14):
+// Extracted all magic numbers to named constants as part of code quality improvements.
+// This makes it easier to understand security-critical values like rate limits,
+// timeouts, and buffer sizes.
+//
+// Categories:
+// - MFA: Multi-factor authentication limits and timing
+// - WebSocket: Connection parameters and buffer sizes
+// - Webhook: Retry logic and timeouts
+// - Session: Verification and expiry times
 package handlers
 
 import "time"
 
-// MFA Constants
+// MFA Constants control multi-factor authentication behavior.
+//
+// These values balance security (preventing brute force) with usability
+// (not frustrating legitimate users).
 const (
 	// BackupCodesCount is the number of backup codes to generate
 	BackupCodesCount = 10

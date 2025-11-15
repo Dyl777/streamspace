@@ -1,3 +1,28 @@
+// Package handlers provides HTTP handlers for the StreamSpace API.
+// This file implements enterprise security features including:
+//
+// Security Features:
+// - Multi-Factor Authentication (TOTP, SMS*, Email*) *Note: SMS/Email under development
+// - IP Whitelisting for access control
+// - MFA backup codes for account recovery
+// - Rate limiting on MFA verification (5 attempts/minute)
+// - Database transactions for data consistency
+// - Secret protection (never expose secrets in API responses)
+// - Input validation for all security-sensitive operations
+//
+// Security Fixes Applied (2025-11-14):
+// 1. Disabled incomplete SMS/Email MFA to prevent authentication bypass
+// 2. Added rate limiting to MFA verification (prevents brute force)
+// 3. Wrapped MFA setup in database transactions (ensures consistency)
+// 4. Protected secrets with json:"-" tags (never returned in GET responses)
+// 5. Fixed authorization enumeration in DeleteIPWhitelist
+// 6. Added comprehensive input validation
+// 7. Proper error handling for JSON unmarshal operations
+//
+// Thread Safety:
+// - All database operations are thread-safe via connection pooling
+// - Rate limiting uses thread-safe in-memory storage with mutex
+// - No shared mutable state between handlers
 package handlers
 
 import (
@@ -20,8 +45,45 @@ import (
 // ============================================================================
 // INPUT VALIDATION
 // ============================================================================
+//
+// These functions validate user input before processing to prevent:
+// - SQL injection via malformed inputs
+// - Buffer overflow from oversized inputs
+// - Format string attacks from special characters
+// - Logic errors from invalid data types
+//
+// All security-sensitive handlers MUST call these validation functions first.
+//
+// Security Principle: Validate Early, Validate Often
+// - Validate at the API boundary (before any processing)
+// - Use whitelist validation (allow known-good, not deny known-bad)
+// - Return clear error messages without exposing internal details
+// ============================================================================
 
-// validateIPWhitelistInput validates IP whitelist entry input
+// validateIPWhitelistInput validates IP whitelist entry input.
+//
+// Validates:
+// - IP address or CIDR notation format
+// - Length limits to prevent buffer overflow
+// - Format correctness (uses net.ParseIP and net.ParseCIDR)
+//
+// Security:
+// - Prevents SQL injection via length limits
+// - Prevents DoS via description length limit (500 chars)
+// - Rejects invalid IP formats before database insertion
+//
+// Parameters:
+//   - ipOrCIDR: IP address (e.g., "192.168.1.1") or CIDR (e.g., "10.0.0.0/8")
+//   - description: Human-readable description (max 500 chars)
+//
+// Returns:
+//   - error: Validation error with user-friendly message, or nil if valid
+//
+// Example valid inputs:
+//   - Single IP: "203.0.113.42"
+//   - IPv6: "2001:0db8:85a3::8a2e:0370:7334"
+//   - CIDR: "192.168.1.0/24"
+//   - Description: "Office network"
 func validateIPWhitelistInput(ipOrCIDR, description string) error {
 	// Validate IP/CIDR is provided
 	if ipOrCIDR == "" {
@@ -144,7 +206,68 @@ type TrustedDevice struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
-// SetupMFA initializes MFA for a user (Step 1: Generate secret)
+// SetupMFA initializes Multi-Factor Authentication for a user (Step 1 of 2-step setup).
+//
+// Two-Step MFA Setup Process:
+//   Step 1: SetupMFA - Generate secret and QR code (this function)
+//   Step 2: VerifyMFASetup - User proves they can generate valid codes
+//
+// This prevents users from enabling MFA without successfully configuring their app,
+// which would lock them out of their account.
+//
+// CRITICAL SECURITY FIX (2025-11-14):
+// SMS and Email MFA are DISABLED because they were incomplete and always returned
+// "valid=true" in verification. This would allow bypassing MFA entirely by selecting
+// SMS/Email during verification. Only TOTP (authenticator apps) is currently supported.
+//
+// Why TOTP is secure:
+// - Time-based codes expire every 30 seconds
+// - Codes are generated locally on user's device (no network dependency)
+// - Secret never leaves server (shown only once during setup)
+// - Standard implementation (RFC 6238) compatible with Google Authenticator, Authy, etc.
+//
+// Process:
+// 1. Validate input (type, phone/email if provided)
+// 2. Reject SMS/Email MFA (not implemented)
+// 3. Check for existing MFA method (prevent duplicates)
+// 4. Generate TOTP secret and QR code
+// 5. Store in database with enabled=false, verified=false
+// 6. Return secret and QR code (ONLY time secret is exposed)
+//
+// Security:
+// - Input validation prevents injection attacks
+// - Secret is 32-character base32 encoded (160 bits of entropy)
+// - QR code contains URL safe for authenticator apps
+// - MFA method is NOT enabled until verified (Step 2)
+// - Secret is only returned in this response (never in GET endpoints)
+//
+// Parameters:
+//   - userID: From authentication context (JWT)
+//   - req.Type: MFA type ("totp" only currently supported)
+//   - req.PhoneNumber: Phone for SMS (not implemented)
+//   - req.Email: Email for email codes (not implemented)
+//
+// Returns:
+//   - 200 OK: MFA setup initiated, returns secret and QR code
+//   - 400 Bad Request: Invalid input
+//   - 409 Conflict: MFA already exists for this type
+//   - 501 Not Implemented: SMS/Email MFA requested
+//   - 500 Internal Server Error: Database or generation error
+//
+// Example request:
+//   POST /api/enterprise/security/mfa/setup
+//   {
+//     "type": "totp"
+//   }
+//
+// Example response:
+//   {
+//     "id": 123,
+//     "type": "totp",
+//     "secret": "JBSWY3DPEHPK3PXP",
+//     "qr_code": "otpauth://totp/StreamSpace:user123?secret=JBSWY3DP...",
+//     "message": "Scan the QR code with your authenticator app and verify"
+//   }
 func (h *Handler) SetupMFA(c *gin.Context) {
 	userID := c.GetString("user_id")
 
@@ -338,7 +461,43 @@ func (h *Handler) VerifyMFASetup(c *gin.Context) {
 	})
 }
 
-// VerifyMFA verifies MFA code during login
+// VerifyMFA verifies MFA code during login (used after username/password authentication).
+//
+// CRITICAL SECURITY FIX (2025-11-14):
+// Added rate limiting (5 attempts per minute) to prevent brute force attacks on 6-digit TOTP codes.
+//
+// Why Rate Limiting is Critical:
+// - TOTP codes are only 6 digits (1,000,000 possible values)
+// - Codes are valid for 30-60 seconds (time window allows some drift)
+// - Without rate limiting, attacker could brute force in ~15 minutes
+// - With 5 attempts/minute, brute force takes ~3,850 hours (160 days)
+//
+// Process:
+// 1. Check rate limit (5 attempts/minute per user)
+// 2. Reject SMS/Email MFA (not implemented)
+// 3. Verify code (TOTP or backup code)
+// 4. If successful, set MFA session flag
+// 5. Optionally trust device (sets long-lived cookie)
+//
+// Security:
+// - Rate limiting prevents brute force (5 attempts/minute)
+// - Backup codes are single-use and hashed (SHA-256)
+// - TOTP codes expire every 30 seconds
+// - "Trust device" cookie has limited lifetime and device fingerprint
+//
+// Parameters:
+//   - userID: From authentication context (JWT)
+//   - req.Code: 6-digit TOTP code or 8-character backup code
+//   - req.MethodType: "totp" (default), "sms" (disabled), "email" (disabled), "backup_code"
+//   - req.TrustDevice: If true, set remember-me cookie for this device
+//
+// Returns:
+//   - 200 OK: MFA verification successful
+//   - 400 Bad Request: Invalid input
+//   - 401 Unauthorized: Invalid code
+//   - 404 Not Found: MFA method not enabled
+//   - 429 Too Many Requests: Rate limit exceeded (>5 attempts/minute)
+//   - 501 Not Implemented: SMS/Email MFA requested
 func (h *Handler) VerifyMFA(c *gin.Context) {
 	userID := c.GetString("user_id")
 
@@ -751,7 +910,38 @@ func (h *Handler) ListIPWhitelist(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"entries": entries})
 }
 
-// DeleteIPWhitelist removes an IP whitelist entry
+// DeleteIPWhitelist removes an IP whitelist entry.
+//
+// CRITICAL SECURITY FIX (2025-11-14):
+// Fixed authorization enumeration vulnerability by returning consistent "not found"
+// error for both non-existent entries AND unauthorized access attempts.
+//
+// Authorization Enumeration Attack:
+// Before fix:
+//   - Try to delete entry 123: "Forbidden" → Entry exists but you can't access it
+//   - Try to delete entry 999: "Not found" → Entry doesn't exist
+//   - Attacker can enumerate which entries exist by trying many IDs
+//
+// After fix:
+//   - Try to delete entry 123: "Not found" → Could be either case
+//   - Try to delete entry 999: "Not found" → Could be either case
+//   - Attacker cannot determine if entry exists or just lacks permission
+//
+// Implementation:
+// - Admins: DELETE any entry
+// - Users: DELETE only if (user_id = $userID OR user_id IS NULL)
+// - Check rows affected: 0 = either not found OR unauthorized
+// - Always return 404 when rowsAffected = 0 (no information leakage)
+//
+// Parameters:
+//   - entryId: IP whitelist entry ID from URL path
+//   - userID: From authentication context
+//   - role: User role ("admin" or "user")
+//
+// Returns:
+//   - 200 OK: Entry deleted successfully
+//   - 404 Not Found: Entry doesn't exist OR user lacks permission (secure, no information leakage)
+//   - 500 Internal Server Error: Database error
 func (h *Handler) DeleteIPWhitelist(c *gin.Context) {
 	entryID := c.Param("entryId")
 	userID := c.GetString("user_id")
