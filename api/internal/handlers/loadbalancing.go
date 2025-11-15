@@ -1,13 +1,22 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	metricsclientset "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // ============================================================================
@@ -220,35 +229,250 @@ func (h *Handler) fetchNodeStatusFromDatabase() ([]NodeStatus, error) {
 
 // fetchKubernetesNodeMetrics fetches real-time node metrics from Kubernetes API
 func (h *Handler) fetchKubernetesNodeMetrics() ([]NodeStatus, error) {
-	// Check if K8s configuration is available
+	ctx := context.Background()
+
+	// Create Kubernetes config
+	config, err := h.getKubernetesConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubernetes config: %w", err)
+	}
+
+	// Create Kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+	}
+
+	// Create metrics clientset
+	metricsClient, err := metricsclientset.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics client: %w", err)
+	}
+
+	// Fetch node list
+	nodeList, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	// Fetch node metrics from metrics-server
+	nodeMetrics, err := metricsClient.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		// Metrics server might not be available - log but continue
+		fmt.Printf("Warning: Failed to fetch node metrics from metrics-server: %v\n", err)
+		nodeMetrics = &metricsv1beta1.NodeMetricsList{}
+	}
+
+	// Create a map of node metrics for quick lookup
+	metricsMap := make(map[string]metricsv1beta1.NodeMetrics)
+	for _, metric := range nodeMetrics.Items {
+		metricsMap[metric.Name] = metric
+	}
+
+	// Count active sessions per node from database
+	sessionCounts, err := h.getSessionCountsByNode()
+	if err != nil {
+		fmt.Printf("Warning: Failed to get session counts: %v\n", err)
+		sessionCounts = make(map[string]int)
+	}
+
+	// Convert to NodeStatus structs
+	nodes := []NodeStatus{}
+	for _, node := range nodeList.Items {
+		nodeStatus := h.convertNodeToNodeStatus(node, metricsMap, sessionCounts)
+		nodes = append(nodes, nodeStatus)
+	}
+
+	// Cache node status in database for fallback
+	go h.cacheNodeStatusInDatabase(nodes)
+
+	return nodes, nil
+}
+
+// getKubernetesConfig gets Kubernetes configuration from kubeconfig or in-cluster config
+func (h *Handler) getKubernetesConfig() (*rest.Config, error) {
+	// Try in-cluster config first (for pods running in cluster)
+	config, err := rest.InClusterConfig()
+	if err == nil {
+		return config, nil
+	}
+
+	// Fall back to kubeconfig file
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
-		// Try in-cluster config
-		if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); os.IsNotExist(err) {
-			return nil, fmt.Errorf("kubernetes API not configured")
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get home directory: %w", err)
+		}
+		kubeconfig = filepath.Join(homeDir, ".kube", "config")
+	}
+
+	// Build config from kubeconfig file
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build config from kubeconfig: %w", err)
+	}
+
+	return config, nil
+}
+
+// convertNodeToNodeStatus converts a Kubernetes Node to our NodeStatus struct
+func (h *Handler) convertNodeToNodeStatus(node corev1.Node, metricsMap map[string]metricsv1beta1.NodeMetrics, sessionCounts map[string]int) NodeStatus {
+	ns := NodeStatus{
+		NodeName: node.Name,
+		Labels:   node.Labels,
+		Weight:   1, // Default weight
+	}
+
+	// Extract region and zone from labels
+	if region, ok := node.Labels["topology.kubernetes.io/region"]; ok {
+		ns.Region = region
+	} else if region, ok := node.Labels["failure-domain.beta.kubernetes.io/region"]; ok {
+		ns.Region = region
+	}
+
+	if zone, ok := node.Labels["topology.kubernetes.io/zone"]; ok {
+		ns.Zone = zone
+	} else if zone, ok := node.Labels["failure-domain.beta.kubernetes.io/zone"]; ok {
+		ns.Zone = zone
+	}
+
+	// Determine node status
+	ns.Status = "unknown"
+	ns.HealthStatus = "unknown"
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			if condition.Status == corev1.ConditionTrue {
+				ns.Status = "ready"
+				ns.HealthStatus = "healthy"
+			} else {
+				ns.Status = "not_ready"
+				ns.HealthStatus = "unhealthy"
+			}
+			break
 		}
 	}
 
-	// Placeholder for actual Kubernetes API integration
-	// In production, this would use k8s.io/client-go:
-	// 1. Create clientset from config
-	// 2. Query v1.NodeList
-	// 3. Fetch metrics from metrics-server API
-	// 4. Convert to NodeStatus structs
+	// Extract taints
+	ns.Taints = []string{}
+	for _, taint := range node.Spec.Taints {
+		ns.Taints = append(ns.Taints, fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect))
+	}
 
-	// For now, return error to fall back to database
-	return nil, fmt.Errorf("kubernetes API integration not yet implemented - use database cache")
+	// Get capacity and allocatable resources
+	cpuCapacity := node.Status.Capacity.Cpu().AsApproximateFloat64()
+	memoryCapacity := node.Status.Capacity.Memory().Value()
+
+	cpuAllocatable := node.Status.Allocatable.Cpu().AsApproximateFloat64()
+	memoryAllocatable := node.Status.Allocatable.Memory().Value()
+
+	ns.CPUCapacity = cpuAllocatable
+	ns.MemoryCapacity = memoryAllocatable
+
+	// Get actual usage from metrics if available
+	if metrics, ok := metricsMap[node.Name]; ok {
+		cpuUsage := metrics.Usage.Cpu().AsApproximateFloat64()
+		memoryUsage := metrics.Usage.Memory().Value()
+
+		ns.CPUAllocated = cpuUsage
+		ns.MemoryAllocated = memoryUsage
+		ns.LastHealthCheck = metrics.Timestamp.Time
+	} else {
+		// No metrics available - use allocated as approximation
+		ns.CPUAllocated = 0
+		ns.MemoryAllocated = 0
+		ns.LastHealthCheck = time.Now()
+	}
+
+	// Calculate percentages
+	if ns.CPUCapacity > 0 {
+		ns.CPUPercent = (ns.CPUAllocated / ns.CPUCapacity) * 100
+	}
+	if ns.MemoryCapacity > 0 {
+		ns.MemoryPercent = (float64(ns.MemoryAllocated) / float64(ns.MemoryCapacity)) * 100
+	}
+
+	// Get active sessions from database cache
+	if count, ok := sessionCounts[node.Name]; ok {
+		ns.ActiveSessions = count
+	}
+
+	// Store capacity for reference (not exposed in API to avoid confusion)
+	_, _ = cpuCapacity, memoryCapacity
+
+	return ns
+}
+
+// getSessionCountsByNode gets the count of active sessions per node from database
+func (h *Handler) getSessionCountsByNode() (map[string]int, error) {
+	rows, err := h.DB.Query(`
+		SELECT node_name, COUNT(*) as session_count
+		FROM sessions
+		WHERE state = 'running' AND node_name IS NOT NULL
+		GROUP BY node_name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var nodeName string
+		var count int
+		if err := rows.Scan(&nodeName, &count); err != nil {
+			continue
+		}
+		counts[nodeName] = count
+	}
+
+	return counts, nil
+}
+
+// cacheNodeStatusInDatabase caches node status in database for fallback
+func (h *Handler) cacheNodeStatusInDatabase(nodes []NodeStatus) {
+	for _, node := range nodes {
+		// Use UPSERT pattern to update or insert
+		h.DB.Exec(`
+			INSERT INTO node_status
+			(node_name, status, cpu_allocated, cpu_capacity, memory_allocated, memory_capacity,
+			 active_sessions, health_status, last_health_check, region, zone, labels, weight)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			ON CONFLICT (node_name)
+			DO UPDATE SET
+				status = EXCLUDED.status,
+				cpu_allocated = EXCLUDED.cpu_allocated,
+				cpu_capacity = EXCLUDED.cpu_capacity,
+				memory_allocated = EXCLUDED.memory_allocated,
+				memory_capacity = EXCLUDED.memory_capacity,
+				active_sessions = EXCLUDED.active_sessions,
+				health_status = EXCLUDED.health_status,
+				last_health_check = EXCLUDED.last_health_check,
+				region = EXCLUDED.region,
+				zone = EXCLUDED.zone,
+				labels = EXCLUDED.labels,
+				weight = EXCLUDED.weight
+		`, node.NodeName, node.Status, node.CPUAllocated, node.CPUCapacity,
+			node.MemoryAllocated, node.MemoryCapacity, node.ActiveSessions,
+			node.HealthStatus, node.LastHealthCheck, node.Region, node.Zone,
+			node.Labels, node.Weight)
+	}
 }
 
 // scaleKubernetesDeployment scales a Kubernetes deployment to the specified replica count
 func (h *Handler) scaleKubernetesDeployment(deploymentName string, replicas int) error {
-	// Check if K8s configuration is available
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		// Try in-cluster config
-		if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); os.IsNotExist(err) {
-			return fmt.Errorf("kubernetes API not configured")
-		}
+	ctx := context.Background()
+
+	// Create Kubernetes config
+	config, err := h.getKubernetesConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get kubernetes config: %w", err)
+	}
+
+	// Create Kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
 	// Get namespace from environment or default to streamspace
@@ -257,24 +481,39 @@ func (h *Handler) scaleKubernetesDeployment(deploymentName string, replicas int)
 		namespace = "streamspace"
 	}
 
-	// Placeholder for actual Kubernetes API integration
-	// In production, this would use k8s.io/client-go:
-	// 1. Create clientset from config
-	// 2. Get Deployment: clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
-	// 3. Update replicas: deployment.Spec.Replicas = &replicas
-	// 4. Update: clientset.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
-
-	// For development, use database-driven scaling trigger
-	_, err := h.DB.Exec(`
-		INSERT INTO deployment_scaling_queue (deployment_name, namespace, target_replicas, status, created_at)
-		VALUES ($1, $2, $3, 'pending', NOW())
-	`, deploymentName, namespace, replicas)
-
+	// Get the current deployment
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to queue deployment scaling: %w", err)
+		return fmt.Errorf("failed to get deployment %s: %w", deploymentName, err)
 	}
 
-	// Background worker will pick this up and perform actual scaling
+	// Store original replica count for rollback
+	originalReplicas := int32(0)
+	if deployment.Spec.Replicas != nil {
+		originalReplicas = *deployment.Spec.Replicas
+	}
+
+	// Update replica count
+	replicasInt32 := int32(replicas)
+	deployment.Spec.Replicas = &replicasInt32
+
+	// Update the deployment
+	_, err = clientset.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to scale deployment %s from %d to %d replicas: %w",
+			deploymentName, originalReplicas, replicas, err)
+	}
+
+	// Log the scaling operation
+	fmt.Printf("Successfully scaled deployment %s/%s from %d to %d replicas\n",
+		namespace, deploymentName, originalReplicas, replicas)
+
+	// Also store in database queue as audit trail
+	h.DB.Exec(`
+		INSERT INTO deployment_scaling_queue (deployment_name, namespace, target_replicas, status, created_at)
+		VALUES ($1, $2, $3, 'completed', NOW())
+	`, deploymentName, namespace, replicas)
+
 	return nil
 }
 
@@ -634,8 +873,39 @@ func (h *Handler) TriggerScaling(c *gin.Context) {
 		return
 	}
 
-	// Get current replica count (mock - would query Kubernetes in production)
-	currentReplicas := 1
+	// Get current replica count from Kubernetes
+	currentReplicas := 0
+	ctx := context.Background()
+	config, err := h.getKubernetesConfig()
+	if err != nil {
+		log.Printf("[ERROR] Failed to get Kubernetes config for replica count: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to connect to Kubernetes"})
+		return
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create Kubernetes clientset: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize Kubernetes client"})
+		return
+	}
+
+	namespace := os.Getenv("STREAMSPACE_NAMESPACE")
+	if namespace == "" {
+		namespace = "streamspace"
+	}
+
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, policy.TargetID, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("[ERROR] Failed to get deployment %s in namespace %s: %v", policy.TargetID, namespace, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get deployment %s", policy.TargetID)})
+		return
+	}
+
+	if deployment.Spec.Replicas != nil {
+		currentReplicas = int(*deployment.Spec.Replicas)
+	}
+	log.Printf("[INFO] Current replica count for deployment %s: %d", policy.TargetID, currentReplicas)
 
 	// Calculate new replica count
 	var newReplicas int

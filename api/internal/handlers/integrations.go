@@ -10,21 +10,21 @@
 //
 // CRITICAL SECURITY FIXES (2025-11-14):
 // 1. SSRF Protection: validateWebhookURL prevents webhooks from targeting:
-//    - Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-//    - Loopback addresses (127.0.0.0/8)
-//    - Link-local addresses (169.254.0.0/16)
-//    - Cloud metadata endpoints (169.254.169.254)
-//    - Internal hostnames (metadata.google.internal, localhost, etc.)
+//   - Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+//   - Loopback addresses (127.0.0.0/8)
+//   - Link-local addresses (169.254.0.0/16)
+//   - Cloud metadata endpoints (169.254.169.254)
+//   - Internal hostnames (metadata.google.internal, localhost, etc.)
 //
-// 2. Secret Protection: Webhook secrets use json:"-" tags and separate response structs
-//    to ensure secrets are only shown during creation, never in GET endpoints.
+//  2. Secret Protection: Webhook secrets use json:"-" tags and separate response structs
+//     to ensure secrets are only shown during creation, never in GET endpoints.
 //
-// 3. Authorization Enumeration Fixes: UpdateWebhook, DeleteWebhook, TestWebhook, and
-//    TestIntegration all return consistent "not found" errors for both non-existent
-//    resources AND unauthorized access (prevents attacker enumeration).
+//  3. Authorization Enumeration Fixes: UpdateWebhook, DeleteWebhook, TestWebhook, and
+//     TestIntegration all return consistent "not found" errors for both non-existent
+//     resources AND unauthorized access (prevents attacker enumeration).
 //
-// 4. Input Validation: Comprehensive validation for all webhook and integration fields
-//    including URL format, name length, event counts, retry configuration, etc.
+//  4. Input Validation: Comprehensive validation for all webhook and integration fields
+//     including URL format, name length, event counts, retry configuration, etc.
 //
 // Webhook Delivery:
 // - Automatic retries with exponential backoff
@@ -43,14 +43,18 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
+	"net/smtp"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -173,49 +177,49 @@ type WebhookWithSecret struct {
 
 // WebhookRetryPolicy defines retry behavior
 type WebhookRetryPolicy struct {
-	MaxRetries     int `json:"max_retries"`
-	RetryDelay     int `json:"retry_delay_seconds"`
+	MaxRetries        int     `json:"max_retries"`
+	RetryDelay        int     `json:"retry_delay_seconds"`
 	BackoffMultiplier float64 `json:"backoff_multiplier"`
 }
 
 // WebhookFilters allows filtering events
 type WebhookFilters struct {
-	Users      []string `json:"users,omitempty"`
-	Templates  []string `json:"templates,omitempty"`
+	Users         []string `json:"users,omitempty"`
+	Templates     []string `json:"templates,omitempty"`
 	SessionStates []string `json:"session_states,omitempty"`
 }
 
 // WebhookDelivery represents a webhook delivery attempt
 type WebhookDelivery struct {
-	ID            int64                  `json:"id"`
-	WebhookID     int64                  `json:"webhook_id"`
-	Event         string                 `json:"event"`
-	Payload       map[string]interface{} `json:"payload"`
-	Status        string                 `json:"status"` // "pending", "success", "failed"
-	StatusCode    int                    `json:"status_code,omitempty"`
-	ResponseBody  string                 `json:"response_body,omitempty"`
-	ErrorMessage  string                 `json:"error_message,omitempty"`
-	Attempts      int                    `json:"attempts"`
-	NextRetryAt   *time.Time             `json:"next_retry_at,omitempty"`
-	DeliveredAt   *time.Time             `json:"delivered_at,omitempty"`
-	CreatedAt     time.Time              `json:"created_at"`
+	ID           int64                  `json:"id"`
+	WebhookID    int64                  `json:"webhook_id"`
+	Event        string                 `json:"event"`
+	Payload      map[string]interface{} `json:"payload"`
+	Status       string                 `json:"status"` // "pending", "success", "failed"
+	StatusCode   int                    `json:"status_code,omitempty"`
+	ResponseBody string                 `json:"response_body,omitempty"`
+	ErrorMessage string                 `json:"error_message,omitempty"`
+	Attempts     int                    `json:"attempts"`
+	NextRetryAt  *time.Time             `json:"next_retry_at,omitempty"`
+	DeliveredAt  *time.Time             `json:"delivered_at,omitempty"`
+	CreatedAt    time.Time              `json:"created_at"`
 }
 
 // Integration represents an external integration
 type Integration struct {
-	ID           int64                  `json:"id"`
-	Type         string                 `json:"type"` // "slack", "teams", "discord", "pagerduty", "email", "custom"
-	Name         string                 `json:"name"`
-	Description  string                 `json:"description"`
-	Config       map[string]interface{} `json:"config"`
-	Enabled      bool                   `json:"enabled"`
-	Events       []string               `json:"events"`
-	TestMode     bool                   `json:"test_mode"`
-	LastTestAt   *time.Time             `json:"last_test_at,omitempty"`
-	LastSuccessAt *time.Time            `json:"last_success_at,omitempty"`
-	CreatedBy    string                 `json:"created_by"`
-	CreatedAt    time.Time              `json:"created_at"`
-	UpdatedAt    time.Time              `json:"updated_at"`
+	ID            int64                  `json:"id"`
+	Type          string                 `json:"type"` // "slack", "teams", "discord", "pagerduty", "email", "custom"
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description"`
+	Config        map[string]interface{} `json:"config"`
+	Enabled       bool                   `json:"enabled"`
+	Events        []string               `json:"events"`
+	TestMode      bool                   `json:"test_mode"`
+	LastTestAt    *time.Time             `json:"last_test_at,omitempty"`
+	LastSuccessAt *time.Time             `json:"last_success_at,omitempty"`
+	CreatedBy     string                 `json:"created_by"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
 }
 
 // WebhookEvent represents an event that can trigger webhooks
@@ -971,8 +975,9 @@ func (h *Handler) testIntegration(integration Integration) (bool, string) {
 		return false, fmt.Sprintf("Teams returned status code %d", resp.StatusCode)
 
 	case "email":
-		// Would integrate with SMTP
-		return true, "Email integration configured (SMTP test not implemented)"
+		// Real SMTP email testing implementation
+		success, message := h.testEmailIntegration()
+		return success, message
 
 	case "custom":
 		return true, "Custom integration configured"
@@ -980,6 +985,227 @@ func (h *Handler) testIntegration(integration Integration) (bool, string) {
 	default:
 		return false, "Unknown integration type"
 	}
+}
+
+// testEmailIntegration tests SMTP email configuration by sending a test email
+func (h *Handler) testEmailIntegration() (bool, string) {
+	// Get SMTP configuration from environment variables
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUsername := os.Getenv("SMTP_USERNAME")
+	smtpPassword := os.Getenv("SMTP_PASSWORD")
+	smtpFrom := os.Getenv("SMTP_FROM")
+	smtpTLS := os.Getenv("SMTP_TLS")
+
+	// Validate required configuration
+	if smtpHost == "" {
+		return false, "SMTP_HOST environment variable not set"
+	}
+	if smtpPort == "" {
+		smtpPort = "587" // Default to port 587 (STARTTLS)
+	}
+	if smtpFrom == "" {
+		return false, "SMTP_FROM environment variable not set"
+	}
+
+	// Use SMTP_USERNAME as test recipient if no specific test email is configured
+	testRecipient := os.Getenv("SMTP_TEST_RECIPIENT")
+	if testRecipient == "" {
+		testRecipient = smtpUsername
+	}
+
+	if testRecipient == "" {
+		return false, "No test recipient configured (set SMTP_TEST_RECIPIENT or SMTP_USERNAME)"
+	}
+
+	// Build server address
+	serverAddr := smtpHost + ":" + smtpPort
+
+	// Test connection first
+	log.Printf("[INFO] Testing SMTP connection to %s", serverAddr)
+
+	// Determine if TLS should be used
+	useTLS := smtpTLS == "true" || smtpTLS == "1" || smtpPort == "465"
+
+	// Create email message
+	subject := "StreamSpace Email Integration Test"
+	body := fmt.Sprintf(`This is a test email from StreamSpace.
+
+If you receive this email, your email integration is configured correctly.
+
+Configuration:
+- SMTP Host: %s
+- SMTP Port: %s
+- From Address: %s
+- TLS Enabled: %v
+
+Time: %s
+`, smtpHost, smtpPort, smtpFrom, useTLS, time.Now().Format(time.RFC1123))
+
+	// Build MIME email
+	message := []byte(fmt.Sprintf("To: %s\r\n"+
+		"From: %s\r\n"+
+		"Subject: %s\r\n"+
+		"MIME-Version: 1.0\r\n"+
+		"Content-Type: text/plain; charset=UTF-8\r\n"+
+		"\r\n"+
+		"%s", testRecipient, smtpFrom, subject, body))
+
+	// Send email based on port and TLS configuration
+	var err error
+
+	if useTLS && smtpPort == "465" {
+		// Use implicit TLS (port 465)
+		err = h.sendEmailWithTLS(serverAddr, smtpUsername, smtpPassword, smtpFrom, testRecipient, message)
+	} else {
+		// Use STARTTLS (port 587) or plain (not recommended)
+		err = h.sendEmailWithSTARTTLS(serverAddr, smtpUsername, smtpPassword, smtpFrom, testRecipient, message, useTLS)
+	}
+
+	if err != nil {
+		log.Printf("[ERROR] SMTP test failed: %v", err)
+		return false, fmt.Sprintf("SMTP test failed: %v", err)
+	}
+
+	log.Printf("[INFO] SMTP test email sent successfully to %s", testRecipient)
+	return true, fmt.Sprintf("Test email sent successfully to %s", testRecipient)
+}
+
+// sendEmailWithTLS sends email using implicit TLS (port 465)
+func (h *Handler) sendEmailWithTLS(serverAddr, username, password, from, to string, message []byte) error {
+	// Create TLS configuration
+	tlsConfig := &tls.Config{
+		ServerName: strings.Split(serverAddr, ":")[0],
+	}
+
+	// Connect with TLS
+	conn, err := tls.Dial("tcp", serverAddr, tlsConfig)
+	if err != nil {
+		return fmt.Errorf("TLS connection failed: %w", err)
+	}
+	defer conn.Close()
+
+	// Create SMTP client
+	client, err := smtp.NewClient(conn, tlsConfig.ServerName)
+	if err != nil {
+		return fmt.Errorf("SMTP client creation failed: %w", err)
+	}
+	defer client.Quit()
+
+	// Authenticate if credentials provided
+	if username != "" && password != "" {
+		auth := smtp.PlainAuth("", username, password, tlsConfig.ServerName)
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("SMTP authentication failed: %w", err)
+		}
+	}
+
+	// Set sender
+	if err := client.Mail(from); err != nil {
+		return fmt.Errorf("SMTP MAIL command failed: %w", err)
+	}
+
+	// Set recipient
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("SMTP RCPT command failed: %w", err)
+	}
+
+	// Send message data
+	wc, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("SMTP DATA command failed: %w", err)
+	}
+
+	_, err = wc.Write(message)
+	if err != nil {
+		return fmt.Errorf("writing message failed: %w", err)
+	}
+
+	err = wc.Close()
+	if err != nil {
+		return fmt.Errorf("closing data writer failed: %w", err)
+	}
+
+	return nil
+}
+
+// sendEmailWithSTARTTLS sends email using STARTTLS (port 587) or plain SMTP
+func (h *Handler) sendEmailWithSTARTTLS(serverAddr, username, password, from, to string, message []byte, useTLS bool) error {
+	// Parse host from server address
+	host := strings.Split(serverAddr, ":")[0]
+
+	// Set up authentication if credentials provided
+	var auth smtp.Auth
+	if username != "" && password != "" {
+		auth = smtp.PlainAuth("", username, password, host)
+	}
+
+	// If TLS is requested, use custom client with STARTTLS
+	if useTLS {
+		// Connect to server
+		conn, err := net.Dial("tcp", serverAddr)
+		if err != nil {
+			return fmt.Errorf("connection failed: %w", err)
+		}
+		defer conn.Close()
+
+		// Create SMTP client
+		client, err := smtp.NewClient(conn, host)
+		if err != nil {
+			return fmt.Errorf("SMTP client creation failed: %w", err)
+		}
+		defer client.Quit()
+
+		// Start TLS
+		tlsConfig := &tls.Config{ServerName: host}
+		if err := client.StartTLS(tlsConfig); err != nil {
+			return fmt.Errorf("STARTTLS failed: %w", err)
+		}
+
+		// Authenticate
+		if auth != nil {
+			if err := client.Auth(auth); err != nil {
+				return fmt.Errorf("SMTP authentication failed: %w", err)
+			}
+		}
+
+		// Set sender
+		if err := client.Mail(from); err != nil {
+			return fmt.Errorf("SMTP MAIL command failed: %w", err)
+		}
+
+		// Set recipient
+		if err := client.Rcpt(to); err != nil {
+			return fmt.Errorf("SMTP RCPT command failed: %w", err)
+		}
+
+		// Send message
+		wc, err := client.Data()
+		if err != nil {
+			return fmt.Errorf("SMTP DATA command failed: %w", err)
+		}
+
+		_, err = wc.Write(message)
+		if err != nil {
+			return fmt.Errorf("writing message failed: %w", err)
+		}
+
+		err = wc.Close()
+		if err != nil {
+			return fmt.Errorf("closing data writer failed: %w", err)
+		}
+
+		return nil
+	}
+
+	// Use standard smtp.SendMail for plain SMTP (not recommended for production)
+	log.Printf("[WARN] Sending email without TLS encryption (not recommended)")
+	err := smtp.SendMail(serverAddr, auth, from, []string{to}, message)
+	if err != nil {
+		return fmt.Errorf("SMTP send failed: %w", err)
+	}
+
+	return nil
 }
 
 // GetAvailableEvents returns list of available webhook events

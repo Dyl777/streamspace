@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/streamspace/streamspace/api/internal/db"
 )
 
@@ -26,24 +29,24 @@ func NewSessionTemplatesHandler(database *db.Database) *SessionTemplatesHandler 
 
 // SessionTemplate represents a user-defined session configuration template
 type SessionTemplate struct {
-	ID          string                 `json:"id"`
-	UserID      string                 `json:"userId"`
-	TeamID      string                 `json:"teamId,omitempty"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Icon        string                 `json:"icon,omitempty"`
-	Category    string                 `json:"category,omitempty"`
-	Tags        []string               `json:"tags,omitempty"`
-	Visibility  string                 `json:"visibility"` // private, team, public
-	BaseTemplate string                `json:"baseTemplate"` // Reference to catalog template
+	ID            string                 `json:"id"`
+	UserID        string                 `json:"userId"`
+	TeamID        string                 `json:"teamId,omitempty"`
+	Name          string                 `json:"name"`
+	Description   string                 `json:"description,omitempty"`
+	Icon          string                 `json:"icon,omitempty"`
+	Category      string                 `json:"category,omitempty"`
+	Tags          []string               `json:"tags,omitempty"`
+	Visibility    string                 `json:"visibility"`   // private, team, public
+	BaseTemplate  string                 `json:"baseTemplate"` // Reference to catalog template
 	Configuration map[string]interface{} `json:"configuration"`
-	Resources   map[string]interface{} `json:"resources"`
-	Environment map[string]string      `json:"environment,omitempty"`
-	IsDefault   bool                   `json:"isDefault"`
-	UsageCount  int                    `json:"usageCount"`
-	Version     string                 `json:"version"`
-	CreatedAt   time.Time              `json:"createdAt"`
-	UpdatedAt   time.Time              `json:"updatedAt"`
+	Resources     map[string]interface{} `json:"resources"`
+	Environment   map[string]string      `json:"environment,omitempty"`
+	IsDefault     bool                   `json:"isDefault"`
+	UsageCount    int                    `json:"usageCount"`
+	Version       string                 `json:"version"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
 }
 
 // RegisterRoutes registers session template routes
@@ -703,28 +706,736 @@ func (h *SessionTemplatesHandler) ListTeamTemplates(c *gin.Context) {
 	})
 }
 
-// Placeholder methods for sharing and versioning (simplified implementations)
+// Template sharing implementations
+
+// TemplateShare represents a template share record
+type TemplateShare struct {
+	ID                 string     `json:"id"`
+	TemplateID         string     `json:"templateId"`
+	SharedBy           string     `json:"sharedBy"`
+	SharedWithUserID   *string    `json:"sharedWithUserId,omitempty"`
+	SharedWithTeamID   *string    `json:"sharedWithTeamId,omitempty"`
+	SharedWithUserName string     `json:"sharedWithUserName,omitempty"`
+	SharedWithTeamName string     `json:"sharedWithTeamName,omitempty"`
+	PermissionLevel    string     `json:"permissionLevel"` // read, write, manage
+	CreatedAt          time.Time  `json:"createdAt"`
+	RevokedAt          *time.Time `json:"revokedAt,omitempty"`
+}
 
 func (h *SessionTemplatesHandler) ListTemplateShares(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"shares": []interface{}{}, "count": 0})
+	templateID := c.Param("id")
+	userID, _ := c.Get("userID")
+	userIDStr := userID.(string)
+
+	ctx := context.Background()
+
+	// Verify user owns the template or has manage permission
+	if !h.canManageTemplate(ctx, templateID, userIDStr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view shares for this template"})
+		return
+	}
+
+	// Query template shares with user/team names
+	rows, err := h.db.DB().QueryContext(ctx, `
+		SELECT
+			ts.id, ts.template_id, ts.shared_by, ts.shared_with_user_id, ts.shared_with_team_id,
+			ts.permission_level, ts.created_at, ts.revoked_at,
+			COALESCE(u.username, '') as user_name,
+			COALESCE(g.name, '') as team_name
+		FROM template_shares ts
+		LEFT JOIN users u ON ts.shared_with_user_id = u.id
+		LEFT JOIN groups g ON ts.shared_with_team_id = g.id
+		WHERE ts.template_id = $1 AND ts.revoked_at IS NULL
+		ORDER BY ts.created_at DESC
+	`, templateID)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to list template shares: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list shares"})
+		return
+	}
+	defer rows.Close()
+
+	shares := []TemplateShare{}
+	for rows.Next() {
+		var share TemplateShare
+		var userName, teamName sql.NullString
+
+		err := rows.Scan(
+			&share.ID, &share.TemplateID, &share.SharedBy, &share.SharedWithUserID, &share.SharedWithTeamID,
+			&share.PermissionLevel, &share.CreatedAt, &share.RevokedAt,
+			&userName, &teamName,
+		)
+
+		if err != nil {
+			log.Printf("[ERROR] Failed to scan share: %v", err)
+			continue
+		}
+
+		if userName.Valid {
+			share.SharedWithUserName = userName.String
+		}
+		if teamName.Valid {
+			share.SharedWithTeamName = teamName.String
+		}
+
+		shares = append(shares, share)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"shares": shares,
+		"count":  len(shares),
+	})
 }
 
 func (h *SessionTemplatesHandler) ShareSessionTemplate(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Template shared"})
+	templateID := c.Param("id")
+	userID, _ := c.Get("userID")
+	userIDStr := userID.(string)
+
+	var req struct {
+		SharedWithUserID *string `json:"sharedWithUserId"`
+		SharedWithTeamID *string `json:"sharedWithTeamId"`
+		PermissionLevel  string  `json:"permissionLevel"` // read, write, manage
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Validate that either user or team is specified, not both
+	if (req.SharedWithUserID == nil && req.SharedWithTeamID == nil) ||
+		(req.SharedWithUserID != nil && req.SharedWithTeamID != nil) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Must specify either sharedWithUserId or sharedWithTeamId, not both"})
+		return
+	}
+
+	// Validate permission level
+	if req.PermissionLevel != "read" && req.PermissionLevel != "write" && req.PermissionLevel != "manage" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid permission level. Must be 'read', 'write', or 'manage'"})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Verify user owns the template or has manage permission
+	if !h.canManageTemplate(ctx, templateID, userIDStr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to share this template"})
+		return
+	}
+
+	// Prevent self-sharing
+	if req.SharedWithUserID != nil && *req.SharedWithUserID == userIDStr {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot share template with yourself"})
+		return
+	}
+
+	// Check if share already exists
+	var existingID string
+	checkQuery := `SELECT id FROM template_shares WHERE template_id = $1 AND `
+	var checkArgs []interface{}
+	checkArgs = append(checkArgs, templateID)
+
+	if req.SharedWithUserID != nil {
+		checkQuery += `shared_with_user_id = $2 AND revoked_at IS NULL`
+		checkArgs = append(checkArgs, *req.SharedWithUserID)
+	} else {
+		checkQuery += `shared_with_team_id = $2 AND revoked_at IS NULL`
+		checkArgs = append(checkArgs, *req.SharedWithTeamID)
+	}
+
+	err := h.db.DB().QueryRowContext(ctx, checkQuery, checkArgs...).Scan(&existingID)
+	if err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Template is already shared with this user/team"})
+		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("[ERROR] Failed to check existing share: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing share"})
+		return
+	}
+
+	// Create new share
+	shareID := uuid.New().String()
+	_, err = h.db.DB().ExecContext(ctx, `
+		INSERT INTO template_shares
+		(id, template_id, shared_by, shared_with_user_id, shared_with_team_id, permission_level)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, shareID, templateID, userIDStr, req.SharedWithUserID, req.SharedWithTeamID, req.PermissionLevel)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to create template share: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to share template"})
+		return
+	}
+
+	// Log audit event
+	targetType := "user"
+	targetID := ""
+	if req.SharedWithUserID != nil {
+		targetID = *req.SharedWithUserID
+	} else {
+		targetType = "team"
+		targetID = *req.SharedWithTeamID
+	}
+
+	log.Printf("[INFO] Template %s shared by %s with %s %s (permission: %s)",
+		templateID, userIDStr, targetType, targetID, req.PermissionLevel)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Template shared successfully",
+		"shareId": shareID,
+	})
 }
 
 func (h *SessionTemplatesHandler) RevokeTemplateShare(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Share revoked"})
+	templateID := c.Param("id")
+	shareID := c.Param("shareId")
+	userID, _ := c.Get("userID")
+	userIDStr := userID.(string)
+
+	ctx := context.Background()
+
+	// Verify user owns the template or has manage permission
+	if !h.canManageTemplate(ctx, templateID, userIDStr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to revoke shares for this template"})
+		return
+	}
+
+	// Verify share exists and belongs to this template
+	var existingTemplateID string
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT template_id FROM template_shares WHERE id = $1 AND revoked_at IS NULL
+	`, shareID).Scan(&existingTemplateID)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Share not found or already revoked"})
+		return
+	} else if err != nil {
+		log.Printf("[ERROR] Failed to check share: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify share"})
+		return
+	}
+
+	if existingTemplateID != templateID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Share does not belong to this template"})
+		return
+	}
+
+	// Revoke the share (soft delete)
+	_, err = h.db.DB().ExecContext(ctx, `
+		UPDATE template_shares SET revoked_at = CURRENT_TIMESTAMP WHERE id = $1
+	`, shareID)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to revoke template share: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke share"})
+		return
+	}
+
+	log.Printf("[INFO] Template share %s revoked by %s for template %s", shareID, userIDStr, templateID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Share revoked successfully",
+	})
+}
+
+// canManageTemplate checks if user owns the template or has manage permission
+func (h *SessionTemplatesHandler) canManageTemplate(ctx context.Context, templateID, userID string) bool {
+	// Check if user is the owner
+	var ownerID string
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT user_id FROM user_session_templates WHERE id = $1
+	`, templateID).Scan(&ownerID)
+
+	if err == nil && ownerID == userID {
+		return true
+	}
+
+	// Check if user has manage permission through a share
+	var shareID string
+	err = h.db.DB().QueryRowContext(ctx, `
+		SELECT id FROM template_shares
+		WHERE template_id = $1
+		AND shared_with_user_id = $2
+		AND permission_level = 'manage'
+		AND revoked_at IS NULL
+	`, templateID, userID).Scan(&shareID)
+
+	return err == nil
+}
+
+// Template versioning implementations
+
+// TemplateVersion represents a version snapshot of a template
+type TemplateVersion struct {
+	ID            int                    `json:"id"`
+	TemplateID    string                 `json:"templateId"`
+	VersionNumber int                    `json:"versionNumber"`
+	TemplateData  map[string]interface{} `json:"templateData"`
+	Description   string                 `json:"description,omitempty"`
+	CreatedBy     string                 `json:"createdBy"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	Tags          []string               `json:"tags,omitempty"`
 }
 
 func (h *SessionTemplatesHandler) ListTemplateVersions(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"versions": []interface{}{}, "count": 0})
+	templateID := c.Param("id")
+	userID, _ := c.Get("userID")
+	userIDStr := userID.(string)
+
+	ctx := context.Background()
+
+	// Verify user has access to the template
+	if !h.canAccessTemplate(ctx, templateID, userIDStr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to view versions for this template"})
+		return
+	}
+
+	// Parse pagination parameters
+	page := 1
+	limit := 50
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := fmt.Sscanf(pageStr, "%d", &page); err == nil && p == 1 && page > 0 {
+			// page is valid
+		}
+	}
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := fmt.Sscanf(limitStr, "%d", &limit); err == nil && l == 1 && limit > 0 && limit <= 100 {
+			// limit is valid
+		}
+	}
+	offset := (page - 1) * limit
+
+	// Query template versions with pagination
+	rows, err := h.db.DB().QueryContext(ctx, `
+		SELECT id, template_id, version_number, template_data, description, created_by, created_at, tags
+		FROM user_session_template_versions
+		WHERE template_id = $1
+		ORDER BY version_number DESC
+		LIMIT $2 OFFSET $3
+	`, templateID, limit, offset)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to list template versions: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list versions"})
+		return
+	}
+	defer rows.Close()
+
+	versions := []TemplateVersion{}
+	for rows.Next() {
+		var version TemplateVersion
+		var templateDataJSON []byte
+		var tagsArray sql.NullString
+
+		err := rows.Scan(
+			&version.ID, &version.TemplateID, &version.VersionNumber,
+			&templateDataJSON, &version.Description, &version.CreatedBy,
+			&version.CreatedAt, &tagsArray,
+		)
+
+		if err != nil {
+			log.Printf("[ERROR] Failed to scan version: %v", err)
+			continue
+		}
+
+		// Parse JSONB template data
+		if err := json.Unmarshal(templateDataJSON, &version.TemplateData); err != nil {
+			log.Printf("[ERROR] Failed to unmarshal template data: %v", err)
+			continue
+		}
+
+		// Parse tags array
+		if tagsArray.Valid && tagsArray.String != "" {
+			// PostgreSQL array format: {tag1,tag2,tag3}
+			tagsStr := tagsArray.String
+			if len(tagsStr) > 2 && tagsStr[0] == '{' && tagsStr[len(tagsStr)-1] == '}' {
+				tagsStr = tagsStr[1 : len(tagsStr)-1]
+				if tagsStr != "" {
+					version.Tags = splitPostgresArray(tagsStr)
+				}
+			}
+		}
+
+		versions = append(versions, version)
+	}
+
+	// Get total count
+	var totalCount int
+	err = h.db.DB().QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM user_session_template_versions WHERE template_id = $1
+	`, templateID).Scan(&totalCount)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to get version count: %v", err)
+		totalCount = len(versions)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"versions":   versions,
+		"count":      len(versions),
+		"totalCount": totalCount,
+		"page":       page,
+		"limit":      limit,
+	})
 }
 
 func (h *SessionTemplatesHandler) CreateTemplateVersion(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Version created"})
+	templateID := c.Param("id")
+	userID, _ := c.Get("userID")
+	userIDStr := userID.(string)
+
+	var req struct {
+		Description string   `json:"description"`
+		Tags        []string `json:"tags"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Verify user has write access to the template
+	if !h.canModifyTemplate(ctx, templateID, userIDStr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to create versions for this template"})
+		return
+	}
+
+	// Get current template data
+	var templateData map[string]interface{}
+	var templateDataJSON []byte
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT row_to_json(t)
+		FROM (
+			SELECT name, description, icon, category, tags, visibility,
+			       base_template, configuration, resources, environment,
+			       is_default, version
+			FROM user_session_templates
+			WHERE id = $1
+		) t
+	`, templateID).Scan(&templateDataJSON)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
+		return
+	} else if err != nil {
+		log.Printf("[ERROR] Failed to get template data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve template"})
+		return
+	}
+
+	// Parse template data
+	if err := json.Unmarshal(templateDataJSON, &templateData); err != nil {
+		log.Printf("[ERROR] Failed to unmarshal template data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse template data"})
+		return
+	}
+
+	// Get next version number
+	var nextVersion int
+	err = h.db.DB().QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version_number), 0) + 1
+		FROM user_session_template_versions
+		WHERE template_id = $1
+	`, templateID).Scan(&nextVersion)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to get next version number: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to determine version number"})
+		return
+	}
+
+	// Convert template data back to JSON for storage
+	templateDataBytes, err := json.Marshal(templateData)
+	if err != nil {
+		log.Printf("[ERROR] Failed to marshal template data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save template data"})
+		return
+	}
+
+	// Convert tags to PostgreSQL array format
+	tagsArray := "{}"
+	if len(req.Tags) > 0 {
+		tagsArray = "{" + joinPostgresArray(req.Tags) + "}"
+	}
+
+	// Insert new version
+	var versionID int
+	err = h.db.DB().QueryRowContext(ctx, `
+		INSERT INTO user_session_template_versions
+		(template_id, version_number, template_data, description, created_by, tags)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id
+	`, templateID, nextVersion, string(templateDataBytes), req.Description, userIDStr, tagsArray).Scan(&versionID)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to create template version: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create version"})
+		return
+	}
+
+	log.Printf("[INFO] Created template version %d for template %s by user %s", nextVersion, templateID, userIDStr)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Version created successfully",
+		"versionId":     versionID,
+		"versionNumber": nextVersion,
+	})
 }
 
 func (h *SessionTemplatesHandler) RestoreTemplateVersion(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Version restored"})
+	templateID := c.Param("id")
+	versionStr := c.Param("version")
+	userID, _ := c.Get("userID")
+	userIDStr := userID.(string)
+
+	// Parse version number
+	var versionNumber int
+	if _, err := fmt.Sscanf(versionStr, "%d", &versionNumber); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid version number"})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Verify user has write access to the template
+	if !h.canModifyTemplate(ctx, templateID, userIDStr) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to restore versions for this template"})
+		return
+	}
+
+	// Get the version data
+	var templateDataJSON []byte
+	var description string
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT template_data, description
+		FROM user_session_template_versions
+		WHERE template_id = $1 AND version_number = $2
+	`, templateID, versionNumber).Scan(&templateDataJSON, &description)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Version not found"})
+		return
+	} else if err != nil {
+		log.Printf("[ERROR] Failed to get version data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve version"})
+		return
+	}
+
+	// Parse version data
+	var versionData map[string]interface{}
+	if err := json.Unmarshal(templateDataJSON, &versionData); err != nil {
+		log.Printf("[ERROR] Failed to unmarshal version data: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse version data"})
+		return
+	}
+
+	// Create a backup version before restoring (safety mechanism)
+	backupDescription := fmt.Sprintf("Auto-backup before restoring version %d", versionNumber)
+	_, createErr := h.createVersionSnapshot(ctx, templateID, userIDStr, backupDescription, []string{"auto-backup"})
+	if createErr != nil {
+		log.Printf("[WARN] Failed to create backup version: %v", createErr)
+		// Continue anyway - backup is optional safety measure
+	}
+
+	// Update the template with version data
+	_, err = h.db.DB().ExecContext(ctx, `
+		UPDATE user_session_templates
+		SET name = $2,
+		    description = $3,
+		    icon = $4,
+		    category = $5,
+		    tags = $6,
+		    visibility = $7,
+		    base_template = $8,
+		    configuration = $9,
+		    resources = $10,
+		    environment = $11,
+		    is_default = $12,
+		    version = $13,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1
+	`,
+		templateID,
+		versionData["name"],
+		versionData["description"],
+		versionData["icon"],
+		versionData["category"],
+		versionData["tags"],
+		versionData["visibility"],
+		versionData["base_template"],
+		versionData["configuration"],
+		versionData["resources"],
+		versionData["environment"],
+		versionData["is_default"],
+		versionData["version"],
+	)
+
+	if err != nil {
+		log.Printf("[ERROR] Failed to restore template version: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore version"})
+		return
+	}
+
+	log.Printf("[INFO] Restored template %s to version %d by user %s", templateID, versionNumber, userIDStr)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Version restored successfully",
+		"version": versionNumber,
+	})
+}
+
+// Helper functions
+
+// canAccessTemplate checks if user can view the template
+func (h *SessionTemplatesHandler) canAccessTemplate(ctx context.Context, templateID, userID string) bool {
+	// Check if user is the owner
+	var ownerID string
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT user_id FROM user_session_templates WHERE id = $1
+	`, templateID).Scan(&ownerID)
+
+	if err == nil && ownerID == userID {
+		return true
+	}
+
+	// Check if user has access through a share
+	var shareID string
+	err = h.db.DB().QueryRowContext(ctx, `
+		SELECT id FROM template_shares
+		WHERE template_id = $1
+		AND shared_with_user_id = $2
+		AND revoked_at IS NULL
+	`, templateID, userID).Scan(&shareID)
+
+	return err == nil
+}
+
+// canModifyTemplate checks if user can modify the template (write or manage permission)
+func (h *SessionTemplatesHandler) canModifyTemplate(ctx context.Context, templateID, userID string) bool {
+	// Check if user is the owner
+	var ownerID string
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT user_id FROM user_session_templates WHERE id = $1
+	`, templateID).Scan(&ownerID)
+
+	if err == nil && ownerID == userID {
+		return true
+	}
+
+	// Check if user has write or manage permission through a share
+	var shareID string
+	err = h.db.DB().QueryRowContext(ctx, `
+		SELECT id FROM template_shares
+		WHERE template_id = $1
+		AND shared_with_user_id = $2
+		AND permission_level IN ('write', 'manage')
+		AND revoked_at IS NULL
+	`, templateID, userID).Scan(&shareID)
+
+	return err == nil
+}
+
+// createVersionSnapshot creates a version snapshot (used internally for backups)
+func (h *SessionTemplatesHandler) createVersionSnapshot(ctx context.Context, templateID, userID, description string, tags []string) (int, error) {
+	// Get current template data
+	var templateDataJSON []byte
+	err := h.db.DB().QueryRowContext(ctx, `
+		SELECT row_to_json(t)
+		FROM (
+			SELECT name, description, icon, category, tags, visibility,
+			       base_template, configuration, resources, environment,
+			       is_default, version
+			FROM user_session_templates
+			WHERE id = $1
+		) t
+	`, templateID).Scan(&templateDataJSON)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to get template data: %w", err)
+	}
+
+	// Get next version number
+	var nextVersion int
+	err = h.db.DB().QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version_number), 0) + 1
+		FROM user_session_template_versions
+		WHERE template_id = $1
+	`, templateID).Scan(&nextVersion)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to get next version number: %w", err)
+	}
+
+	// Convert tags to PostgreSQL array format
+	tagsArray := "{}"
+	if len(tags) > 0 {
+		tagsArray = "{" + joinPostgresArray(tags) + "}"
+	}
+
+	// Insert new version
+	var versionID int
+	err = h.db.DB().QueryRowContext(ctx, `
+		INSERT INTO user_session_template_versions
+		(template_id, version_number, template_data, description, created_by, tags)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id
+	`, templateID, nextVersion, string(templateDataJSON), description, userID, tagsArray).Scan(&versionID)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to create version: %w", err)
+	}
+
+	return versionID, nil
+}
+
+// splitPostgresArray splits a PostgreSQL array string into a Go slice
+func splitPostgresArray(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	// Simple split by comma (assumes no commas in values)
+	parts := []string{}
+	for _, part := range splitByComma(s) {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			parts = append(parts, trimmed)
+		}
+	}
+	return parts
+}
+
+// joinPostgresArray joins a Go slice into a PostgreSQL array string
+func joinPostgresArray(tags []string) string {
+	quoted := make([]string, len(tags))
+	for i, tag := range tags {
+		// Escape quotes in tag
+		escaped := strings.ReplaceAll(tag, `"`, `\"`)
+		quoted[i] = `"` + escaped + `"`
+	}
+	return strings.Join(quoted, ",")
+}
+
+// splitByComma splits a string by comma
+func splitByComma(s string) []string {
+	result := []string{}
+	current := ""
+	inQuotes := false
+	for _, ch := range s {
+		if ch == '"' {
+			inQuotes = !inQuotes
+		} else if ch == ',' && !inQuotes {
+			result = append(result, current)
+			current = ""
+		} else {
+			current += string(ch)
+		}
+	}
+	if current != "" {
+		result = append(result, current)
+	}
+	return result
 }

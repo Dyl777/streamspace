@@ -516,6 +516,31 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_session_collaborators_user_id ON session_collaborators(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_session_collaborators_active ON session_collaborators(is_active)`,
 
+		// Template shares (for sharing user-defined templates)
+		`CREATE TABLE IF NOT EXISTS template_shares (
+			id VARCHAR(255) PRIMARY KEY,
+			template_id VARCHAR(255) NOT NULL,
+			shared_by VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			shared_with_user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			shared_with_team_id VARCHAR(255) REFERENCES groups(id) ON DELETE CASCADE,
+			permission_level VARCHAR(50) NOT NULL DEFAULT 'read',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			revoked_at TIMESTAMP,
+			CONSTRAINT chk_template_shared_with CHECK (
+				(shared_with_user_id IS NOT NULL AND shared_with_team_id IS NULL) OR
+				(shared_with_user_id IS NULL AND shared_with_team_id IS NOT NULL)
+			),
+			UNIQUE(template_id, shared_with_user_id),
+			UNIQUE(template_id, shared_with_team_id)
+		)`,
+
+		// Create indexes for template shares
+		`CREATE INDEX IF NOT EXISTS idx_template_shares_template_id ON template_shares(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_shares_shared_by ON template_shares(shared_by)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_shares_user ON template_shares(shared_with_user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_shares_team ON template_shares(shared_with_team_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_template_shares_active ON template_shares(template_id) WHERE revoked_at IS NULL`,
+
 		// Performance optimization: Composite indexes for common query patterns
 		// Sessions by user and state (dashboard queries showing active/hibernated sessions)
 		`CREATE INDEX IF NOT EXISTS idx_sessions_user_state ON sessions(user_id, state)`,
@@ -910,6 +935,24 @@ func (d *Database) Migrate() error {
 
 		// Composite index for public templates sorted by usage
 		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_public_usage ON user_session_templates(visibility, usage_count DESC) WHERE visibility = 'public'`,
+
+		// User session template versions (version control for user templates)
+		`CREATE TABLE IF NOT EXISTS user_session_template_versions (
+			id SERIAL PRIMARY KEY,
+			template_id VARCHAR(255) NOT NULL,
+			version_number INT NOT NULL,
+			template_data JSONB NOT NULL,
+			description TEXT,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			tags TEXT[],
+			UNIQUE(template_id, version_number)
+		)`,
+
+		// Create indexes for template versions
+		`CREATE INDEX IF NOT EXISTS idx_user_session_template_versions_template_id ON user_session_template_versions(template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_template_versions_created_by ON user_session_template_versions(created_by)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_template_versions_created_at ON user_session_template_versions(created_at DESC)`,
 
 		// ========== Batch Operations ==========
 
