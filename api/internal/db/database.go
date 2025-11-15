@@ -964,6 +964,42 @@ func (d *Database) Migrate() error {
 
 		// Composite index for active alerts by severity
 		`CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_active_severity ON monitoring_alerts(status, severity) WHERE status IN ('active', 'triggered')`,
+
+		// ========== Resource Quotas & Limits Enforcement ==========
+
+		// Resource quotas table (user and team resource limits)
+		`CREATE TABLE IF NOT EXISTS resource_quotas (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			team_id VARCHAR(255) REFERENCES groups(id) ON DELETE CASCADE,
+			max_sessions INT,
+			max_cpu INT,
+			max_memory INT,
+			max_storage INT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE (user_id, COALESCE(team_id, ''))
+		)`,
+
+		// Create indexes for resource quotas
+		`CREATE INDEX IF NOT EXISTS idx_resource_quotas_user_id ON resource_quotas(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_resource_quotas_team_id ON resource_quotas(team_id)`,
+
+		// Quota policies table (defines quota enforcement rules)
+		`CREATE TABLE IF NOT EXISTS quota_policies (
+			id VARCHAR(255) PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			rules TEXT NOT NULL,
+			priority INT DEFAULT 0,
+			enabled BOOLEAN DEFAULT true,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for quota policies
+		`CREATE INDEX IF NOT EXISTS idx_quota_policies_priority ON quota_policies(priority DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_quota_policies_enabled ON quota_policies(enabled) WHERE enabled = true`,
 	}
 
 	// Execute migrations
