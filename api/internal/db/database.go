@@ -218,10 +218,50 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_group_memberships_user_id ON group_memberships(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_group_memberships_group_id ON group_memberships(group_id)`,
 
+		// Team role permissions (defines what each team role can do)
+		`CREATE TABLE IF NOT EXISTS team_role_permissions (
+			id SERIAL PRIMARY KEY,
+			role VARCHAR(50) NOT NULL,
+			permission VARCHAR(100) NOT NULL,
+			description TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(role, permission)
+		)`,
+
+		// Insert default team role permissions
+		`INSERT INTO team_role_permissions (role, permission, description) VALUES
+			('owner', 'team.manage', 'Manage team settings and delete team'),
+			('owner', 'team.members.manage', 'Add/remove team members and change roles'),
+			('owner', 'team.sessions.create', 'Create new team sessions'),
+			('owner', 'team.sessions.view', 'View all team sessions'),
+			('owner', 'team.sessions.update', 'Update team session settings'),
+			('owner', 'team.sessions.delete', 'Delete team sessions'),
+			('owner', 'team.sessions.connect', 'Connect to team sessions'),
+			('owner', 'team.quota.view', 'View team quota and usage'),
+			('owner', 'team.quota.manage', 'Manage team resource quotas'),
+
+			('admin', 'team.members.manage', 'Add/remove team members'),
+			('admin', 'team.sessions.create', 'Create new team sessions'),
+			('admin', 'team.sessions.view', 'View all team sessions'),
+			('admin', 'team.sessions.update', 'Update team session settings'),
+			('admin', 'team.sessions.delete', 'Delete team sessions'),
+			('admin', 'team.sessions.connect', 'Connect to team sessions'),
+			('admin', 'team.quota.view', 'View team quota and usage'),
+
+			('member', 'team.sessions.create', 'Create new team sessions'),
+			('member', 'team.sessions.view', 'View all team sessions'),
+			('member', 'team.sessions.connect', 'Connect to team sessions'),
+			('member', 'team.quota.view', 'View team quota and usage'),
+
+			('viewer', 'team.sessions.view', 'View all team sessions'),
+			('viewer', 'team.quota.view', 'View team quota and usage')
+		ON CONFLICT (role, permission) DO NOTHING`,
+
 		// Sessions table (cache of K8s Sessions)
 		`CREATE TABLE IF NOT EXISTS sessions (
 			id VARCHAR(255) PRIMARY KEY,
 			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			team_id VARCHAR(255) REFERENCES groups(id) ON DELETE SET NULL,
 			template_name VARCHAR(255),
 			state VARCHAR(50),
 			app_type VARCHAR(50) DEFAULT 'desktop',
@@ -234,8 +274,9 @@ func (d *Database) Migrate() error {
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 
-		// Create index on user_id
+		// Create indexes on sessions
 		`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_team_id ON sessions(team_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_state ON sessions(state)`,
 
 		// Connections table (active connections)
@@ -329,6 +370,19 @@ func (d *Database) Migrate() error {
 			last_installed TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
+
+		// User template favorites (bookmarks for quick access)
+		`CREATE TABLE IF NOT EXISTS user_template_favorites (
+			id SERIAL PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			template_name VARCHAR(255) NOT NULL,
+			favorited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(user_id, template_name)
+		)`,
+
+		// Create indexes for favorites
+		`CREATE INDEX IF NOT EXISTS idx_user_template_favorites_user_id ON user_template_favorites(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_template_favorites_template ON user_template_favorites(template_name)`,
 
 		// Featured templates (admin curated highlights)
 		`CREATE TABLE IF NOT EXISTS featured_templates (
@@ -487,6 +541,54 @@ func (d *Database) Migrate() error {
 		// Templates by app_type and rating (filtering by app type with sorting)
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_apptype_rating ON catalog_templates(app_type, avg_rating DESC)`,
 
+		// ========== Session Activity Recording ==========
+
+		// Session activity log (detailed event tracking for compliance and analytics)
+		`CREATE TABLE IF NOT EXISTS session_activity_log (
+			id SERIAL PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			event_type VARCHAR(100) NOT NULL,
+			event_category VARCHAR(50) DEFAULT 'general',
+			description TEXT,
+			metadata JSONB,
+			ip_address VARCHAR(45),
+			user_agent TEXT,
+			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for session activity queries
+		`CREATE INDEX IF NOT EXISTS idx_session_activity_session_id ON session_activity_log(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_activity_user_id ON session_activity_log(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_activity_timestamp ON session_activity_log(timestamp DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_activity_event_type ON session_activity_log(event_type)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_activity_category ON session_activity_log(event_category)`,
+
+		// Composite index for session activity timeline queries
+		`CREATE INDEX IF NOT EXISTS idx_session_activity_session_timestamp ON session_activity_log(session_id, timestamp DESC)`,
+
+		// Session recordings metadata (for future video/screen recording feature)
+		`CREATE TABLE IF NOT EXISTS session_recordings (
+			id SERIAL PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			recording_type VARCHAR(50) DEFAULT 'screen',
+			storage_path TEXT,
+			file_size_bytes BIGINT DEFAULT 0,
+			duration_seconds INT DEFAULT 0,
+			started_at TIMESTAMP,
+			ended_at TIMESTAMP,
+			status VARCHAR(50) DEFAULT 'recording',
+			error_message TEXT,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for recordings
+		`CREATE INDEX IF NOT EXISTS idx_session_recordings_session_id ON session_recordings(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_recordings_status ON session_recordings(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_recordings_created_at ON session_recordings(created_at DESC)`,
+
 		// ========== Plugin System ==========
 
 		// Catalog plugins (available plugins from repositories)
@@ -569,6 +671,370 @@ func (d *Database) Migrate() error {
 			last_installed_at TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
+
+		// ========== API Key Management ==========
+
+		// API keys for programmatic access and integrations
+		`CREATE TABLE IF NOT EXISTS api_keys (
+			id SERIAL PRIMARY KEY,
+			key_hash VARCHAR(255) UNIQUE NOT NULL,
+			key_prefix VARCHAR(20) NOT NULL,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			scopes TEXT[],
+			rate_limit INT DEFAULT 1000,
+			expires_at TIMESTAMP,
+			last_used_at TIMESTAMP,
+			use_count INT DEFAULT 0,
+			is_active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL
+		)`,
+
+		// Create indexes for API keys
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_is_active ON api_keys(is_active)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON api_keys(expires_at)`,
+
+		// API key usage log (for auditing and rate limiting)
+		`CREATE TABLE IF NOT EXISTS api_key_usage_log (
+			id SERIAL PRIMARY KEY,
+			api_key_id INT REFERENCES api_keys(id) ON DELETE CASCADE,
+			endpoint VARCHAR(255),
+			method VARCHAR(10),
+			status_code INT,
+			ip_address VARCHAR(45),
+			user_agent TEXT,
+			timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for usage log
+		`CREATE INDEX IF NOT EXISTS idx_api_key_usage_log_api_key_id ON api_key_usage_log(api_key_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_key_usage_log_timestamp ON api_key_usage_log(timestamp DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_key_usage_log_key_timestamp ON api_key_usage_log(api_key_id, timestamp DESC)`,
+
+		// ========== User Preferences & Settings ==========
+
+		// User preferences (flexible JSONB storage for UI settings, notification preferences, defaults)
+		`CREATE TABLE IF NOT EXISTS user_preferences (
+			user_id VARCHAR(255) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+			preferences JSONB DEFAULT '{}',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// User favorite templates (quick access to frequently used templates)
+		`CREATE TABLE IF NOT EXISTS user_favorite_templates (
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			template_name VARCHAR(255) NOT NULL,
+			added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (user_id, template_name)
+		)`,
+
+		// Create indexes for user preferences
+		`CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_favorite_templates_user_id ON user_favorite_templates(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_favorite_templates_template ON user_favorite_templates(template_name)`,
+
+		// ========== Notifications System ==========
+
+		// In-app notifications (stored notifications for users)
+		`CREATE TABLE IF NOT EXISTS notifications (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			type VARCHAR(100) NOT NULL,
+			title VARCHAR(500) NOT NULL,
+			message TEXT NOT NULL,
+			data JSONB DEFAULT '{}',
+			priority VARCHAR(20) DEFAULT 'normal',
+			is_read BOOLEAN DEFAULT false,
+			action_url TEXT,
+			action_text VARCHAR(100),
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			read_at TIMESTAMP
+		)`,
+
+		// Create indexes for notifications
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_priority ON notifications(priority)`,
+
+		// Composite index for unread notifications query (most common)
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC) WHERE is_read = false`,
+
+		// Notification delivery log (tracks webhook/email delivery attempts)
+		`CREATE TABLE IF NOT EXISTS notification_delivery_log (
+			id SERIAL PRIMARY KEY,
+			notification_id VARCHAR(255) REFERENCES notifications(id) ON DELETE CASCADE,
+			channel VARCHAR(50) NOT NULL,
+			status VARCHAR(50) NOT NULL,
+			error_message TEXT,
+			delivered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for delivery log
+		`CREATE INDEX IF NOT EXISTS idx_notification_delivery_log_notification_id ON notification_delivery_log(notification_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_notification_delivery_log_channel ON notification_delivery_log(channel)`,
+		`CREATE INDEX IF NOT EXISTS idx_notification_delivery_log_status ON notification_delivery_log(status)`,
+
+		// ========== Advanced Search & Filtering ==========
+
+		// Saved searches (user-defined search queries)
+		`CREATE TABLE IF NOT EXISTS saved_searches (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			query TEXT NOT NULL,
+			filters JSONB DEFAULT '{}',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for saved searches
+		`CREATE INDEX IF NOT EXISTS idx_saved_searches_user_id ON saved_searches(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_saved_searches_updated_at ON saved_searches(updated_at DESC)`,
+
+		// Search history (recent user searches for suggestions and analytics)
+		`CREATE TABLE IF NOT EXISTS search_history (
+			id SERIAL PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			query TEXT NOT NULL,
+			search_type VARCHAR(50) DEFAULT 'universal',
+			filters JSONB DEFAULT '{}',
+			searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for search history
+		`CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON search_history(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_search_history_searched_at ON search_history(searched_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_search_history_query ON search_history(query)`,
+
+		// Composite index for user search history queries
+		`CREATE INDEX IF NOT EXISTS idx_search_history_user_time ON search_history(user_id, searched_at DESC)`,
+
+		// ========== Session Snapshots & Restore ==========
+
+		// Session snapshots (point-in-time session backups)
+		`CREATE TABLE IF NOT EXISTS session_snapshots (
+			id VARCHAR(255) PRIMARY KEY,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE CASCADE,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			type VARCHAR(50) DEFAULT 'manual',
+			status VARCHAR(50) DEFAULT 'creating',
+			storage_path TEXT,
+			size_bytes BIGINT DEFAULT 0,
+			metadata JSONB DEFAULT '{}',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP,
+			expires_at TIMESTAMP,
+			error_message TEXT
+		)`,
+
+		// Create indexes for snapshots
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_session_id ON session_snapshots(session_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_user_id ON session_snapshots(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_status ON session_snapshots(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_type ON session_snapshots(type)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_created_at ON session_snapshots(created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_expires_at ON session_snapshots(expires_at)`,
+
+		// Composite index for user's available snapshots
+		`CREATE INDEX IF NOT EXISTS idx_session_snapshots_user_available ON session_snapshots(user_id, status) WHERE status = 'available'`,
+
+		// Snapshot restore jobs (tracks restore operations)
+		`CREATE TABLE IF NOT EXISTS snapshot_restore_jobs (
+			id VARCHAR(255) PRIMARY KEY,
+			snapshot_id VARCHAR(255) REFERENCES session_snapshots(id) ON DELETE CASCADE,
+			session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE SET NULL,
+			target_session_id VARCHAR(255) REFERENCES sessions(id) ON DELETE SET NULL,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			status VARCHAR(50) DEFAULT 'pending',
+			started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP,
+			error_message TEXT
+		)`,
+
+		// Create indexes for restore jobs
+		`CREATE INDEX IF NOT EXISTS idx_snapshot_restore_jobs_snapshot_id ON snapshot_restore_jobs(snapshot_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_snapshot_restore_jobs_user_id ON snapshot_restore_jobs(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_snapshot_restore_jobs_status ON snapshot_restore_jobs(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_snapshot_restore_jobs_started_at ON snapshot_restore_jobs(started_at DESC)`,
+
+		// Add snapshot_config column to sessions table
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS snapshot_config JSONB DEFAULT '{}'`,
+
+		// ========== Session Templates & Presets ==========
+
+		// User session templates (custom reusable session configurations)
+		`CREATE TABLE IF NOT EXISTS user_session_templates (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			team_id VARCHAR(255) REFERENCES groups(id) ON DELETE SET NULL,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			icon VARCHAR(500),
+			category VARCHAR(100),
+			tags JSONB DEFAULT '[]',
+			visibility VARCHAR(50) DEFAULT 'private',
+			base_template VARCHAR(255) NOT NULL,
+			configuration JSONB DEFAULT '{}',
+			resources JSONB DEFAULT '{}',
+			environment JSONB DEFAULT '{}',
+			is_default BOOLEAN DEFAULT false,
+			usage_count INT DEFAULT 0,
+			version VARCHAR(50) DEFAULT '1.0.0',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for user session templates
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_user_id ON user_session_templates(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_team_id ON user_session_templates(team_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_visibility ON user_session_templates(visibility)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_category ON user_session_templates(category)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_usage_count ON user_session_templates(usage_count DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_is_default ON user_session_templates(is_default) WHERE is_default = true`,
+
+		// Composite index for user's default templates
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_user_default ON user_session_templates(user_id, is_default) WHERE is_default = true`,
+
+		// Composite index for public templates sorted by usage
+		`CREATE INDEX IF NOT EXISTS idx_user_session_templates_public_usage ON user_session_templates(visibility, usage_count DESC) WHERE visibility = 'public'`,
+
+		// ========== Batch Operations ==========
+
+		// Batch operations table (tracks bulk operation jobs)
+		`CREATE TABLE IF NOT EXISTS batch_operations (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			operation_type VARCHAR(100) NOT NULL,
+			resource_type VARCHAR(100) NOT NULL,
+			status VARCHAR(50) DEFAULT 'pending',
+			total_items INT DEFAULT 0,
+			processed_items INT DEFAULT 0,
+			success_count INT DEFAULT 0,
+			failure_count INT DEFAULT 0,
+			errors JSONB DEFAULT '[]',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			completed_at TIMESTAMP
+		)`,
+
+		// Create indexes for batch operations
+		`CREATE INDEX IF NOT EXISTS idx_batch_operations_user_id ON batch_operations(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_batch_operations_status ON batch_operations(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_batch_operations_created_at ON batch_operations(created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_batch_operations_operation_type ON batch_operations(operation_type)`,
+
+		// Composite index for user's active operations
+		`CREATE INDEX IF NOT EXISTS idx_batch_operations_user_status ON batch_operations(user_id, status) WHERE status IN ('pending', 'processing')`,
+
+		// ========== Advanced Monitoring & Metrics ==========
+
+		// Monitoring alerts table (tracks system alerts and incidents)
+		`CREATE TABLE IF NOT EXISTS monitoring_alerts (
+			id VARCHAR(255) PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			severity VARCHAR(50) NOT NULL,
+			status VARCHAR(50) DEFAULT 'active',
+			condition VARCHAR(255) NOT NULL,
+			threshold FLOAT NOT NULL,
+			triggered_at TIMESTAMP,
+			acknowledged_at TIMESTAMP,
+			resolved_at TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for monitoring alerts
+		`CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_status ON monitoring_alerts(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_severity ON monitoring_alerts(severity)`,
+		`CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_triggered_at ON monitoring_alerts(triggered_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_created_at ON monitoring_alerts(created_at DESC)`,
+
+		// Composite index for active alerts by severity
+		`CREATE INDEX IF NOT EXISTS idx_monitoring_alerts_active_severity ON monitoring_alerts(status, severity) WHERE status IN ('active', 'triggered')`,
+
+		// ========== Resource Quotas & Limits Enforcement ==========
+
+		// Resource quotas table (user and team resource limits)
+		`CREATE TABLE IF NOT EXISTS resource_quotas (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			team_id VARCHAR(255) REFERENCES groups(id) ON DELETE CASCADE,
+			max_sessions INT,
+			max_cpu INT,
+			max_memory INT,
+			max_storage INT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE (user_id, COALESCE(team_id, ''))
+		)`,
+
+		// Create indexes for resource quotas
+		`CREATE INDEX IF NOT EXISTS idx_resource_quotas_user_id ON resource_quotas(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_resource_quotas_team_id ON resource_quotas(team_id)`,
+
+		// Quota policies table (defines quota enforcement rules)
+		`CREATE TABLE IF NOT EXISTS quota_policies (
+			id VARCHAR(255) PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			rules TEXT NOT NULL,
+			priority INT DEFAULT 0,
+			enabled BOOLEAN DEFAULT true,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for quota policies
+		`CREATE INDEX IF NOT EXISTS idx_quota_policies_priority ON quota_policies(priority DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_quota_policies_enabled ON quota_policies(enabled) WHERE enabled = true`,
+
+		// ========== Cost Management & Billing ==========
+
+		// Invoices table (billing invoices)
+		`CREATE TABLE IF NOT EXISTS invoices (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			invoice_number VARCHAR(100) NOT NULL UNIQUE,
+			period_start TIMESTAMP NOT NULL,
+			period_end TIMESTAMP NOT NULL,
+			amount DECIMAL(10,2) NOT NULL,
+			status VARCHAR(50) DEFAULT 'pending',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			paid_at TIMESTAMP
+		)`,
+
+		// Create indexes for invoices
+		`CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number ON invoices(invoice_number)`,
+
+		// Payment methods table (stored payment methods)
+		`CREATE TABLE IF NOT EXISTS payment_methods (
+			id VARCHAR(255) PRIMARY KEY,
+			user_id VARCHAR(255) REFERENCES users(id) ON DELETE CASCADE,
+			type VARCHAR(50) NOT NULL,
+			last4 VARCHAR(4) NOT NULL,
+			is_default BOOLEAN DEFAULT false,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for payment methods
+		`CREATE INDEX IF NOT EXISTS idx_payment_methods_user_id ON payment_methods(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_payment_methods_is_default ON payment_methods(is_default) WHERE is_default = true`,
 	}
 
 	// Execute migrations

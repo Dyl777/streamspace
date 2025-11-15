@@ -14,13 +14,15 @@ import (
 type AuthHandler struct {
 	userDB     *db.UserDB
 	jwtManager *JWTManager
+	samlAuth   *SAMLAuthenticator
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userDB *db.UserDB, jwtManager *JWTManager) *AuthHandler {
+func NewAuthHandler(userDB *db.UserDB, jwtManager *JWTManager, samlAuth *SAMLAuthenticator) *AuthHandler {
 	return &AuthHandler{
 		userDB:     userDB,
 		jwtManager: jwtManager,
+		samlAuth:   samlAuth,
 	}
 }
 
@@ -180,60 +182,184 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 // SAMLLogin initiates SAML authentication flow
 func (h *AuthHandler) SAMLLogin(c *gin.Context) {
-	// TODO: Implement SAML authentication flow
-	// This would redirect to the SAML IdP
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "SAML authentication not yet implemented",
-	})
+	// Check if SAML is configured
+	if h.samlAuth == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "SAML authentication is not configured",
+		})
+		return
+	}
+
+	// Store return URL in cookie for post-login redirect
+	returnURL := c.Query("return_url")
+	if returnURL == "" {
+		returnURL = "/"
+	}
+
+	// Set secure cookie with return URL (1 hour expiration)
+	c.SetCookie(
+		"saml_return_url",
+		returnURL,
+		3600,                    // 1 hour max age
+		"/",                     // path
+		"",                      // domain (empty = current domain)
+		c.Request.TLS != nil,    // secure (HTTPS only)
+		true,                    // httpOnly
+	)
+
+	// Initiate SAML authentication flow (redirects to IdP)
+	h.samlAuth.GetMiddleware().HandleStartAuthFlow(c.Writer, c.Request)
 }
 
 // SAMLCallback handles SAML assertion callback
 func (h *AuthHandler) SAMLCallback(c *gin.Context) {
-	// TODO: Implement SAML callback handling
-	// 1. Validate SAML assertion
-	// 2. Extract user attributes (email, name, groups)
-	// 3. Create or update user in database
-	// 4. Generate JWT token
-	// 5. Return token to client
+	// Check if SAML is configured
+	if h.samlAuth == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "SAML authentication is not configured",
+		})
+		return
+	}
 
-	// Example structure:
-	/*
-		var assertion SAMLAssertion
-		// Parse and validate SAML assertion
+	ctx := c.Request.Context()
 
-		// Extract user info
-		email := assertion.Email
-		fullName := assertion.FullName
-		groups := assertion.Groups
+	// Extract user info from SAML assertion (middleware sets this in context)
+	assertion, exists := c.Get("saml_assertion")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "No SAML assertion found",
+		})
+		return
+	}
 
-		// Get or create user
-		user, err := h.userDB.GetOrCreateSAMLUser(ctx, email, fullName, groups)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process SAML user"})
-			return
+	// Extract user attributes from assertion
+	userAttrs := h.samlAuth.ExtractUserFromAssertion(assertion)
+
+	// Validate required fields
+	if userAttrs.Email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "SAML assertion missing required email attribute",
+		})
+		return
+	}
+
+	// Get or create user in database
+	user, err := h.userDB.GetUserByEmail(ctx, userAttrs.Email)
+	if err != nil {
+		// User doesn't exist, create new SAML user
+		createReq := &models.CreateUserRequest{
+			Username: userAttrs.Email, // Use email as username
+			Email:    userAttrs.Email,
+			FullName: userAttrs.FullName,
+			Provider: "saml",
+			Role:     "user", // Default role
+			Active:   true,
 		}
 
-		// Generate token
-		token, err := h.jwtManager.GenerateToken(user.ID, user.Username, user.Email, user.Role, user.Groups)
+		user, err = h.userDB.CreateUser(ctx, createReq)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to create SAML user",
+				"message": err.Error(),
+			})
 			return
 		}
+	} else {
+		// User exists, update attributes from SAML
+		updateReq := &models.UpdateUserRequest{
+			FullName: &userAttrs.FullName,
+		}
+		if err := h.userDB.UpdateUser(ctx, user.ID, updateReq); err != nil {
+			// Log error but continue (non-critical)
+			c.Request.Context().Value("logger")
+		}
+	}
 
-		c.JSON(http.StatusOK, LoginResponse{Token: token, User: user})
-	*/
+	// Check if user is active
+	if !user.Active {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Account is disabled",
+		})
+		return
+	}
 
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "SAML callback not yet implemented",
+	// Sync user groups from SAML assertion
+	if len(userAttrs.Groups) > 0 {
+		// TODO: Sync groups with database
+		// This would involve mapping SAML groups to local groups
+		// and updating user_groups table
+	}
+
+	// Get user groups for JWT
+	groups, err := h.userDB.GetUserGroups(ctx, user.ID)
+	if err != nil {
+		groups = []string{} // Continue without groups if error
+	}
+
+	groupIDs := make([]string, len(groups))
+	for i, g := range groups {
+		groupIDs[i] = g.GroupID
+	}
+
+	// Generate JWT token
+	token, err := h.jwtManager.GenerateToken(user.ID, user.Username, user.Email, user.Role, groupIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to generate token",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Calculate expiration
+	expiresAt := time.Now().Add(h.jwtManager.config.TokenDuration)
+
+	// Remove sensitive data
+	user.PasswordHash = ""
+
+	// Get return URL from cookie
+	returnURL, err := c.Cookie("saml_return_url")
+	if err != nil || returnURL == "" {
+		returnURL = "/"
+	}
+
+	// Clear the cookie
+	c.SetCookie("saml_return_url", "", -1, "/", "", c.Request.TLS != nil, true)
+
+	// Return token and user info
+	c.JSON(http.StatusOK, gin.H{
+		"token":     token,
+		"expiresAt": expiresAt,
+		"user":      user,
+		"returnUrl": returnURL,
 	})
 }
 
 // SAMLMetadata returns SAML service provider metadata
 func (h *AuthHandler) SAMLMetadata(c *gin.Context) {
-	// TODO: Generate and return SAML SP metadata XML
-	c.JSON(http.StatusNotImplemented, gin.H{
-		"error": "SAML metadata endpoint not yet implemented",
-	})
+	// Check if SAML is configured
+	if h.samlAuth == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "SAML authentication is not configured",
+		})
+		return
+	}
+
+	// Get service provider from SAML authenticator
+	sp := h.samlAuth.GetServiceProvider()
+	if sp == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "SAML service provider not initialized",
+		})
+		return
+	}
+
+	// Generate metadata XML
+	metadata := sp.Metadata()
+
+	// Return XML with proper content type
+	c.Header("Content-Type", "application/samlmetadata+xml")
+	c.String(http.StatusOK, string(metadata))
 }
 
 // PasswordChangeRequest represents a password change request

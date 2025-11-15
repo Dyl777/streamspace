@@ -178,7 +178,17 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userDB.GetUser(c.Request.Context(), userID.(string))
+	// Safe type assertion to prevent panic
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Internal error",
+			Message: "Invalid user ID type in context",
+		})
+		return
+	}
+
+	user, err := h.userDB.GetUser(c.Request.Context(), userIDStr)
 	if err != nil {
 		c.JSON(http.StatusNotFound, ErrorResponse{
 			Error:   "User not found",
@@ -214,7 +224,17 @@ func (h *UserHandler) GetCurrentUserQuota(c *gin.Context) {
 		return
 	}
 
-	quota, err := h.userDB.GetUserQuota(c.Request.Context(), userID.(string))
+	// Safe type assertion to prevent panic
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Internal error",
+			Message: "Invalid user ID type in context",
+		})
+		return
+	}
+
+	quota, err := h.userDB.GetUserQuota(c.Request.Context(), userIDStr)
 	if err != nil {
 		c.JSON(http.StatusNotFound, ErrorResponse{
 			Error:   "Quota not found",

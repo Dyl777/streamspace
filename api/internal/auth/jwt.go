@@ -99,9 +99,14 @@ func (m *JWTManager) RefreshToken(tokenString string) (string, error) {
 		return "", err
 	}
 
-	// Check if token is not too old (allow refresh within 7 days of expiration)
-	if time.Until(claims.ExpiresAt.Time) > 7*24*time.Hour {
-		return "", errors.New("token not eligible for refresh yet")
+	// Only allow refresh for tokens expiring within 7 days
+	// Reject if token has more than 7 days remaining (too fresh to refresh)
+	timeRemaining := time.Until(claims.ExpiresAt.Time)
+	if timeRemaining < 0 {
+		return "", errors.New("token has already expired")
+	}
+	if timeRemaining > 7*24*time.Hour {
+		return "", errors.New("token not eligible for refresh yet (more than 7 days remaining)")
 	}
 
 	// Generate new token with same claims but updated timestamps

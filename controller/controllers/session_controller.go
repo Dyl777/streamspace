@@ -120,7 +120,7 @@ func (r *SessionReconciler) handleRunning(ctx context.Context, session *streamv1
 		return ctrl.Result{}, err
 	} else {
 		// Deployment exists, ensure it's running
-		if *deployment.Spec.Replicas == 0 {
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas == 0 {
 			deployment.Spec.Replicas = int32Ptr(1)
 			if err := r.Update(ctx, deployment); err != nil {
 				log.Error(err, "Failed to scale up Deployment")
@@ -221,7 +221,7 @@ func (r *SessionReconciler) handleHibernated(ctx context.Context, session *strea
 	deployment := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: session.Namespace}, deployment)
 
-	if err == nil && *deployment.Spec.Replicas > 0 {
+	if err == nil && deployment.Spec.Replicas != nil && *deployment.Spec.Replicas > 0 {
 		deployment.Spec.Replicas = int32Ptr(0)
 		if err := r.Update(ctx, deployment); err != nil {
 			log.Error(err, "Failed to scale down Deployment")

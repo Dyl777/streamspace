@@ -46,7 +46,7 @@ func Middleware(jwtManager *JWTManager, userDB *db.UserDB) gin.HandlerFunc {
 		}
 
 		// Verify user still exists and is active
-		user, err := userDB.GetUser(context.Background(), claims.UserID)
+		user, err := userDB.GetUser(c.Request.Context(), claims.UserID)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "User not found",
@@ -99,7 +99,7 @@ func OptionalAuth(jwtManager *JWTManager, userDB *db.UserDB) gin.HandlerFunc {
 		}
 
 		// Set user info if valid
-		user, err := userDB.GetUser(context.Background(), claims.UserID)
+		user, err := userDB.GetUser(c.Request.Context(), claims.UserID)
 		if err == nil && user.Active {
 			c.Set("userID", claims.UserID)
 			c.Set("username", claims.Username)
