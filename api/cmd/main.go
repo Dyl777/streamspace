@@ -143,8 +143,20 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.New()
-	router.Use(gin.Logger())
+
+	// Add request ID middleware for distributed tracing
+	router.Use(middleware.RequestID())
+
+	// Add recovery middleware (must be early in chain)
 	router.Use(gin.Recovery())
+
+	// Add structured logging with request IDs
+	loggerConfig := middleware.DefaultStructuredLoggerConfig()
+	router.Use(middleware.StructuredLoggerWithConfigFunc(loggerConfig))
+
+	// SECURITY: Add request timeout to prevent slow loris attacks
+	timeoutConfig := middleware.DefaultTimeoutConfig()
+	router.Use(middleware.Timeout(timeoutConfig))
 
 	// SECURITY: Restrict HTTP methods to prevent abuse
 	router.Use(middleware.AllowedHTTPMethods())
@@ -210,11 +222,27 @@ func main() {
 	}
 	jwtManager := auth.NewJWTManager(jwtConfig)
 
+	// Initialize SAML authentication (optional)
+	var samlAuth *auth.SAMLAuthenticator
+	samlEnabled := os.Getenv("SAML_ENABLED")
+	if samlEnabled == "true" {
+		log.Println("SAML authentication is enabled")
+		// NOTE: SAML configuration would be loaded from environment or config file
+		// For now, we set samlAuth to nil since full SAML setup requires certificates
+		// Users can enable SAML by setting SAML_ENABLED=true and providing:
+		// - SAML_ENTITY_ID, SAML_METADATA_URL, SAML_CERT_PATH, SAML_KEY_PATH
+		log.Println("WARNING: SAML is enabled but configuration is incomplete. SAML endpoints will return 503.")
+		samlAuth = nil
+	} else {
+		log.Println("SAML authentication is disabled (set SAML_ENABLED=true to enable)")
+		samlAuth = nil
+	}
+
 	// Initialize API handlers
 	apiHandler := api.NewHandler(database, k8sClient, connTracker, syncService, wsManager, quotaEnforcer)
 	userHandler := handlers.NewUserHandler(userDB)
 	groupHandler := handlers.NewGroupHandler(groupDB, userDB)
-	authHandler := auth.NewAuthHandler(userDB, jwtManager)
+	authHandler := auth.NewAuthHandler(userDB, jwtManager, samlAuth)
 	activityHandler := handlers.NewActivityHandler(k8sClient, activityTracker)
 	catalogHandler := handlers.NewCatalogHandler(database)
 	sharingHandler := handlers.NewSharingHandler(database)
@@ -236,10 +264,19 @@ func main() {
 	// Setup routes
 	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, jwtManager, userDB, redisCache, webhookSecret, csrfProtection, authRateLimiter)
 
-	// Create HTTP server
+	// Create HTTP server with security timeouts
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
 		Handler: router,
+
+		// SECURITY: Prevent slow loris attacks and resource exhaustion
+		ReadTimeout:       15 * time.Second, // Time to read request headers + body
+		ReadHeaderTimeout: 5 * time.Second,  // Time to read request headers only
+		WriteTimeout:      30 * time.Second, // Time to write response
+		IdleTimeout:       120 * time.Second, // Keep-alive timeout
+
+		// SECURITY: Limit header size to prevent memory exhaustion
+		MaxHeaderBytes: 1 << 20, // 1 MB
 	}
 
 	// Start server in goroutine
@@ -253,19 +290,57 @@ func main() {
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	sig := <-quit
 
-	log.Println("Shutting down server...")
+	log.Printf("Received shutdown signal: %v", sig)
+	log.Println("Starting graceful shutdown...")
 
-	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+	// Create shutdown context with timeout
+	shutdownTimeout := 30 * time.Second
+	if timeoutEnv := os.Getenv("SHUTDOWN_TIMEOUT"); timeoutEnv != "" {
+		if duration, err := time.ParseDuration(timeoutEnv); err == nil {
+			shutdownTimeout = duration
+		}
 	}
 
-	log.Println("Server stopped")
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	// Shutdown HTTP server (stops accepting new connections)
+	log.Println("Shutting down HTTP server...")
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("HTTP server forced to shutdown: %v", err)
+	} else {
+		log.Println("HTTP server stopped gracefully")
+	}
+
+	// Close WebSocket connections
+	log.Println("Closing WebSocket connections...")
+	if wsManager != nil {
+		wsManager.CloseAll()
+	}
+
+	// Close database connections
+	log.Println("Closing database connections...")
+	if database != nil {
+		if err := database.Close(); err != nil {
+			log.Printf("Error closing database: %v", err)
+		} else {
+			log.Println("Database connections closed")
+		}
+	}
+
+	// Close Redis cache
+	log.Println("Closing Redis cache...")
+	if redisCache != nil {
+		if err := redisCache.Close(); err != nil {
+			log.Printf("Error closing Redis cache: %v", err)
+		} else {
+			log.Println("Redis cache closed")
+		}
+	}
+
+	log.Println("Graceful shutdown completed")
 }
 
 func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string, csrfProtection *middleware.CSRFProtection, authRateLimiter *middleware.RateLimiter) {
