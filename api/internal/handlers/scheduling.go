@@ -87,11 +87,12 @@ func (h *Handler) CreateScheduledSession(c *gin.Context) {
 	req.NextRunAt = nextRun
 
 	// Check for scheduling conflicts
-	conflicts, err := h.checkSchedulingConflicts(userID, req.Schedule, req.Timezone)
+	conflicts, err := h.checkSchedulingConflicts(userID, req.Schedule, req.Timezone, req.TerminateAfter)
 	if err == nil && len(conflicts) > 0 {
 		c.JSON(http.StatusConflict, gin.H{
 			"error": "scheduling conflict detected",
 			"conflicts": conflicts,
+			"message": "This schedule conflicts with existing scheduled sessions. Please choose a different time.",
 		})
 		return
 	}
@@ -709,10 +710,67 @@ func (h *Handler) calculateNextRun(schedule *ScheduleConfig, timezone string) (t
 }
 
 // Check for scheduling conflicts
-func (h *Handler) checkSchedulingConflicts(userID string, schedule ScheduleConfig, timezone string) ([]int64, error) {
-	// TODO: Implement conflict detection
-	// Check if user has overlapping schedules
-	return []int64{}, nil
+func (h *Handler) checkSchedulingConflicts(userID string, schedule ScheduleConfig, timezone string, terminateAfterMinutes int) ([]int64, error) {
+	// Calculate the proposed schedule's next run time
+	proposedStart, err := h.calculateNextRun(&schedule, timezone)
+	if err != nil {
+		return nil, err
+	}
+
+	// Default session duration is 8 hours if not specified (480 minutes)
+	defaultDuration := 8 * time.Hour
+
+	// Use the provided terminate_after or default
+	proposedDuration := defaultDuration
+	if terminateAfterMinutes > 0 {
+		proposedDuration = time.Duration(terminateAfterMinutes) * time.Minute
+	}
+
+	// Get all enabled scheduled sessions for this user
+	query := `
+		SELECT id, schedule, timezone, terminate_after, next_run_at
+		FROM scheduled_sessions
+		WHERE user_id = $1 AND enabled = true
+	`
+
+	rows, err := h.DB.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query schedules: %w", err)
+	}
+	defer rows.Close()
+
+	var conflicts []int64
+
+	for rows.Next() {
+		var scheduleID int64
+		var existingScheduleJSON, existingTimezone string
+		var terminateAfter sql.NullInt64
+		var nextRunAt time.Time
+
+		err := rows.Scan(&scheduleID, &existingScheduleJSON, &existingTimezone, &terminateAfter, &nextRunAt)
+		if err != nil {
+			continue
+		}
+
+		// Calculate the duration of the existing schedule
+		existingDuration := defaultDuration
+		if terminateAfter.Valid && terminateAfter.Int64 > 0 {
+			existingDuration = time.Duration(terminateAfter.Int64) * time.Minute
+		}
+
+		// Check if the time windows overlap
+		// Proposed: [proposedStart, proposedStart + proposedDuration]
+		// Existing: [nextRunAt, nextRunAt + existingDuration]
+		proposedEnd := proposedStart.Add(proposedDuration)
+		existingEnd := nextRunAt.Add(existingDuration)
+
+		// Check for overlap: ranges overlap if one starts before the other ends
+		if proposedStart.Before(existingEnd) && proposedEnd.After(nextRunAt) {
+			conflicts = append(conflicts, scheduleID)
+		}
+	}
+
+	return conflicts, nil
 }
 
 // Get Google Calendar OAuth URL
