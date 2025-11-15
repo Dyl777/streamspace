@@ -873,8 +873,39 @@ func (h *Handler) TriggerScaling(c *gin.Context) {
 		return
 	}
 
-	// Get current replica count (mock - would query Kubernetes in production)
-	currentReplicas := 1
+	// Get current replica count from Kubernetes
+	currentReplicas := 0
+	ctx := context.Background()
+	config, err := h.getKubernetesConfig()
+	if err != nil {
+		log.Printf("[ERROR] Failed to get Kubernetes config for replica count: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to connect to Kubernetes"})
+		return
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create Kubernetes clientset: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize Kubernetes client"})
+		return
+	}
+
+	namespace := os.Getenv("STREAMSPACE_NAMESPACE")
+	if namespace == "" {
+		namespace = "streamspace"
+	}
+
+	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, policy.TargetID, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("[ERROR] Failed to get deployment %s in namespace %s: %v", policy.TargetID, namespace, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get deployment %s", policy.TargetID)})
+		return
+	}
+
+	if deployment.Spec.Replicas != nil {
+		currentReplicas = int(*deployment.Spec.Replicas)
+	}
+	log.Printf("[INFO] Current replica count for deployment %s: %d", policy.TargetID, currentReplicas)
 
 	// Calculate new replica count
 	var newReplicas int
