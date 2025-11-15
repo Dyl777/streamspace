@@ -14,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pquerna/otp/totp"
-	"streamspace/api/internal/middleware"
+	"github.com/streamspace/streamspace/api/internal/middleware"
 )
 
 // ============================================================================

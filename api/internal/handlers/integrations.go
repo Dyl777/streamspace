@@ -225,24 +225,40 @@ func (h *Handler) ListWebhooks(c *gin.Context) {
 			&events, &headers, &w.Enabled, &retryPolicy, &filters, &metadata,
 			&w.CreatedBy, &w.CreatedAt, &w.UpdatedAt)
 
-		if err == nil {
-			if events.Valid && events.String != "" {
-				json.Unmarshal([]byte(events.String), &w.Events)
-			}
-			if headers.Valid && headers.String != "" {
-				json.Unmarshal([]byte(headers.String), &w.Headers)
-			}
-			if retryPolicy.Valid && retryPolicy.String != "" {
-				json.Unmarshal([]byte(retryPolicy.String), &w.RetryPolicy)
-			}
-			if filters.Valid && filters.String != "" {
-				json.Unmarshal([]byte(filters.String), &w.Filters)
-			}
-			if metadata.Valid && metadata.String != "" {
-				json.Unmarshal([]byte(metadata.String), &w.Metadata)
-			}
-			webhooks = append(webhooks, w)
+		if err != nil {
+			continue // Skip rows with scan errors
 		}
+
+		// Parse JSON fields with error handling
+		if events.Valid && events.String != "" {
+			if err := json.Unmarshal([]byte(events.String), &w.Events); err != nil {
+				// Log error but continue with empty events
+				w.Events = []string{}
+			}
+		}
+		if headers.Valid && headers.String != "" {
+			if err := json.Unmarshal([]byte(headers.String), &w.Headers); err != nil {
+				w.Headers = make(map[string]string)
+			}
+		}
+		if retryPolicy.Valid && retryPolicy.String != "" {
+			if err := json.Unmarshal([]byte(retryPolicy.String), &w.RetryPolicy); err != nil {
+				// Use default retry policy on unmarshal error
+				w.RetryPolicy = WebhookRetryPolicy{MaxRetries: 3, RetryDelay: 60, BackoffMultiplier: 2.0}
+			}
+		}
+		if filters.Valid && filters.String != "" {
+			if err := json.Unmarshal([]byte(filters.String), &w.Filters); err != nil {
+				w.Filters = WebhookFilters{}
+			}
+		}
+		if metadata.Valid && metadata.String != "" {
+			if err := json.Unmarshal([]byte(metadata.String), &w.Metadata); err != nil {
+				w.Metadata = make(map[string]interface{})
+			}
+		}
+
+		webhooks = append(webhooks, w)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"webhooks": webhooks})
