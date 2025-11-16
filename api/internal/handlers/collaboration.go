@@ -273,15 +273,23 @@ func NewCollaborationHandler(database *db.Database) *Handler {
 }
 
 // canAccessSession checks if a user has access to a session.
-// This is a placeholder implementation - replace with actual authorization logic.
 func (h *Handler) canAccessSession(userID, sessionID string) bool {
-	// TODO: Implement proper session access check
-	// For now, query the sessions table to see if user owns the session
-	var exists bool
-	err := h.DB.QueryRow(`
-		SELECT EXISTS(SELECT 1 FROM sessions WHERE id = $1 AND user_id = $2)
-	`, sessionID, userID).Scan(&exists)
-	return err == nil && exists
+	// Check if user owns the session
+	var owner string
+	err := h.DB.DB().QueryRow("SELECT user_id FROM sessions WHERE id = $1", sessionID).Scan(&owner)
+	if err == nil && owner == userID {
+		return true
+	}
+
+	// Check shared access
+	var hasAccess bool
+	err = h.DB.DB().QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM session_shares
+			WHERE session_id = $1 AND shared_with_user_id = $2
+		)
+	`, sessionID, userID).Scan(&hasAccess)
+	return err == nil && hasAccess
 }
 
 // toJSONB converts a Go value to JSON string for JSONB storage.
@@ -318,54 +326,54 @@ func toJSONB(v interface{}) string {
 //   - Chat history, annotations preserved after session ends
 //   - Cursor positions ephemeral (not stored in database)
 type CollaborationSession struct {
-	ID               string                 `json:"id"`
-	SessionID        string                 `json:"session_id"`
-	OwnerID          string                 `json:"owner_id"`
-	Participants     []CollaborationUser    `json:"participants"`
-	Settings         CollaborationSettings  `json:"settings"`
-	ActiveUsers      int                    `json:"active_users"`
-	ChatEnabled      bool                   `json:"chat_enabled"`
-	AnnotationsEnabled bool                 `json:"annotations_enabled"`
-	CursorTracking   bool                   `json:"cursor_tracking"`
-	Status           string                 `json:"status"` // "active", "paused", "ended"
-	CreatedAt        time.Time              `json:"created_at"`
-	EndedAt          *time.Time             `json:"ended_at,omitempty"`
+	ID                 string                `json:"id"`
+	SessionID          string                `json:"session_id"`
+	OwnerID            string                `json:"owner_id"`
+	Participants       []CollaborationUser   `json:"participants"`
+	Settings           CollaborationSettings `json:"settings"`
+	ActiveUsers        int                   `json:"active_users"`
+	ChatEnabled        bool                  `json:"chat_enabled"`
+	AnnotationsEnabled bool                  `json:"annotations_enabled"`
+	CursorTracking     bool                  `json:"cursor_tracking"`
+	Status             string                `json:"status"` // "active", "paused", "ended"
+	CreatedAt          time.Time             `json:"created_at"`
+	EndedAt            *time.Time            `json:"ended_at,omitempty"`
 }
 
 // CollaborationUser represents a user in a collaborative session
 type CollaborationUser struct {
-	UserID         string                 `json:"user_id"`
-	Username       string                 `json:"username"`
-	Role           string                 `json:"role"` // "owner", "presenter", "participant", "viewer"
+	UserID         string                   `json:"user_id"`
+	Username       string                   `json:"username"`
+	Role           string                   `json:"role"` // "owner", "presenter", "participant", "viewer"
 	Permissions    CollaborationPermissions `json:"permissions"`
-	CursorPosition *CursorPosition        `json:"cursor_position,omitempty"`
-	IsActive       bool                   `json:"is_active"`
-	JoinedAt       time.Time              `json:"joined_at"`
-	LastSeenAt     time.Time              `json:"last_seen_at"`
-	Color          string                 `json:"color"` // User color for cursor/annotations
+	CursorPosition *CursorPosition          `json:"cursor_position,omitempty"`
+	IsActive       bool                     `json:"is_active"`
+	JoinedAt       time.Time                `json:"joined_at"`
+	LastSeenAt     time.Time                `json:"last_seen_at"`
+	Color          string                   `json:"color"` // User color for cursor/annotations
 }
 
 // CollaborationPermissions defines what a user can do
 type CollaborationPermissions struct {
-	CanControl     bool `json:"can_control"`      // Can interact with session
-	CanAnnotate    bool `json:"can_annotate"`     // Can create annotations
-	CanChat        bool `json:"can_chat"`         // Can send messages
-	CanInvite      bool `json:"can_invite"`       // Can invite others
-	CanManage      bool `json:"can_manage"`       // Can change settings
-	CanRecord      bool `json:"can_record"`       // Can start recording
-	CanViewOnly    bool `json:"can_view_only"`    // View-only mode
+	CanControl  bool `json:"can_control"`   // Can interact with session
+	CanAnnotate bool `json:"can_annotate"`  // Can create annotations
+	CanChat     bool `json:"can_chat"`      // Can send messages
+	CanInvite   bool `json:"can_invite"`    // Can invite others
+	CanManage   bool `json:"can_manage"`    // Can change settings
+	CanRecord   bool `json:"can_record"`    // Can start recording
+	CanViewOnly bool `json:"can_view_only"` // View-only mode
 }
 
 // CollaborationSettings defines session behavior
 type CollaborationSettings struct {
-	FollowMode          string `json:"follow_mode"` // "none", "follow_presenter", "follow_owner"
-	MaxParticipants     int    `json:"max_participants"`
-	RequireApproval     bool   `json:"require_approval"`
-	AllowAnonymous      bool   `json:"allow_anonymous"`
-	LockOnPresenter     bool   `json:"lock_on_presenter"`
-	AutoMuteJoiners     bool   `json:"auto_mute_joiners"`
-	ShowCursorLabels    bool   `json:"show_cursor_labels"`
-	EnableHandRaise     bool   `json:"enable_hand_raise"`
+	FollowMode       string `json:"follow_mode"` // "none", "follow_presenter", "follow_owner"
+	MaxParticipants  int    `json:"max_participants"`
+	RequireApproval  bool   `json:"require_approval"`
+	AllowAnonymous   bool   `json:"allow_anonymous"`
+	LockOnPresenter  bool   `json:"lock_on_presenter"`
+	AutoMuteJoiners  bool   `json:"auto_mute_joiners"`
+	ShowCursorLabels bool   `json:"show_cursor_labels"`
+	EnableHandRaise  bool   `json:"enable_hand_raise"`
 }
 
 // CursorPosition represents cursor location
@@ -389,17 +397,17 @@ type ChatMessage struct {
 
 // Annotation represents a drawing/annotation on the session
 type Annotation struct {
-	ID          string                 `json:"id"`
-	SessionID   string                 `json:"session_id"`
-	UserID      string                 `json:"user_id"`
-	Type        string                 `json:"type"` // "line", "arrow", "rectangle", "circle", "text", "freehand"
-	Color       string                 `json:"color"`
-	Thickness   int                    `json:"thickness"`
-	Points      []Point                `json:"points"`
-	Text        string                 `json:"text,omitempty"`
-	IsPersistent bool                  `json:"is_persistent"`
-	CreatedAt   time.Time              `json:"created_at"`
-	ExpiresAt   *time.Time             `json:"expires_at,omitempty"`
+	ID           string     `json:"id"`
+	SessionID    string     `json:"session_id"`
+	UserID       string     `json:"user_id"`
+	Type         string     `json:"type"` // "line", "arrow", "rectangle", "circle", "text", "freehand"
+	Color        string     `json:"color"`
+	Thickness    int        `json:"thickness"`
+	Points       []Point    `json:"points"`
+	Text         string     `json:"text,omitempty"`
+	IsPersistent bool       `json:"is_persistent"`
+	CreatedAt    time.Time  `json:"created_at"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
 }
 
 // Point represents a coordinate point
@@ -420,12 +428,12 @@ func (h *Handler) CreateCollaborationSession(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// Use defaults if not provided
 		req.Settings = CollaborationSettings{
-			FollowMode:        "none",
-			MaxParticipants:   10,
-			RequireApproval:   false,
-			AllowAnonymous:    false,
-			ShowCursorLabels:  true,
-			EnableHandRaise:   true,
+			FollowMode:       "none",
+			MaxParticipants:  10,
+			RequireApproval:  false,
+			AllowAnonymous:   false,
+			ShowCursorLabels: true,
+			EnableHandRaise:  true,
 		}
 	}
 
@@ -437,7 +445,7 @@ func (h *Handler) CreateCollaborationSession(c *gin.Context) {
 
 	// Check if collaboration already exists
 	var existingID string
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		SELECT id FROM collaboration_sessions
 		WHERE session_id = $1 AND status = 'active'
 	`, sessionID).Scan(&existingID)
@@ -449,7 +457,7 @@ func (h *Handler) CreateCollaborationSession(c *gin.Context) {
 
 	// Create collaboration session
 	collabID := fmt.Sprintf("collab-%s-%d", sessionID, time.Now().Unix())
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		INSERT INTO collaboration_sessions (
 			id, session_id, owner_id, settings, chat_enabled,
 			annotations_enabled, cursor_tracking, status
@@ -464,16 +472,16 @@ func (h *Handler) CreateCollaborationSession(c *gin.Context) {
 
 	// Add owner as first participant
 	ownerPerms := CollaborationPermissions{
-		CanControl:   true,
-		CanAnnotate:  true,
-		CanChat:      true,
-		CanInvite:    true,
-		CanManage:    true,
-		CanRecord:    true,
-		CanViewOnly:  false,
+		CanControl:  true,
+		CanAnnotate: true,
+		CanChat:     true,
+		CanInvite:   true,
+		CanManage:   true,
+		CanRecord:   true,
+		CanViewOnly: false,
 	}
 
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		INSERT INTO collaboration_participants (
 			collaboration_id, user_id, role, permissions, color, is_active
 		) VALUES ($1, $2, $3, $4, $5, $6)
@@ -500,7 +508,7 @@ func (h *Handler) JoinCollaborationSession(c *gin.Context) {
 	// Get collaboration details
 	var sessionID, ownerID string
 	var settings, status sql.NullString
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		SELECT session_id, owner_id, settings, status
 		FROM collaboration_sessions WHERE id = $1
 	`, collabID).Scan(&sessionID, &ownerID, &settings, &status)
@@ -529,14 +537,14 @@ func (h *Handler) JoinCollaborationSession(c *gin.Context) {
 
 	// Check if already a participant
 	var existingRole string
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT role FROM collaboration_participants
 		WHERE collaboration_id = $1 AND user_id = $2
 	`, collabID, userID).Scan(&existingRole)
 
 	if existingRole != "" {
 		// Update to active
-		h.DB.Exec(`
+		h.DB.DB().Exec(`
 			UPDATE collaboration_participants
 			SET is_active = true, last_seen_at = $1
 			WHERE collaboration_id = $2 AND user_id = $3
@@ -548,7 +556,7 @@ func (h *Handler) JoinCollaborationSession(c *gin.Context) {
 
 	// Check participant limit
 	var participantCount int
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*) FROM collaboration_participants
 		WHERE collaboration_id = $1 AND is_active = true
 	`, collabID).Scan(&participantCount)
@@ -560,13 +568,13 @@ func (h *Handler) JoinCollaborationSession(c *gin.Context) {
 
 	// Default permissions for participants
 	participantPerms := CollaborationPermissions{
-		CanControl:   true,
-		CanAnnotate:  true,
-		CanChat:      true,
-		CanInvite:    false,
-		CanManage:    false,
-		CanRecord:    false,
-		CanViewOnly:  false,
+		CanControl:  true,
+		CanAnnotate: true,
+		CanChat:     true,
+		CanInvite:   false,
+		CanManage:   false,
+		CanRecord:   false,
+		CanViewOnly: false,
 	}
 
 	// Assign color
@@ -574,7 +582,7 @@ func (h *Handler) JoinCollaborationSession(c *gin.Context) {
 	userColor := colors[participantCount%len(colors)]
 
 	// Add participant
-	_, err = h.DB.Exec(`
+	_, err = h.DB.DB().Exec(`
 		INSERT INTO collaboration_participants (
 			collaboration_id, user_id, role, permissions, color, is_active
 		) VALUES ($1, $2, $3, $4, $5, $6)
@@ -586,14 +594,14 @@ func (h *Handler) JoinCollaborationSession(c *gin.Context) {
 	}
 
 	// Update participant count
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		UPDATE collaboration_sessions
 		SET active_users = (SELECT COUNT(*) FROM collaboration_participants WHERE collaboration_id = $1 AND is_active = true)
 		WHERE id = $1
 	`, collabID)
 
 	// Send system message
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		INSERT INTO collaboration_chat (
 			collaboration_id, user_id, message, message_type
 		) VALUES ($1, $2, $3, $4)
@@ -613,7 +621,7 @@ func (h *Handler) LeaveCollaborationSession(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	// Update participant status
-	_, err := h.DB.Exec(`
+	_, err := h.DB.DB().Exec(`
 		UPDATE collaboration_participants
 		SET is_active = false, last_seen_at = $1
 		WHERE collaboration_id = $2 AND user_id = $3
@@ -625,14 +633,14 @@ func (h *Handler) LeaveCollaborationSession(c *gin.Context) {
 	}
 
 	// Update active user count
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		UPDATE collaboration_sessions
 		SET active_users = (SELECT COUNT(*) FROM collaboration_participants WHERE collaboration_id = $1 AND is_active = true)
 		WHERE id = $1
 	`, collabID)
 
 	// Send system message
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		INSERT INTO collaboration_chat (
 			collaboration_id, user_id, message, message_type
 		) VALUES ($1, $2, $3, $4)
@@ -716,7 +724,7 @@ func (h *Handler) UpdateParticipantRole(c *gin.Context) {
 	}
 
 	// Update participant
-	_, err := h.DB.Exec(`
+	_, err := h.DB.DB().Exec(`
 		UPDATE collaboration_participants
 		SET role = $1, permissions = $2
 		WHERE collaboration_id = $3 AND user_id = $4
@@ -760,7 +768,7 @@ func (h *Handler) SendChatMessage(c *gin.Context) {
 
 	// Insert message
 	var msgID int64
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		INSERT INTO collaboration_chat (
 			collaboration_id, user_id, message, message_type, metadata
 		) VALUES ($1, $2, $3, $4, $5)
@@ -867,7 +875,7 @@ func (h *Handler) CreateAnnotation(c *gin.Context) {
 
 	// Get session ID
 	var sessionID string
-	h.DB.QueryRow("SELECT session_id FROM collaboration_sessions WHERE id = $1", collabID).Scan(&sessionID)
+	h.DB.DB().QueryRow("SELECT session_id FROM collaboration_sessions WHERE id = $1", collabID).Scan(&sessionID)
 
 	annotationID := fmt.Sprintf("annot-%d", time.Now().UnixNano())
 	req.ID = annotationID
@@ -881,7 +889,7 @@ func (h *Handler) CreateAnnotation(c *gin.Context) {
 		expiresAt = &expires
 	}
 
-	_, err := h.DB.Exec(`
+	_, err := h.DB.DB().Exec(`
 		INSERT INTO collaboration_annotations (
 			id, collaboration_id, session_id, user_id, type, color, thickness,
 			points, text, is_persistent, expires_at
@@ -948,14 +956,14 @@ func (h *Handler) DeleteAnnotation(c *gin.Context) {
 
 	// Verify ownership or manage permission
 	var ownerID string
-	h.DB.QueryRow("SELECT user_id FROM collaboration_annotations WHERE id = $1", annotationID).Scan(&ownerID)
+	h.DB.DB().QueryRow("SELECT user_id FROM collaboration_annotations WHERE id = $1", annotationID).Scan(&ownerID)
 
 	if ownerID != userID && !h.canManageCollaboration(collabID, userID) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "permission denied"})
 		return
 	}
 
-	_, err := h.DB.Exec("DELETE FROM collaboration_annotations WHERE id = $1", annotationID)
+	_, err := h.DB.DB().Exec("DELETE FROM collaboration_annotations WHERE id = $1", annotationID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete annotation"})
 		return
@@ -974,7 +982,7 @@ func (h *Handler) ClearAllAnnotations(c *gin.Context) {
 		return
 	}
 
-	result, err := h.DB.Exec("DELETE FROM collaboration_annotations WHERE collaboration_id = $1", collabID)
+	result, err := h.DB.DB().Exec("DELETE FROM collaboration_annotations WHERE collaboration_id = $1", collabID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear annotations"})
 		return
@@ -988,7 +996,7 @@ func (h *Handler) ClearAllAnnotations(c *gin.Context) {
 
 func (h *Handler) isCollaborationParticipant(collabID, userID string) bool {
 	var exists bool
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT EXISTS(SELECT 1 FROM collaboration_participants
 		WHERE collaboration_id = $1 AND user_id = $2)
 	`, collabID, userID).Scan(&exists)
@@ -997,7 +1005,7 @@ func (h *Handler) isCollaborationParticipant(collabID, userID string) bool {
 
 func (h *Handler) canManageCollaboration(collabID, userID string) bool {
 	var permissions sql.NullString
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT permissions FROM collaboration_participants
 		WHERE collaboration_id = $1 AND user_id = $2
 	`, collabID, userID).Scan(&permissions)
@@ -1013,7 +1021,7 @@ func (h *Handler) canManageCollaboration(collabID, userID string) bool {
 
 func (h *Handler) hasCollaborationPermission(collabID, userID, permission string) bool {
 	var permissions sql.NullString
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT permissions FROM collaboration_participants
 		WHERE collaboration_id = $1 AND user_id = $2 AND is_active = true
 	`, collabID, userID).Scan(&permissions)
@@ -1053,7 +1061,7 @@ func (h *Handler) GetCollaborationStats(c *gin.Context) {
 
 	// Participant count
 	var totalParticipants, activeParticipants int
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*), COUNT(*) FILTER (WHERE is_active = true)
 		FROM collaboration_participants WHERE collaboration_id = $1
 	`, collabID).Scan(&totalParticipants, &activeParticipants)
@@ -1062,14 +1070,14 @@ func (h *Handler) GetCollaborationStats(c *gin.Context) {
 
 	// Message count
 	var messageCount int
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*) FROM collaboration_chat WHERE collaboration_id = $1
 	`, collabID).Scan(&messageCount)
 	stats["total_messages"] = messageCount
 
 	// Annotation count
 	var annotationCount int
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*) FROM collaboration_annotations
 		WHERE collaboration_id = $1 AND (expires_at IS NULL OR expires_at > $2)
 	`, collabID, time.Now()).Scan(&annotationCount)
@@ -1077,7 +1085,7 @@ func (h *Handler) GetCollaborationStats(c *gin.Context) {
 
 	// Session duration
 	var startTime time.Time
-	h.DB.QueryRow("SELECT created_at FROM collaboration_sessions WHERE id = $1", collabID).Scan(&startTime)
+	h.DB.DB().QueryRow("SELECT created_at FROM collaboration_sessions WHERE id = $1", collabID).Scan(&startTime)
 	duration := time.Since(startTime)
 	stats["duration_seconds"] = int(duration.Seconds())
 
