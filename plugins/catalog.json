@@ -76,9 +76,143 @@
       "name": "streamspace-discord",
       "version": "1.0.0",
       "displayName": "Discord Integration",
+      "description": "Send notifications to Discord channels",
       "author": "StreamSpace Team",
       "type": "webhook",
-      "permissions": ["network"]
+      "category": "Integrations",
+      "tags": ["notifications", "discord"],
+      "permissions": ["network"],
+      "configSchema": {
+        "type": "object",
+        "properties": {
+          "webhookUrl": {
+            "type": "string",
+            "title": "Discord Webhook URL",
+            "description": "Your Discord channel webhook URL"
+          },
+          "username": {
+            "type": "string",
+            "title": "Bot Username",
+            "default": "StreamSpace"
+          },
+          "notifyOnSessionCreated": {
+            "type": "boolean",
+            "title": "Notify on Session Created",
+            "default": true
+          }
+        },
+        "required": ["webhookUrl"]
+      }
+    }
+  },
+  {
+    "name": "streamspace-pagerduty",
+    "version": "1.0.0",
+    "displayName": "PagerDuty Integration",
+    "description": "Send incident alerts to PagerDuty for critical events",
+    "author": "StreamSpace Team",
+    "category": "Integrations",
+    "tags": ["monitoring", "pagerduty", "alerting", "incidents"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-pagerduty/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-pagerduty/plugin.tar.gz",
+    "manifest": {
+      "name": "streamspace-pagerduty",
+      "version": "1.0.0",
+      "displayName": "PagerDuty Integration",
+      "description": "Send incident alerts to PagerDuty for critical events",
+      "author": "StreamSpace Team",
+      "type": "webhook",
+      "category": "Integrations",
+      "tags": ["monitoring", "pagerduty", "alerting"],
+      "permissions": ["network"],
+      "configSchema": {
+        "type": "object",
+        "properties": {
+          "routingKey": {
+            "type": "string",
+            "title": "Integration Key (Routing Key)",
+            "description": "Your PagerDuty Events API v2 integration key"
+          },
+          "notifyOnSessionHibernated": {
+            "type": "boolean",
+            "title": "Notify on Session Hibernated",
+            "default": true
+          },
+          "sessionHibernatedSeverity": {
+            "type": "string",
+            "enum": ["info", "warning", "error", "critical"],
+            "default": "warning"
+          }
+        },
+        "required": ["routingKey"]
+      }
+    }
+  },
+  {
+    "name": "streamspace-email",
+    "version": "1.0.0",
+    "displayName": "Email SMTP Integration",
+    "description": "Send email notifications via SMTP for session and user events",
+    "author": "StreamSpace Team",
+    "category": "Integrations",
+    "tags": ["email", "smtp", "notifications", "alerts"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-email/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-email/plugin.tar.gz",
+    "manifest": {
+      "name": "streamspace-email",
+      "version": "1.0.0",
+      "displayName": "Email SMTP Integration",
+      "description": "Send email notifications via SMTP",
+      "author": "StreamSpace Team",
+      "type": "integration",
+      "category": "Integrations",
+      "tags": ["email", "smtp", "notifications"],
+      "permissions": ["network"],
+      "configSchema": {
+        "type": "object",
+        "properties": {
+          "smtpHost": {
+            "type": "string",
+            "title": "SMTP Host",
+            "description": "SMTP server hostname"
+          },
+          "smtpPort": {
+            "type": "integer",
+            "title": "SMTP Port",
+            "default": 587
+          },
+          "username": {
+            "type": "string",
+            "title": "SMTP Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "SMTP Password",
+            "format": "password"
+          },
+          "fromAddress": {
+            "type": "string",
+            "title": "From Email Address",
+            "format": "email"
+          },
+          "toAddresses": {
+            "type": "array",
+            "title": "To Email Addresses",
+            "items": {"type": "string", "format": "email"}
+          },
+          "notifyOnSessionCreated": {
+            "type": "boolean",
+            "title": "Notify on Session Created",
+            "default": true
+          },
+          "htmlFormat": {
+            "type": "boolean",
+            "title": "HTML Format",
+            "default": true
+          }
+        },
+        "required": ["smtpHost", "smtpPort", "username", "password", "fromAddress", "toAddresses"]
+      }
     }
   }
 ]
