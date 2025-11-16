@@ -276,5 +276,60 @@
         }
       }
     }
+  },
+  {
+    "name": "streamspace-datadog",
+    "version": "1.0.0",
+    "displayName": "Datadog Monitoring",
+    "description": "Send metrics, traces, and logs to Datadog for comprehensive observability",
+    "author": "StreamSpace Team",
+    "category": "Monitoring",
+    "tags": ["monitoring", "datadog", "metrics", "apm", "observability"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-datadog/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-datadog/plugin.tar.gz"
+  },
+  {
+    "name": "streamspace-newrelic",
+    "version": "1.0.0",
+    "displayName": "New Relic Monitoring",
+    "description": "Send performance metrics, traces, and events to New Relic for full-stack observability",
+    "author": "StreamSpace Team",
+    "category": "Monitoring",
+    "tags": ["monitoring", "newrelic", "apm", "metrics", "observability"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-newrelic/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-newrelic/plugin.tar.gz"
+  },
+  {
+    "name": "streamspace-sentry",
+    "version": "1.0.0",
+    "displayName": "Sentry Error Tracking",
+    "description": "Track errors, exceptions, and performance issues with Sentry integration",
+    "author": "StreamSpace Team",
+    "category": "Monitoring",
+    "tags": ["monitoring", "sentry", "errors", "exceptions", "performance"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-sentry/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-sentry/plugin.tar.gz"
+  },
+  {
+    "name": "streamspace-elastic-apm",
+    "version": "1.0.0",
+    "displayName": "Elastic APM Integration",
+    "description": "Application Performance Monitoring with Elastic APM and distributed tracing",
+    "author": "StreamSpace Team",
+    "category": "Monitoring",
+    "tags": ["monitoring", "elastic", "apm", "performance", "tracing"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-elastic-apm/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-elastic-apm/plugin.tar.gz"
+  },
+  {
+    "name": "streamspace-honeycomb",
+    "version": "1.0.0",
+    "displayName": "Honeycomb Observability",
+    "description": "High-definition observability with Honeycomb for deep system analysis and debugging",
+    "author": "StreamSpace Team",
+    "category": "Monitoring",
+    "tags": ["monitoring", "honeycomb", "observability", "tracing", "debugging"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-honeycomb/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-honeycomb/plugin.tar.gz"
   }
 ]
