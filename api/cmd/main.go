@@ -175,10 +175,6 @@ func main() {
 	// Maximum 10MB for general requests
 	router.Use(middleware.RequestSizeLimiter(10 * 1024 * 1024))
 
-	// SECURITY: Add rate limiting to prevent DoS attacks
-	// Use singleton rate limiter instance
-	rateLimiter := middleware.GetRateLimiter()
-
 	// SECURITY: Add audit logging for all requests
 	auditLogger := middleware.NewAuditLogger(database, false) // Don't log request bodies by default
 	router.Use(auditLogger.Middleware())
@@ -255,6 +251,7 @@ func main() {
 	monitoringHandler := handlers.NewMonitoringHandler(database)
 	quotasHandler := handlers.NewQuotasHandler(database)
 	websocketHandler := handlers.NewWebSocketHandler(database)
+	consoleHandler := handlers.NewConsoleHandler(database)
 	// NOTE: Billing is now handled by the streamspace-billing plugin
 
 	// SECURITY: Initialize webhook authentication
@@ -265,7 +262,7 @@ func main() {
 	}
 
 	// Setup routes
-	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, dashboardHandler, sessionActivityHandler, apiKeyHandler, teamHandler, preferencesHandler, notificationsHandler, searchHandler, sessionTemplatesHandler, batchHandler, monitoringHandler, quotasHandler, websocketHandler, jwtManager, userDB, redisCache, webhookSecret)
+	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, dashboardHandler, sessionActivityHandler, apiKeyHandler, teamHandler, preferencesHandler, notificationsHandler, searchHandler, sessionTemplatesHandler, batchHandler, monitoringHandler, quotasHandler, websocketHandler, consoleHandler, jwtManager, userDB, redisCache, webhookSecret)
 
 	// Create HTTP server with security timeouts
 	srv := &http.Server{
@@ -346,7 +343,7 @@ func main() {
 	log.Println("Graceful shutdown completed")
 }
 
-func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, dashboardHandler *handlers.DashboardHandler, sessionActivityHandler *handlers.SessionActivityHandler, apiKeyHandler *handlers.APIKeyHandler, teamHandler *handlers.TeamHandler, preferencesHandler *handlers.PreferencesHandler, notificationsHandler *handlers.NotificationsHandler, searchHandler *handlers.SearchHandler, sessionTemplatesHandler *handlers.SessionTemplatesHandler, batchHandler *handlers.BatchHandler, monitoringHandler *handlers.MonitoringHandler, quotasHandler *handlers.QuotasHandler, websocketHandler *handlers.WebSocketHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
+func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, dashboardHandler *handlers.DashboardHandler, sessionActivityHandler *handlers.SessionActivityHandler, apiKeyHandler *handlers.APIKeyHandler, teamHandler *handlers.TeamHandler, preferencesHandler *handlers.PreferencesHandler, notificationsHandler *handlers.NotificationsHandler, searchHandler *handlers.SearchHandler, sessionTemplatesHandler *handlers.SessionTemplatesHandler, batchHandler *handlers.BatchHandler, monitoringHandler *handlers.MonitoringHandler, quotasHandler *handlers.QuotasHandler, websocketHandler *handlers.WebSocketHandler, consoleHandler *handlers.ConsoleHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
 	// SECURITY: Create authentication middleware
 	authMiddleware := auth.Middleware(jwtManager, userDB)
 	adminMiddleware := auth.RequireRole("admin")
@@ -405,21 +402,21 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 			console := protected.Group("/console")
 			{
 				// Console sessions (terminal and file manager)
-				console.POST("/sessions/:sessionId", h.CreateConsoleSession)
-				console.GET("/sessions/:sessionId", h.ListConsoleSessions)
-				console.POST("/:consoleId/disconnect", h.DisconnectConsoleSession)
+				console.POST("/sessions/:sessionId", consoleHandler.CreateConsoleSession)
+				console.GET("/sessions/:sessionId", consoleHandler.ListConsoleSessions)
+				console.POST("/:consoleId/disconnect", consoleHandler.DisconnectConsoleSession)
 
 				// File Manager operations
-				console.GET("/files/:sessionId", h.ListFiles)
-				console.GET("/files/:sessionId/content", h.GetFileContent)
-				console.POST("/files/:sessionId/upload", h.UploadFile)
-				console.GET("/files/:sessionId/download", h.DownloadFile)
-				console.POST("/files/:sessionId/directory", h.CreateDirectory)
-				console.DELETE("/files/:sessionId", h.DeleteFile)
-				console.PATCH("/files/:sessionId/rename", h.RenameFile)
+				console.GET("/files/:sessionId", consoleHandler.ListFiles)
+				console.GET("/files/:sessionId/content", consoleHandler.GetFileContent)
+				console.POST("/files/:sessionId/upload", consoleHandler.UploadFile)
+				console.GET("/files/:sessionId/download", consoleHandler.DownloadFile)
+				console.POST("/files/:sessionId/directory", consoleHandler.CreateDirectory)
+				console.DELETE("/files/:sessionId", consoleHandler.DeleteFile)
+				console.PATCH("/files/:sessionId/rename", consoleHandler.RenameFile)
 
 				// File operation history
-				console.GET("/files/:sessionId/history", h.GetFileOperationHistory)
+				console.GET("/files/:sessionId/history", consoleHandler.GetFileOperationHistory)
 			}
 
 			// Multi-Monitor Support
@@ -660,16 +657,17 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 			// NOTE: Analytics & Reporting is now handled by the streamspace-analytics-advanced plugin
 			// Install it via: Admin → Plugins → streamspace-analytics-advanced
 
-			// Audit logs (admins only for viewing, operators can view their own)
-			audit := protected.Group("/audit")
-			{
-				// Admin can view all audit logs with advanced filtering
-				audit.GET("/logs", adminMiddleware, cache.CacheMiddleware(redisCache, 30*time.Second), auditLogHandler.ListAuditLogs)
-				audit.GET("/stats", adminMiddleware, cache.CacheMiddleware(redisCache, 1*time.Minute), auditLogHandler.GetAuditLogStats)
-
-				// Users can view their own audit logs
-				audit.GET("/users/:userId/logs", auditLogHandler.GetUserAuditLogs)
-			}
+			// NOTE: Audit logs are now handled by the streamspace-audit plugin
+			// Install it via: Admin → Plugins → streamspace-audit
+			// audit := protected.Group("/audit")
+			// {
+			//	// Admin can view all audit logs with advanced filtering
+			//	audit.GET("/logs", adminMiddleware, cache.CacheMiddleware(redisCache, 30*time.Second), auditLogHandler.ListAuditLogs)
+			//	audit.GET("/stats", adminMiddleware, cache.CacheMiddleware(redisCache, 1*time.Minute), auditLogHandler.GetAuditLogStats)
+			//
+			//	// Users can view their own audit logs
+			//	audit.GET("/users/:userId/logs", auditLogHandler.GetUserAuditLogs)
+			// }
 
 			// Dashboard and resource usage (operators and admins can view platform stats)
 			dashboard := protected.Group("/dashboard")
