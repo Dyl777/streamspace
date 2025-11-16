@@ -258,6 +258,7 @@ func main() {
 	schedulingHandler := handlers.NewSchedulingHandler(database)
 	securityHandler := handlers.NewSecurityHandler(database)
 	templateVersioningHandler := handlers.NewTemplateVersioningHandler(database)
+	setupHandler := handlers.NewSetupHandler(database)
 	// NOTE: Billing is now handled by the streamspace-billing plugin
 
 	// SECURITY: Initialize webhook authentication
@@ -268,7 +269,7 @@ func main() {
 	}
 
 	// Setup routes
-	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, dashboardHandler, sessionActivityHandler, apiKeyHandler, teamHandler, preferencesHandler, notificationsHandler, searchHandler, sessionTemplatesHandler, batchHandler, monitoringHandler, quotasHandler, websocketHandler, consoleHandler, collaborationHandler, integrationsHandler, loadBalancingHandler, schedulingHandler, securityHandler, templateVersioningHandler, jwtManager, userDB, redisCache, webhookSecret)
+	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, dashboardHandler, sessionActivityHandler, apiKeyHandler, teamHandler, preferencesHandler, notificationsHandler, searchHandler, sessionTemplatesHandler, batchHandler, monitoringHandler, quotasHandler, websocketHandler, consoleHandler, collaborationHandler, integrationsHandler, loadBalancingHandler, schedulingHandler, securityHandler, templateVersioningHandler, setupHandler, jwtManager, userDB, redisCache, webhookSecret)
 
 	// Create HTTP server with security timeouts
 	srv := &http.Server{
@@ -349,7 +350,7 @@ func main() {
 	log.Println("Graceful shutdown completed")
 }
 
-func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, dashboardHandler *handlers.DashboardHandler, sessionActivityHandler *handlers.SessionActivityHandler, apiKeyHandler *handlers.APIKeyHandler, teamHandler *handlers.TeamHandler, preferencesHandler *handlers.PreferencesHandler, notificationsHandler *handlers.NotificationsHandler, searchHandler *handlers.SearchHandler, sessionTemplatesHandler *handlers.SessionTemplatesHandler, batchHandler *handlers.BatchHandler, monitoringHandler *handlers.MonitoringHandler, quotasHandler *handlers.QuotasHandler, websocketHandler *handlers.WebSocketHandler, consoleHandler *handlers.ConsoleHandler, collaborationHandler *handlers.CollaborationHandler, integrationsHandler *handlers.IntegrationsHandler, loadBalancingHandler *handlers.LoadBalancingHandler, schedulingHandler *handlers.SchedulingHandler, securityHandler *handlers.SecurityHandler, templateVersioningHandler *handlers.TemplateVersioningHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
+func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, dashboardHandler *handlers.DashboardHandler, sessionActivityHandler *handlers.SessionActivityHandler, apiKeyHandler *handlers.APIKeyHandler, teamHandler *handlers.TeamHandler, preferencesHandler *handlers.PreferencesHandler, notificationsHandler *handlers.NotificationsHandler, searchHandler *handlers.SearchHandler, sessionTemplatesHandler *handlers.SessionTemplatesHandler, batchHandler *handlers.BatchHandler, monitoringHandler *handlers.MonitoringHandler, quotasHandler *handlers.QuotasHandler, websocketHandler *handlers.WebSocketHandler, consoleHandler *handlers.ConsoleHandler, collaborationHandler *handlers.CollaborationHandler, integrationsHandler *handlers.IntegrationsHandler, loadBalancingHandler *handlers.LoadBalancingHandler, schedulingHandler *handlers.SchedulingHandler, securityHandler *handlers.SecurityHandler, templateVersioningHandler *handlers.TemplateVersioningHandler, setupHandler *handlers.SetupHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
 	// SECURITY: Create authentication middleware
 	authMiddleware := auth.Middleware(jwtManager, userDB)
 	adminMiddleware := auth.RequireRole("admin")
@@ -372,6 +373,7 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 		authGroup := v1.Group("/auth")
 		{
 			authHandler.RegisterRoutes(authGroup)
+			setupHandler.RegisterRoutes(authGroup)
 		}
 
 		// PROTECTED ROUTES - Require authentication
@@ -392,8 +394,8 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 				sessions.PATCH("/:id/tags", cache.InvalidateCacheMiddleware(redisCache, cache.SessionPattern()), h.UpdateSessionTags)
 				sessions.GET("/:id/connect", h.ConnectSession)
 				sessions.POST("/:id/disconnect", h.DisconnectSession)
-				sessions.POST("/:id/heartbeat", h.SessionHeartbeat)
 
+				// NOTE: Session heartbeat is registered by ActivityHandler.RegisterRoutes()
 				// NOTE: Session recording is now handled by the streamspace-recording plugin
 				// Install it via: Admin → Plugins → streamspace-recording
 
@@ -590,30 +592,30 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 					templatesWrite.DELETE("/:id", cache.InvalidateCacheMiddleware(redisCache, cache.TemplatePattern()), h.DeleteTemplate)
 
 					// Template Versioning (operator only)
-					templatesWrite.POST("/:templateId/versions", templateVersioningHandler.CreateTemplateVersion)
-					templatesWrite.GET("/:templateId/versions", templateVersioningHandler.ListTemplateVersions)
-					templatesWrite.GET("/versions/:versionId", templateVersioningHandler.GetTemplateVersion)
-					templatesWrite.POST("/versions/:versionId/publish", templateVersioningHandler.PublishTemplateVersion)
-					templatesWrite.POST("/versions/:versionId/deprecate", templateVersioningHandler.DeprecateTemplateVersion)
-					templatesWrite.POST("/versions/:versionId/set-default", templateVersioningHandler.SetDefaultTemplateVersion)
-					templatesWrite.POST("/versions/:versionId/clone", templateVersioningHandler.CloneTemplateVersion)
+					templatesWrite.POST("/:id/versions", templateVersioningHandler.CreateTemplateVersion)
+					templatesWrite.GET("/:id/versions", templateVersioningHandler.ListTemplateVersions)
+					templatesWrite.GET("/:id/versions/:versionId", templateVersioningHandler.GetTemplateVersion)
+					templatesWrite.POST("/:id/versions/:versionId/publish", templateVersioningHandler.PublishTemplateVersion)
+					templatesWrite.POST("/:id/versions/:versionId/deprecate", templateVersioningHandler.DeprecateTemplateVersion)
+					templatesWrite.POST("/:id/versions/:versionId/set-default", templateVersioningHandler.SetDefaultTemplateVersion)
+					templatesWrite.POST("/:id/versions/:versionId/clone", templateVersioningHandler.CloneTemplateVersion)
 
 					// Template Testing (operator only)
-					templatesWrite.POST("/versions/:versionId/tests", templateVersioningHandler.CreateTemplateTest)
-					templatesWrite.GET("/versions/:versionId/tests", templateVersioningHandler.ListTemplateTests)
-					templatesWrite.PATCH("/tests/:testId", templateVersioningHandler.UpdateTemplateTestStatus)
+					templatesWrite.POST("/:id/versions/:versionId/tests", templateVersioningHandler.CreateTemplateTest)
+					templatesWrite.GET("/:id/versions/:versionId/tests", templateVersioningHandler.ListTemplateTests)
+					templatesWrite.PATCH("/:id/versions/:versionId/tests/:testId", templateVersioningHandler.UpdateTemplateTestStatus)
 
 					// Template Inheritance
-					templatesWrite.GET("/:templateId/inheritance", templateVersioningHandler.GetTemplateInheritance)
+					templatesWrite.GET("/:id/inheritance", templateVersioningHandler.GetTemplateInheritance)
 				}
 			}
 
-			// Catalog (read: all users, write: operators/admins)
+			// Catalog repositories (read: all users, write: operators/admins)
+			// NOTE: Template catalog routes are handled by CatalogHandler.RegisterRoutes()
 			catalog := protected.Group("/catalog")
 			{
-				// Cache catalog data for 10 minutes (changes on sync)
+				// Repository management
 				catalog.GET("/repositories", cache.CacheMiddleware(redisCache, 10*time.Minute), h.ListRepositories)
-				catalog.GET("/templates", cache.CacheMiddleware(redisCache, 10*time.Minute), h.BrowseCatalog)
 
 				// Write operations require operator role
 				catalogWrite := catalog.Group("")
@@ -702,7 +704,7 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 			}
 
 			// Session activity recording and queries
-			sessionActivity := protected.Group("/sessions/:sessionId/activity")
+			sessionActivity := protected.Group("/sessions/:id/activity")
 			{
 				// Log new activity event (for internal API use)
 				sessionActivity.POST("/log", sessionActivityHandler.LogActivityEvent)
