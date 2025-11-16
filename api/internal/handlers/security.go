@@ -890,7 +890,7 @@ func (h *Handler) ListIPWhitelist(c *gin.Context) {
 	entries := []IPWhitelist{}
 	for rows.Next() {
 		var entry IPWhitelist
-		var userID, expiresAt sql.NullString
+		var userID sql.NullString
 		var expiresAtTime sql.NullTime
 
 		err := rows.Scan(&entry.ID, &userID, &entry.IPAddress, &entry.Description,

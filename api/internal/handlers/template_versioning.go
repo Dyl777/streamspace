@@ -156,11 +156,11 @@ func (h *Handler) CreateTemplateVersion(c *gin.Context) {
 
 	// If this is set as default, unset other defaults
 	if req.IsDefault {
-		h.DB.Exec("UPDATE template_versions SET is_default = false WHERE template_id = $1", templateID)
+		h.DB.DB().Exec("UPDATE template_versions SET is_default = false WHERE template_id = $1", templateID)
 	}
 
 	var versionID int64
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		INSERT INTO template_versions (
 			template_id, version, major_version, minor_version, patch_version,
 			display_name, description, configuration, base_image,
@@ -205,7 +205,7 @@ func (h *Handler) ListTemplateVersions(c *gin.Context) {
 
 	query += " ORDER BY major_version DESC, minor_version DESC, patch_version DESC"
 
-	rows, err := h.DB.Query(query, args...)
+	rows, err := h.DB.DB().Query(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve versions"})
 		return
@@ -246,7 +246,7 @@ func (h *Handler) GetTemplateVersion(c *gin.Context) {
 	var v TemplateVersion
 	var config, testResults sql.NullString
 
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		SELECT id, template_id, version, major_version, minor_version, patch_version,
 		       display_name, description, configuration, base_image,
 		       parent_template_id, parent_version, changelog, status, is_default,
@@ -287,7 +287,7 @@ func (h *Handler) PublishTemplateVersion(c *gin.Context) {
 
 	// Check if all tests passed
 	var failedTests int
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*) FROM template_tests
 		WHERE version_id = $1 AND status = 'failed'
 	`, versionID).Scan(&failedTests)
@@ -298,7 +298,7 @@ func (h *Handler) PublishTemplateVersion(c *gin.Context) {
 	}
 
 	now := time.Now()
-	_, err = h.DB.Exec(`
+	_, err = h.DB.DB().Exec(`
 		UPDATE template_versions
 		SET status = 'stable', published_at = $1, updated_at = $2
 		WHERE id = $3
@@ -321,7 +321,7 @@ func (h *Handler) DeprecateTemplateVersion(c *gin.Context) {
 	}
 
 	now := time.Now()
-	_, err = h.DB.Exec(`
+	_, err = h.DB.DB().Exec(`
 		UPDATE template_versions
 		SET status = 'deprecated', deprecated_at = $1, updated_at = $2
 		WHERE id = $3
@@ -345,17 +345,17 @@ func (h *Handler) SetDefaultTemplateVersion(c *gin.Context) {
 
 	// Get template ID
 	var templateID string
-	err = h.DB.QueryRow("SELECT template_id FROM template_versions WHERE id = $1", versionID).Scan(&templateID)
+	err = h.DB.DB().QueryRow("SELECT template_id FROM template_versions WHERE id = $1", versionID).Scan(&templateID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
 		return
 	}
 
 	// Unset all defaults for this template
-	h.DB.Exec("UPDATE template_versions SET is_default = false WHERE template_id = $1", templateID)
+	h.DB.DB().Exec("UPDATE template_versions SET is_default = false WHERE template_id = $1", templateID)
 
 	// Set this version as default
-	_, err = h.DB.Exec("UPDATE template_versions SET is_default = true WHERE id = $1", versionID)
+	_, err = h.DB.DB().Exec("UPDATE template_versions SET is_default = true WHERE id = $1", versionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to set default version"})
 		return
@@ -387,7 +387,7 @@ func (h *Handler) CreateTemplateTest(c *gin.Context) {
 
 	// Get template ID and version
 	var templateID, version string
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		SELECT template_id, version FROM template_versions WHERE id = $1
 	`, versionID).Scan(&templateID, &version)
 
@@ -397,7 +397,7 @@ func (h *Handler) CreateTemplateTest(c *gin.Context) {
 	}
 
 	var testID int64
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		INSERT INTO template_tests (
 			template_id, version_id, version, test_type, status, created_by
 		) VALUES ($1, $2, $3, $4, $5, $6)
@@ -427,7 +427,7 @@ func (h *Handler) ListTemplateTests(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, template_id, version_id, version, test_type, status, results,
 		       duration, error_message, started_at, completed_at, created_by, created_at
 		FROM template_tests
@@ -481,7 +481,7 @@ func (h *Handler) UpdateTemplateTestStatus(c *gin.Context) {
 	}
 
 	completedAt := time.Now()
-	_, err = h.DB.Exec(`
+	_, err = h.DB.DB().Exec(`
 		UPDATE template_tests
 		SET status = $1, results = $2, duration = $3, error_message = $4, completed_at = $5
 		WHERE id = $6
@@ -494,10 +494,10 @@ func (h *Handler) UpdateTemplateTestStatus(c *gin.Context) {
 
 	// Update version's test results summary
 	var versionID int64
-	h.DB.QueryRow("SELECT version_id FROM template_tests WHERE id = $1", testID).Scan(&versionID)
+	h.DB.DB().QueryRow("SELECT version_id FROM template_tests WHERE id = $1", testID).Scan(&versionID)
 
 	testSummary := h.getTestSummary(versionID)
-	h.DB.Exec("UPDATE template_versions SET test_results = $1 WHERE id = $2",
+	h.DB.DB().Exec("UPDATE template_versions SET test_results = $1 WHERE id = $2",
 		toJSONB(testSummary), versionID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "test status updated successfully"})
@@ -511,7 +511,7 @@ func (h *Handler) GetTemplateInheritance(c *gin.Context) {
 
 	// Get parent template if exists
 	var parentTemplateID sql.NullString
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT parent_template_id FROM template_versions
 		WHERE template_id = $1 AND is_default = true
 	`, templateID).Scan(&parentTemplateID)
@@ -524,12 +524,12 @@ func (h *Handler) GetTemplateInheritance(c *gin.Context) {
 
 		// Fetch parent and child configurations
 		var parentConfigJSON, childConfigJSON sql.NullString
-		h.DB.QueryRow(`
+		h.DB.DB().QueryRow(`
 			SELECT configuration FROM template_versions
 			WHERE template_id = $1 AND is_default = true
 		`, parentTemplateID.String).Scan(&parentConfigJSON)
 
-		h.DB.QueryRow(`
+		h.DB.DB().QueryRow(`
 			SELECT configuration FROM template_versions
 			WHERE template_id = $1 AND is_default = true
 		`, templateID).Scan(&childConfigJSON)
@@ -579,7 +579,7 @@ func (h *Handler) CloneTemplateVersion(c *gin.Context) {
 	// Get original version
 	var templateID, displayName, description, baseImage string
 	var config sql.NullString
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		SELECT template_id, display_name, description, configuration, base_image
 		FROM template_versions WHERE id = $1
 	`, versionID).Scan(&templateID, &displayName, &description, &config, &baseImage)
@@ -594,7 +594,7 @@ func (h *Handler) CloneTemplateVersion(c *gin.Context) {
 
 	// Create new version
 	var newVersionID int64
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		INSERT INTO template_versions (
 			template_id, version, major_version, minor_version, patch_version,
 			display_name, description, configuration, base_image, changelog,
@@ -627,7 +627,7 @@ func parseSemanticVersion(version string) (int, int, int) {
 func (h *Handler) getTestSummary(versionID int64) map[string]interface{} {
 	var total, passed, failed, pending int
 
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*) as total,
 		       COUNT(*) FILTER (WHERE status = 'passed') as passed,
 		       COUNT(*) FILTER (WHERE status = 'failed') as failed,
@@ -653,12 +653,12 @@ func (h *Handler) getTestSummary(versionID int64) map[string]interface{} {
 func (h *Handler) executeTemplateTest(testID int64, templateID, versionID int64, version, testType string) {
 	// Update status to running
 	startTime := time.Now()
-	h.DB.Exec("UPDATE template_tests SET status = 'running', started_at = $1 WHERE id = $2", startTime, testID)
+	h.DB.DB().Exec("UPDATE template_tests SET status = 'running', started_at = $1 WHERE id = $2", startTime, testID)
 
 	// Fetch template configuration
 	var baseImage string
 	var configuration sql.NullString
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		SELECT base_image, configuration FROM template_versions WHERE id = $1
 	`, versionID).Scan(&baseImage, &configuration)
 
@@ -690,7 +690,7 @@ func (h *Handler) executeTemplateTest(testID int64, templateID, versionID int64,
 	duration := int(time.Since(startTime).Seconds())
 
 	// Update test results
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		UPDATE template_tests
 		SET status = $1, results = $2, duration = $3, error_message = $4, completed_at = $5
 		WHERE id = $6
@@ -698,7 +698,7 @@ func (h *Handler) executeTemplateTest(testID int64, templateID, versionID int64,
 
 	// Update version test summary
 	testSummary := h.getTestSummary(versionID)
-	h.DB.Exec("UPDATE template_versions SET test_results = $1 WHERE id = $2",
+	h.DB.DB().Exec("UPDATE template_versions SET test_results = $1 WHERE id = $2",
 		toJSONB(testSummary), versionID)
 }
 
