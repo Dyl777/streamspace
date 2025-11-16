@@ -264,7 +264,7 @@ func (h *Handler) CreateScheduledSession(c *gin.Context) {
 
 	// Insert scheduled session
 	var id int64
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		INSERT INTO scheduled_sessions
 		(user_id, template_id, name, description, timezone, schedule, resources,
 		 auto_terminate, terminate_after, pre_warm, pre_warm_minutes, post_cleanup,
@@ -307,7 +307,7 @@ func (h *Handler) ListScheduledSessions(c *gin.Context) {
 		ORDER BY next_run_at ASC
 	`
 
-	rows, err := h.DB.Query(query, userID, role)
+	rows, err := h.DB.DB().Query(query, userID, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "database error"})
 		return
@@ -362,7 +362,7 @@ func (h *Handler) GetScheduledSession(c *gin.Context) {
 	var lastRun, nextRun sql.NullTime
 	var lastSessionID, lastStatus sql.NullString
 
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		SELECT id, user_id, template_id, name, description, timezone, schedule,
 		       resources, auto_terminate, terminate_after, pre_warm, pre_warm_minutes,
 		       post_cleanup, enabled, next_run_at, last_run_at, last_session_id,
@@ -414,7 +414,7 @@ func (h *Handler) UpdateScheduledSession(c *gin.Context) {
 
 	// Check ownership
 	var ownerID string
-	err := h.DB.QueryRow(`SELECT user_id FROM scheduled_sessions WHERE id = $1`, scheduleID).Scan(&ownerID)
+	err := h.DB.DB().QueryRow(`SELECT user_id FROM scheduled_sessions WHERE id = $1`, scheduleID).Scan(&ownerID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "scheduled session not found"})
 		return
@@ -436,7 +436,7 @@ func (h *Handler) UpdateScheduledSession(c *gin.Context) {
 		}
 	}
 
-	_, err = h.DB.Exec(`
+	_, err = h.DB.DB().Exec(`
 		UPDATE scheduled_sessions
 		SET name = COALESCE(NULLIF($1, ''), name),
 		    description = $2,
@@ -468,7 +468,7 @@ func (h *Handler) DeleteScheduledSession(c *gin.Context) {
 
 	// Check ownership
 	var ownerID string
-	err := h.DB.QueryRow(`SELECT user_id FROM scheduled_sessions WHERE id = $1`, scheduleID).Scan(&ownerID)
+	err := h.DB.DB().QueryRow(`SELECT user_id FROM scheduled_sessions WHERE id = $1`, scheduleID).Scan(&ownerID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "scheduled session not found"})
 		return
@@ -478,7 +478,7 @@ func (h *Handler) DeleteScheduledSession(c *gin.Context) {
 		return
 	}
 
-	_, err = h.DB.Exec(`DELETE FROM scheduled_sessions WHERE id = $1`, scheduleID)
+	_, err = h.DB.DB().Exec(`DELETE FROM scheduled_sessions WHERE id = $1`, scheduleID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete"})
 		return
@@ -492,7 +492,7 @@ func (h *Handler) EnableScheduledSession(c *gin.Context) {
 	scheduleID := c.Param("scheduleId")
 	userID := c.GetString("user_id")
 
-	_, err := h.DB.Exec(`
+	_, err := h.DB.DB().Exec(`
 		UPDATE scheduled_sessions SET enabled = true, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 	`, scheduleID, userID)
@@ -510,7 +510,7 @@ func (h *Handler) DisableScheduledSession(c *gin.Context) {
 	scheduleID := c.Param("scheduleId")
 	userID := c.GetString("user_id")
 
-	_, err := h.DB.Exec(`
+	_, err := h.DB.DB().Exec(`
 		UPDATE scheduled_sessions SET enabled = false, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 	`, scheduleID, userID)
@@ -634,7 +634,7 @@ func (h *Handler) CalendarOAuthCallback(c *gin.Context) {
 
 	// Store integration
 	var id int64
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		INSERT INTO calendar_integrations
 		(user_id, provider, account_email, access_token, refresh_token, token_expiry, enabled, sync_enabled)
 		VALUES ($1, $2, $3, $4, $5, $6, true, true)
@@ -656,7 +656,7 @@ func (h *Handler) CalendarOAuthCallback(c *gin.Context) {
 func (h *Handler) ListCalendarIntegrations(c *gin.Context) {
 	userID := c.GetString("user_id")
 
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, provider, account_email, calendar_id, enabled, sync_enabled,
 		       auto_create_events, auto_update_events, last_synced_at, created_at
 		FROM calendar_integrations
@@ -703,7 +703,7 @@ func (h *Handler) DisconnectCalendar(c *gin.Context) {
 	integrationID := c.Param("integrationId")
 	userID := c.GetString("user_id")
 
-	result, err := h.DB.Exec(`
+	result, err := h.DB.DB().Exec(`
 		DELETE FROM calendar_integrations
 		WHERE id = $1 AND user_id = $2
 	`, integrationID, userID)
@@ -729,7 +729,7 @@ func (h *Handler) SyncCalendar(c *gin.Context) {
 
 	// Get integration details
 	var ci CalendarIntegration
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		SELECT id, provider, access_token, refresh_token, calendar_id
 		FROM calendar_integrations
 		WHERE id = $1 AND user_id = $2
@@ -749,7 +749,7 @@ func (h *Handler) SyncCalendar(c *gin.Context) {
 	}
 
 	// Update last synced timestamp
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		UPDATE calendar_integrations
 		SET last_synced_at = NOW()
 		WHERE id = $1
@@ -767,7 +767,7 @@ func (h *Handler) ExportICalendar(c *gin.Context) {
 	userID := c.GetString("user_id")
 
 	// Get all enabled scheduled sessions
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, name, description, schedule, timezone, template_id
 		FROM scheduled_sessions
 		WHERE user_id = $1 AND enabled = true
@@ -1212,7 +1212,7 @@ func (h *Handler) checkSchedulingConflicts(userID string, schedule ScheduleConfi
 		WHERE user_id = $1 AND enabled = true
 	`
 
-	rows, err := h.DB.Query(query, userID)
+	rows, err := h.DB.DB().Query(query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query schedules: %w", err)
 	}
@@ -1520,7 +1520,7 @@ func (h *Handler) getMicrosoftUserEmail(accessToken string) (string, error) {
 // syncScheduledSessionsToCalendar syncs user's scheduled sessions to their calendar
 func (h *Handler) syncScheduledSessionsToCalendar(userID string, ci *CalendarIntegration) (int, error) {
 	// Fetch enabled scheduled sessions for the user
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, name, template_id, schedule, timezone, next_run_at, terminate_after
 		FROM scheduled_sessions
 		WHERE user_id = $1 AND enabled = true
@@ -1567,7 +1567,7 @@ func (h *Handler) syncScheduledSessionsToCalendar(userID string, ci *CalendarInt
 		}
 
 		// Store the event ID for future updates/deletion
-		_, err = h.DB.Exec(`
+		_, err = h.DB.DB().Exec(`
 			UPDATE scheduled_sessions
 			SET calendar_event_id = $1
 			WHERE id = $2
