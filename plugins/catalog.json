@@ -214,5 +214,67 @@
         "required": ["smtpHost", "smtpPort", "username", "password", "fromAddress", "toAddresses"]
       }
     }
+  },
+  {
+    "name": "streamspace-billing",
+    "version": "1.0.0",
+    "displayName": "Billing & Usage Tracking",
+    "description": "Track resource usage, calculate costs, and manage subscriptions with Stripe integration",
+    "author": "StreamSpace Team",
+    "category": "Business",
+    "tags": ["billing", "stripe", "usage", "subscriptions", "invoicing"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-billing/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-billing/plugin.tar.gz",
+    "manifest": {
+      "name": "streamspace-billing",
+      "version": "1.0.0",
+      "displayName": "Billing & Usage Tracking",
+      "description": "Track resource usage, calculate costs, and manage subscriptions",
+      "author": "StreamSpace Team",
+      "type": "system",
+      "category": "Business",
+      "tags": ["billing", "stripe", "usage"],
+      "permissions": ["network", "database", "admin_ui"],
+      "configSchema": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enable Billing",
+            "default": true
+          },
+          "billingMode": {
+            "type": "string",
+            "title": "Billing Mode",
+            "enum": ["usage", "subscription", "hybrid"],
+            "default": "usage"
+          },
+          "stripeEnabled": {
+            "type": "boolean",
+            "title": "Enable Stripe Integration",
+            "default": false
+          },
+          "stripeSecretKey": {
+            "type": "string",
+            "title": "Stripe Secret Key",
+            "format": "password"
+          },
+          "computeRates": {
+            "type": "object",
+            "title": "Compute Rates",
+            "properties": {
+              "cpu_per_core_hour": {"type": "number", "default": 0.05},
+              "memory_per_gb_hour": {"type": "number", "default": 0.01},
+              "storage_per_gb_month": {"type": "number", "default": 0.10}
+            }
+          },
+          "alertThreshold": {
+            "type": "number",
+            "title": "Usage Alert Threshold (%)",
+            "default": 80
+          }
+        }
+      }
+    }
   }
 ]
