@@ -660,7 +660,7 @@ func (h *Handler) GetCollaborationParticipants(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT cp.user_id, u.username, cp.role, cp.permissions, cp.cursor_position,
 		       cp.color, cp.is_active, cp.joined_at, cp.last_seen_at
 		FROM collaboration_participants cp
@@ -819,7 +819,7 @@ func (h *Handler) GetChatHistory(c *gin.Context) {
 	query += fmt.Sprintf(" ORDER BY cc.created_at DESC LIMIT $%d", argCount)
 	args = append(args, limit)
 
-	rows, err := h.DB.Query(query, args...)
+	rows, err := h.DB.DB().Query(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve chat"})
 		return
@@ -915,7 +915,7 @@ func (h *Handler) GetAnnotations(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, session_id, user_id, type, color, thickness, points, text,
 		       is_persistent, created_at, expires_at
 		FROM collaboration_annotations

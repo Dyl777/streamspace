@@ -142,7 +142,7 @@ func (h *Handler) CreateConsoleSession(c *gin.Context) {
 
 	// Verify user has access to this session
 	var sessionOwner string
-	err := h.DB.QueryRow("SELECT user_id FROM sessions WHERE id = $1", sessionID).Scan(&sessionOwner)
+	err := h.DB.DB().QueryRow("SELECT user_id FROM sessions WHERE id = $1", sessionID).Scan(&sessionOwner)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
 		return
@@ -150,7 +150,7 @@ func (h *Handler) CreateConsoleSession(c *gin.Context) {
 	if sessionOwner != userID {
 		// Check if user has shared access
 		var hasAccess bool
-		h.DB.QueryRow(`
+		h.DB.DB().QueryRow(`
 			SELECT EXISTS(
 				SELECT 1 FROM session_shares
 				WHERE session_id = $1 AND shared_with_user_id = $2
@@ -177,7 +177,7 @@ func (h *Handler) CreateConsoleSession(c *gin.Context) {
 	consoleID := fmt.Sprintf("console-%s-%d", sessionID, time.Now().Unix())
 
 	// Create console session
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		INSERT INTO console_sessions (
 			id, session_id, user_id, type, status, current_path,
 			shell_type, columns, rows
@@ -215,7 +215,7 @@ func (h *Handler) ListConsoleSessions(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, session_id, user_id, type, status, current_path, shell_type,
 		       columns, rows, metadata, connected_at, last_activity_at, disconnected_at
 		FROM console_sessions
@@ -255,7 +255,7 @@ func (h *Handler) DisconnectConsoleSession(c *gin.Context) {
 
 	// Verify ownership
 	var owner string
-	err := h.DB.QueryRow("SELECT user_id FROM console_sessions WHERE id = $1", consoleID).Scan(&owner)
+	err := h.DB.DB().QueryRow("SELECT user_id FROM console_sessions WHERE id = $1", consoleID).Scan(&owner)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "console session not found"})
 		return
@@ -267,7 +267,7 @@ func (h *Handler) DisconnectConsoleSession(c *gin.Context) {
 
 	// Update status
 	now := time.Now()
-	_, err = h.DB.Exec(`
+	_, err = h.DB.DB().Exec(`
 		UPDATE console_sessions
 		SET status = 'disconnected', disconnected_at = $1
 		WHERE id = $2
@@ -324,7 +324,7 @@ func (h *Handler) ListFiles(c *gin.Context) {
 			Name:        entry.Name(),
 			Path:        filepath.Join(path, entry.Name()),
 			Size:        info.Size(),
-			IsDirectory: entry.IsDirectory(),
+			IsDirectory: entry.IsDir(),
 			Permissions: info.Mode().String(),
 			ModifiedAt:  info.ModTime(),
 		}
@@ -654,7 +654,7 @@ func (h *Handler) getSessionBasePath(sessionID string) string {
 }
 
 func (h *Handler) logFileOperation(sessionID, userID, operation, sourcePath, targetPath string, bytesProcessed int64) {
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		INSERT INTO console_file_operations (
 			session_id, user_id, operation, source_path, target_path, bytes_processed
 		) VALUES ($1, $2, $3, $4, $5, $6)
@@ -676,12 +676,12 @@ func (h *Handler) GetFileOperationHistory(c *gin.Context) {
 
 	// Count total
 	var total int
-	h.DB.QueryRow(`
+	h.DB.DB().QueryRow(`
 		SELECT COUNT(*) FROM console_file_operations WHERE session_id = $1
 	`, sessionID).Scan(&total)
 
 	// Get operations
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, operation, source_path, target_path, bytes_processed, created_at
 		FROM console_file_operations
 		WHERE session_id = $1
