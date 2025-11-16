@@ -397,5 +397,16 @@
     "tags": ["workflows", "automation", "triggers", "actions", "events"],
     "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-workflows/icon.png",
     "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-workflows/plugin.tar.gz"
+  },
+  {
+    "name": "streamspace-analytics-advanced",
+    "version": "1.0.0",
+    "displayName": "Advanced Analytics & Reporting",
+    "description": "Comprehensive analytics and reporting for usage trends, session metrics, user engagement, resource utilization, and cost analysis",
+    "author": "StreamSpace Team",
+    "category": "Analytics",
+    "tags": ["analytics", "reporting", "metrics", "insights", "cost-analysis", "dashboard"],
+    "iconUrl": "https://raw.githubusercontent.com/JoshuaAFerguson/streamspace-plugins/main/streamspace-analytics-advanced/icon.png",
+    "downloadUrl": "https://github.com/JoshuaAFerguson/streamspace-plugins/raw/main/streamspace-analytics-advanced/plugin.tar.gz"
   }
 ]
