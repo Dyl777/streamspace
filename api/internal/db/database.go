@@ -400,8 +400,8 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_category ON catalog_templates(category)`,
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_app_type ON catalog_templates(app_type)`,
 
-		// Template versions (track template version history)
-		`CREATE TABLE IF NOT EXISTS template_versions (
+		// Catalog template versions (track version history from repositories)
+		`CREATE TABLE IF NOT EXISTS catalog_template_versions (
 			id SERIAL PRIMARY KEY,
 			template_id INT REFERENCES catalog_templates(id) ON DELETE CASCADE,
 			version VARCHAR(50) NOT NULL,
