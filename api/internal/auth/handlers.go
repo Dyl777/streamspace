@@ -106,6 +106,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/crewjam/saml"
 	"github.com/gin-gonic/gin"
 	"github.com/streamspace/streamspace/api/internal/db"
 	"github.com/streamspace/streamspace/api/internal/models"
@@ -184,14 +185,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Get user groups
-	groups, err := h.userDB.GetUserGroups(ctx, user.ID)
+	groupIDs, err := h.userDB.GetUserGroups(ctx, user.ID)
 	if err != nil {
-		groups = []string{} // Continue without groups if error
-	}
-
-	groupIDs := make([]string, len(groups))
-	for i, g := range groups {
-		groupIDs[i] = g.GroupID
+		groupIDs = []string{} // Continue without groups if error
 	}
 
 	// Generate JWT token
@@ -325,7 +321,7 @@ func (h *AuthHandler) SAMLCallback(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// Extract user info from SAML assertion (middleware sets this in context)
-	assertion, exists := c.Get("saml_assertion")
+	assertionData, exists := c.Get("saml_assertion")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "No SAML assertion found",
@@ -333,8 +329,24 @@ func (h *AuthHandler) SAMLCallback(c *gin.Context) {
 		return
 	}
 
+	// Type assert the assertion
+	assertion, ok := assertionData.(*saml.Assertion)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid SAML assertion type",
+		})
+		return
+	}
+
 	// Extract user attributes from assertion
-	userAttrs := h.samlAuth.ExtractUserFromAssertion(assertion)
+	userAttrs, err := h.samlAuth.ExtractUserFromAssertion(assertion)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to extract user from SAML assertion",
+			"message": err.Error(),
+		})
+		return
+	}
 
 	// Validate required fields
 	if userAttrs.Email == "" {
@@ -348,13 +360,16 @@ func (h *AuthHandler) SAMLCallback(c *gin.Context) {
 	user, err := h.userDB.GetUserByEmail(ctx, userAttrs.Email)
 	if err != nil {
 		// User doesn't exist, create new SAML user
+		fullName := userAttrs.FirstName + " " + userAttrs.LastName
+		if fullName == " " {
+			fullName = userAttrs.Email // Fallback to email if no name
+		}
 		createReq := &models.CreateUserRequest{
 			Username: userAttrs.Email, // Use email as username
 			Email:    userAttrs.Email,
-			FullName: userAttrs.FullName,
+			FullName: fullName,
 			Provider: "saml",
 			Role:     "user", // Default role
-			Active:   true,
 		}
 
 		user, err = h.userDB.CreateUser(ctx, createReq)
@@ -367,12 +382,15 @@ func (h *AuthHandler) SAMLCallback(c *gin.Context) {
 		}
 	} else {
 		// User exists, update attributes from SAML
-		updateReq := &models.UpdateUserRequest{
-			FullName: &userAttrs.FullName,
-		}
-		if err := h.userDB.UpdateUser(ctx, user.ID, updateReq); err != nil {
-			// Log error but continue (non-critical)
-			c.Request.Context().Value("logger")
+		fullName := userAttrs.FirstName + " " + userAttrs.LastName
+		if fullName != " " {
+			updateReq := &models.UpdateUserRequest{
+				FullName: &fullName,
+			}
+			if err := h.userDB.UpdateUser(ctx, user.ID, updateReq); err != nil {
+				// Log error but continue (non-critical)
+				log.Printf("Warning: Failed to update user %s from SAML: %v", user.ID, err)
+			}
 		}
 	}
 
@@ -515,11 +533,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	// Update password
-	updateReq := &models.UpdateUserRequest{
-		Password: &req.NewPassword,
-	}
-
-	if err := h.userDB.UpdateUser(ctx, user.ID, updateReq); err != nil {
+	if err := h.userDB.UpdatePassword(ctx, user.ID, req.NewPassword); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to update password",
 			"message": err.Error(),

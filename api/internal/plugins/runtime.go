@@ -706,7 +706,7 @@ func (r *Runtime) Stop(ctx context.Context) error {
 	defer r.pluginsMux.Unlock()
 
 	// Unload all plugins
-	for name, plugin := range r.plugins {
+	for name := range r.plugins {
 		if err := r.unloadPluginLocked(ctx, name); err != nil {
 			log.Printf("[Plugin Runtime] Error unloading plugin %s: %v", name, err)
 		}

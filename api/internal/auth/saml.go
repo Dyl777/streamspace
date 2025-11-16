@@ -532,7 +532,7 @@ func NewSAMLAuthenticator(config *SAMLConfig) (*SAMLAuthenticator, error) {
 		Certificate:       sp.Certificate,        // Public certificate for IdP to verify
 		IDPMetadata:       sp.IDPMetadata,        // IdP configuration loaded above
 		AllowIDPInitiated: sp.AllowIDPInitiated,  // Security setting for unsolicited assertions
-		ForceAuthn:        sp.ForceAuthn,         // Whether to require re-authentication
+		ForceAuthn:        *sp.ForceAuthn,        // Whether to require re-authentication
 	})
 	if err != nil {
 		// Common causes:
