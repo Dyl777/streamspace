@@ -110,8 +110,14 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES to fetch manifest digest..."
 
-            # Use imagetools to get the manifest digest (works reliably for multi-platform builds)
-            DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}' 2>&1)
+            # Get the manifest digest using docker manifest inspect
+            # This returns the actual registry digest for multi-platform manifests
+            DIGEST=$(docker manifest inspect "$IMAGE_TAG" 2>&1 | jq -r '.digest // empty' || echo "")
+
+            # If jq didn't find .digest, try extracting from Docker-Content-Digest header
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" 2>&1 | grep -oP 'Digest:\s*\K(sha256:[a-f0-9]{64})' | head -n1 || echo "")
+            fi
 
             # Validate digest format
             if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -121,8 +127,10 @@ jobs:
               echo "⚠️  Invalid digest format (attempt $i): $DIGEST"
               if [ $i -eq $MAX_RETRIES ]; then
                 echo "ERROR: Failed to get valid digest after $MAX_RETRIES attempts"
-                echo "Full imagetools output:"
-                docker buildx imagetools inspect "$IMAGE_TAG"
+                echo "Full docker manifest inspect output:"
+                docker manifest inspect "$IMAGE_TAG" || true
+                echo "Full buildx imagetools output:"
+                docker buildx imagetools inspect "$IMAGE_TAG" || true
                 exit 1
               fi
               echo "Waiting ${RETRY_DELAY}s before retry..."
@@ -157,7 +165,11 @@ jobs:
 
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES to fetch manifest digest for SBOM attestation..."
-            DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}' 2>&1)
+
+            DIGEST=$(docker manifest inspect "$IMAGE_TAG" 2>&1 | jq -r '.digest // empty' || echo "")
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" 2>&1 | grep -oP 'Digest:\s*\K(sha256:[a-f0-9]{64})' | head -n1 || echo "")
+            fi
 
             if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "✅ Successfully extracted digest: $DIGEST"
@@ -267,8 +279,14 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES to fetch manifest digest..."
 
-            # Use imagetools to get the manifest digest (works reliably for multi-platform builds)
-            DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}' 2>&1)
+            # Get the manifest digest using docker manifest inspect
+            # This returns the actual registry digest for multi-platform manifests
+            DIGEST=$(docker manifest inspect "$IMAGE_TAG" 2>&1 | jq -r '.digest // empty' || echo "")
+
+            # If jq didn't find .digest, try extracting from Docker-Content-Digest header
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" 2>&1 | grep -oP 'Digest:\s*\K(sha256:[a-f0-9]{64})' | head -n1 || echo "")
+            fi
 
             # Validate digest format
             if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -278,8 +296,10 @@ jobs:
               echo "⚠️  Invalid digest format (attempt $i): $DIGEST"
               if [ $i -eq $MAX_RETRIES ]; then
                 echo "ERROR: Failed to get valid digest after $MAX_RETRIES attempts"
-                echo "Full imagetools output:"
-                docker buildx imagetools inspect "$IMAGE_TAG"
+                echo "Full docker manifest inspect output:"
+                docker manifest inspect "$IMAGE_TAG" || true
+                echo "Full buildx imagetools output:"
+                docker buildx imagetools inspect "$IMAGE_TAG" || true
                 exit 1
               fi
               echo "Waiting ${RETRY_DELAY}s before retry..."
@@ -314,7 +334,11 @@ jobs:
 
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES to fetch manifest digest for SBOM attestation..."
-            DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}' 2>&1)
+
+            DIGEST=$(docker manifest inspect "$IMAGE_TAG" 2>&1 | jq -r '.digest // empty' || echo "")
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" 2>&1 | grep -oP 'Digest:\s*\K(sha256:[a-f0-9]{64})' | head -n1 || echo "")
+            fi
 
             if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "✅ Successfully extracted digest: $DIGEST"
@@ -424,8 +448,14 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES to fetch manifest digest..."
 
-            # Use imagetools to get the manifest digest (works reliably for multi-platform builds)
-            DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}' 2>&1)
+            # Get the manifest digest using docker manifest inspect
+            # This returns the actual registry digest for multi-platform manifests
+            DIGEST=$(docker manifest inspect "$IMAGE_TAG" 2>&1 | jq -r '.digest // empty' || echo "")
+
+            # If jq didn't find .digest, try extracting from Docker-Content-Digest header
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" 2>&1 | grep -oP 'Digest:\s*\K(sha256:[a-f0-9]{64})' | head -n1 || echo "")
+            fi
 
             # Validate digest format
             if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -435,8 +465,10 @@ jobs:
               echo "⚠️  Invalid digest format (attempt $i): $DIGEST"
               if [ $i -eq $MAX_RETRIES ]; then
                 echo "ERROR: Failed to get valid digest after $MAX_RETRIES attempts"
-                echo "Full imagetools output:"
-                docker buildx imagetools inspect "$IMAGE_TAG"
+                echo "Full docker manifest inspect output:"
+                docker manifest inspect "$IMAGE_TAG" || true
+                echo "Full buildx imagetools output:"
+                docker buildx imagetools inspect "$IMAGE_TAG" || true
                 exit 1
               fi
               echo "Waiting ${RETRY_DELAY}s before retry..."
@@ -471,7 +503,11 @@ jobs:
 
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES to fetch manifest digest for SBOM attestation..."
-            DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}' 2>&1)
+
+            DIGEST=$(docker manifest inspect "$IMAGE_TAG" 2>&1 | jq -r '.digest // empty' || echo "")
+            if [ -z "$DIGEST" ]; then
+              DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" 2>&1 | grep -oP 'Digest:\s*\K(sha256:[a-f0-9]{64})' | head -n1 || echo "")
+            fi
 
             if [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "✅ Successfully extracted digest: $DIGEST"
