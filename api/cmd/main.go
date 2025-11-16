@@ -255,6 +255,7 @@ func main() {
 	collaborationHandler := handlers.NewCollaborationHandler(database)
 	integrationsHandler := handlers.NewIntegrationsHandler(database)
 	loadBalancingHandler := handlers.NewLoadBalancingHandler(database)
+	schedulingHandler := handlers.NewSchedulingHandler(database)
 	// NOTE: Billing is now handled by the streamspace-billing plugin
 
 	// SECURITY: Initialize webhook authentication
@@ -265,7 +266,7 @@ func main() {
 	}
 
 	// Setup routes
-	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, dashboardHandler, sessionActivityHandler, apiKeyHandler, teamHandler, preferencesHandler, notificationsHandler, searchHandler, sessionTemplatesHandler, batchHandler, monitoringHandler, quotasHandler, websocketHandler, consoleHandler, collaborationHandler, integrationsHandler, loadBalancingHandler, jwtManager, userDB, redisCache, webhookSecret)
+	setupRoutes(router, apiHandler, userHandler, groupHandler, authHandler, activityHandler, catalogHandler, sharingHandler, pluginHandler, dashboardHandler, sessionActivityHandler, apiKeyHandler, teamHandler, preferencesHandler, notificationsHandler, searchHandler, sessionTemplatesHandler, batchHandler, monitoringHandler, quotasHandler, websocketHandler, consoleHandler, collaborationHandler, integrationsHandler, loadBalancingHandler, schedulingHandler, jwtManager, userDB, redisCache, webhookSecret)
 
 	// Create HTTP server with security timeouts
 	srv := &http.Server{
@@ -346,7 +347,7 @@ func main() {
 	log.Println("Graceful shutdown completed")
 }
 
-func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, dashboardHandler *handlers.DashboardHandler, sessionActivityHandler *handlers.SessionActivityHandler, apiKeyHandler *handlers.APIKeyHandler, teamHandler *handlers.TeamHandler, preferencesHandler *handlers.PreferencesHandler, notificationsHandler *handlers.NotificationsHandler, searchHandler *handlers.SearchHandler, sessionTemplatesHandler *handlers.SessionTemplatesHandler, batchHandler *handlers.BatchHandler, monitoringHandler *handlers.MonitoringHandler, quotasHandler *handlers.QuotasHandler, websocketHandler *handlers.WebSocketHandler, consoleHandler *handlers.ConsoleHandler, collaborationHandler *handlers.CollaborationHandler, integrationsHandler *handlers.IntegrationsHandler, loadBalancingHandler *handlers.LoadBalancingHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
+func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserHandler, groupHandler *handlers.GroupHandler, authHandler *auth.AuthHandler, activityHandler *handlers.ActivityHandler, catalogHandler *handlers.CatalogHandler, sharingHandler *handlers.SharingHandler, pluginHandler *handlers.PluginHandler, dashboardHandler *handlers.DashboardHandler, sessionActivityHandler *handlers.SessionActivityHandler, apiKeyHandler *handlers.APIKeyHandler, teamHandler *handlers.TeamHandler, preferencesHandler *handlers.PreferencesHandler, notificationsHandler *handlers.NotificationsHandler, searchHandler *handlers.SearchHandler, sessionTemplatesHandler *handlers.SessionTemplatesHandler, batchHandler *handlers.BatchHandler, monitoringHandler *handlers.MonitoringHandler, quotasHandler *handlers.QuotasHandler, websocketHandler *handlers.WebSocketHandler, consoleHandler *handlers.ConsoleHandler, collaborationHandler *handlers.CollaborationHandler, integrationsHandler *handlers.IntegrationsHandler, loadBalancingHandler *handlers.LoadBalancingHandler, schedulingHandler *handlers.SchedulingHandler, jwtManager *auth.JWTManager, userDB *db.UserDB, redisCache *cache.Cache, webhookSecret string) {
 	// SECURITY: Create authentication middleware
 	authMiddleware := auth.Middleware(jwtManager, userDB)
 	adminMiddleware := auth.RequireRole("admin")
@@ -515,21 +516,21 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 		scheduling := protected.Group("/scheduling")
 		{
 			// Scheduled sessions
-			scheduling.GET("/sessions", h.ListScheduledSessions)
-			scheduling.POST("/sessions", h.CreateScheduledSession)
-			scheduling.GET("/sessions/:scheduleId", h.GetScheduledSession)
-			scheduling.PATCH("/sessions/:scheduleId", h.UpdateScheduledSession)
-			scheduling.DELETE("/sessions/:scheduleId", h.DeleteScheduledSession)
-			scheduling.POST("/sessions/:scheduleId/enable", h.EnableScheduledSession)
-			scheduling.POST("/sessions/:scheduleId/disable", h.DisableScheduledSession)
+			scheduling.GET("/sessions", schedulingHandler.ListScheduledSessions)
+			scheduling.POST("/sessions", schedulingHandler.CreateScheduledSession)
+			scheduling.GET("/sessions/:scheduleId", schedulingHandler.GetScheduledSession)
+			scheduling.PATCH("/sessions/:scheduleId", schedulingHandler.UpdateScheduledSession)
+			scheduling.DELETE("/sessions/:scheduleId", schedulingHandler.DeleteScheduledSession)
+			scheduling.POST("/sessions/:scheduleId/enable", schedulingHandler.EnableScheduledSession)
+			scheduling.POST("/sessions/:scheduleId/disable", schedulingHandler.DisableScheduledSession)
 
 			// Calendar integrations
-			scheduling.POST("/calendar/connect", h.ConnectCalendar)
-			scheduling.GET("/calendar/oauth/callback", h.CalendarOAuthCallback)
-			scheduling.GET("/calendar/integrations", h.ListCalendarIntegrations)
-			scheduling.DELETE("/calendar/integrations/:integrationId", h.DisconnectCalendar)
-			scheduling.POST("/calendar/integrations/:integrationId/sync", h.SyncCalendar)
-			scheduling.GET("/calendar/export.ics", h.ExportICalendar)
+			scheduling.POST("/calendar/connect", schedulingHandler.ConnectCalendar)
+			scheduling.GET("/calendar/oauth/callback", schedulingHandler.CalendarOAuthCallback)
+			scheduling.GET("/calendar/integrations", schedulingHandler.ListCalendarIntegrations)
+			scheduling.DELETE("/calendar/integrations/:integrationId", schedulingHandler.DisconnectCalendar)
+			scheduling.POST("/calendar/integrations/:integrationId/sync", schedulingHandler.SyncCalendar)
+			scheduling.GET("/calendar/export.ics", schedulingHandler.ExportICalendar)
 		}
 
 		// Load Balancing & Auto-scaling - Admin/Operator only
