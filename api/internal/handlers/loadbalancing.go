@@ -170,7 +170,7 @@ func (h *Handler) CreateLoadBalancingPolicy(c *gin.Context) {
 	req.Enabled = true
 
 	var id int64
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		INSERT INTO load_balancing_policies
 		(name, description, strategy, enabled, session_affinity, health_check_config,
 		 node_selector, node_weights, geo_preferences, resource_thresholds, metadata, created_by)
@@ -196,7 +196,7 @@ func (h *Handler) CreateLoadBalancingPolicy(c *gin.Context) {
 
 // ListLoadBalancingPolicies lists all load balancing policies
 func (h *Handler) ListLoadBalancingPolicies(c *gin.Context) {
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, name, description, strategy, enabled, session_affinity,
 		       health_check_config, node_selector, node_weights, geo_preferences,
 		       resource_thresholds, metadata, created_by, created_at, updated_at
@@ -245,7 +245,7 @@ func (h *Handler) GetNodeStatus(c *gin.Context) {
 
 // fetchNodeStatusFromDatabase fetches node status from database cache
 func (h *Handler) fetchNodeStatusFromDatabase() ([]NodeStatus, error) {
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT node_name, status, cpu_allocated, cpu_capacity, memory_allocated,
 		       memory_capacity, active_sessions, health_status, last_health_check,
 		       region, zone, labels, weight
@@ -467,7 +467,7 @@ func (h *Handler) convertNodeToNodeStatus(node corev1.Node, metricsMap map[strin
 
 // getSessionCountsByNode gets the count of active sessions per node from database
 func (h *Handler) getSessionCountsByNode() (map[string]int, error) {
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT node_name, COUNT(*) as session_count
 		FROM sessions
 		WHERE state = 'running' AND node_name IS NOT NULL
@@ -495,7 +495,7 @@ func (h *Handler) getSessionCountsByNode() (map[string]int, error) {
 func (h *Handler) cacheNodeStatusInDatabase(nodes []NodeStatus) {
 	for _, node := range nodes {
 		// Use UPSERT pattern to update or insert
-		h.DB.Exec(`
+		h.DB.DB().Exec(`
 			INSERT INTO node_status
 			(node_name, status, cpu_allocated, cpu_capacity, memory_allocated, memory_capacity,
 			 active_sessions, health_status, last_health_check, region, zone, labels, weight)
@@ -571,7 +571,7 @@ func (h *Handler) scaleKubernetesDeployment(deploymentName string, replicas int)
 		namespace, deploymentName, originalReplicas, replicas)
 
 	// Also store in database queue as audit trail
-	h.DB.Exec(`
+	h.DB.DB().Exec(`
 		INSERT INTO deployment_scaling_queue (deployment_name, namespace, target_replicas, status, created_at)
 		VALUES ($1, $2, $3, 'completed', NOW())
 	`, deploymentName, namespace, replicas)
@@ -593,19 +593,7 @@ func calculateClusterTotals(nodes []NodeStatus) (totalCPU, usedCPU float64, tota
 		totalSessions += node.ActiveSessions
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"nodes": nodes,
-		"cluster_summary": gin.H{
-			"total_nodes":      len(nodes),
-			"cpu_capacity":     totalCPU,
-			"cpu_used":         usedCPU,
-			"cpu_percent":      (usedCPU / totalCPU) * 100,
-			"memory_capacity":  totalMemory,
-			"memory_used":      usedMemory,
-			"memory_percent":   (float64(usedMemory) / float64(totalMemory)) * 100,
-			"active_sessions":  totalSessions,
-		},
-	})
+	return totalCPU, usedCPU, totalMemory, usedMemory, totalSessions
 }
 
 // SelectNode selects best node for a new session based on policy
@@ -630,11 +618,11 @@ func (h *Handler) SelectNode(c *gin.Context) {
 
 	// If no policy specified, get default policy
 	if policyID == 0 {
-		h.DB.QueryRow(`SELECT id FROM load_balancing_policies WHERE enabled = true ORDER BY id LIMIT 1`).Scan(&policyID)
+		h.DB.DB().QueryRow(`SELECT id FROM load_balancing_policies WHERE enabled = true ORDER BY id LIMIT 1`).Scan(&policyID)
 	}
 
 	if policyID > 0 {
-		h.DB.QueryRow(`
+		h.DB.DB().QueryRow(`
 			SELECT strategy, resource_thresholds, geo_preferences, node_weights
 			FROM load_balancing_policies WHERE id = $1
 		`, policyID).Scan(&policy.Strategy, &policy.ResourceThresholds,
@@ -645,7 +633,7 @@ func (h *Handler) SelectNode(c *gin.Context) {
 	}
 
 	// Get available nodes
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT node_name, cpu_allocated, cpu_capacity, memory_allocated,
 		       memory_capacity, active_sessions, health_status, region, weight
 		FROM node_status
@@ -848,7 +836,7 @@ func (h *Handler) CreateAutoScalingPolicy(c *gin.Context) {
 	req.Enabled = true
 
 	var id int64
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		INSERT INTO autoscaling_policies
 		(name, description, target_type, target_id, enabled, scaling_mode, min_replicas,
 		 max_replicas, metric_type, target_metric_value, scale_up_policy, scale_down_policy,
@@ -876,7 +864,7 @@ func (h *Handler) CreateAutoScalingPolicy(c *gin.Context) {
 
 // ListAutoScalingPolicies lists all auto-scaling policies
 func (h *Handler) ListAutoScalingPolicies(c *gin.Context) {
-	rows, err := h.DB.Query(`
+	rows, err := h.DB.DB().Query(`
 		SELECT id, name, description, target_type, target_id, enabled, scaling_mode,
 		       min_replicas, max_replicas, metric_type, target_metric_value,
 		       scale_up_policy, scale_down_policy, predictive_scaling, cooldown_period,
@@ -924,7 +912,7 @@ func (h *Handler) TriggerScaling(c *gin.Context) {
 
 	// Get policy
 	var policy AutoScalingPolicy
-	err := h.DB.QueryRow(`
+	err := h.DB.DB().QueryRow(`
 		SELECT target_type, target_id, min_replicas, max_replicas, scale_up_policy, scale_down_policy
 		FROM autoscaling_policies WHERE id = $1 AND enabled = true
 	`, policyID).Scan(&policy.TargetType, &policy.TargetID, &policy.MinReplicas,
@@ -999,7 +987,7 @@ func (h *Handler) TriggerScaling(c *gin.Context) {
 
 	// Record scaling event
 	var eventID int64
-	err = h.DB.QueryRow(`
+	err = h.DB.DB().QueryRow(`
 		INSERT INTO scaling_events
 		(policy_id, target_type, target_id, action, previous_replicas, new_replicas,
 		 trigger, reason, status)
@@ -1017,14 +1005,14 @@ func (h *Handler) TriggerScaling(c *gin.Context) {
 	err = h.scaleKubernetesDeployment(policy.TargetID, newReplicas)
 	if err != nil {
 		// Update event status to failed
-		h.DB.Exec(`UPDATE scaling_events SET status = 'failed', error_message = $1 WHERE id = $2`,
+		h.DB.DB().Exec(`UPDATE scaling_events SET status = 'failed', error_message = $1 WHERE id = $2`,
 			err.Error(), eventID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("scaling failed: %v", err)})
 		return
 	}
 
 	// Update event status to completed
-	h.DB.Exec(`UPDATE scaling_events SET status = 'completed' WHERE id = $1`, eventID)
+	h.DB.DB().Exec(`UPDATE scaling_events SET status = 'completed' WHERE id = $1`, eventID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"event_id":          eventID,
@@ -1044,7 +1032,7 @@ func (h *Handler) GetScalingHistory(c *gin.Context) {
 	var err error
 
 	if policyID != "" {
-		rows, err = h.DB.Query(`
+		rows, err = h.DB.DB().Query(`
 			SELECT id, policy_id, target_type, target_id, action, previous_replicas,
 			       new_replicas, trigger, metric_value, reason, status, created_at
 			FROM scaling_events
@@ -1053,7 +1041,7 @@ func (h *Handler) GetScalingHistory(c *gin.Context) {
 			LIMIT $2
 		`, policyID, limit)
 	} else {
-		rows, err = h.DB.Query(`
+		rows, err = h.DB.DB().Query(`
 			SELECT id, policy_id, target_type, target_id, action, previous_replicas,
 			       new_replicas, trigger, metric_value, reason, status, created_at
 			FROM scaling_events
