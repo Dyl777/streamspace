@@ -235,19 +235,22 @@ func (m *Manager) broadcastSessionUpdates() {
 		for _, session := range sessions {
 			// Get active connections count from database
 			var activeConns int
-			err := m.db.DB().QueryRowContext(ctx, `
+			if err := m.db.DB().QueryRowContext(ctx, `
 				SELECT active_connections FROM sessions WHERE id = $1
-			`, session.Name).Scan(&activeConns)
+			`, session.Name).Scan(&activeConns); err != nil {
+				// If query fails, default to 0
+				activeConns = 0
+			}
 
 			sessionData := map[string]interface{}{
-				"name":               session.Name,
-				"namespace":          session.Namespace,
-				"user":               session.User,
-				"template":           session.Template,
-				"state":              session.State,
-				"status":             session.Status,
-				"createdAt":          session.CreatedAt,
-				"activeConnections":  activeConns,
+				"name":              session.Name,
+				"namespace":         session.Namespace,
+				"user":              session.User,
+				"template":          session.Template,
+				"state":             session.State,
+				"status":            session.Status,
+				"createdAt":         session.CreatedAt,
+				"activeConnections": activeConns,
 			}
 
 			if session.Resources.Memory != "" || session.Resources.CPU != "" {
@@ -279,9 +282,9 @@ func (m *Manager) broadcastSessionUpdates() {
 
 		// Broadcast to all clients
 		message := map[string]interface{}{
-			"type":     "sessions_update",
-			"sessions": enrichedSessions,
-			"count":    len(enrichedSessions),
+			"type":      "sessions_update",
+			"sessions":  enrichedSessions,
+			"count":     len(enrichedSessions),
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
 

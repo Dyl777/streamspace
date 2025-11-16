@@ -86,13 +86,13 @@ type ConsoleSession struct {
 	ID             string                 `json:"id"`
 	SessionID      string                 `json:"session_id"`
 	UserID         string                 `json:"user_id"`
-	Type           string                 `json:"type"` // "terminal", "file_manager"
+	Type           string                 `json:"type"`   // "terminal", "file_manager"
 	Status         string                 `json:"status"` // "active", "idle", "disconnected"
 	WebSocketURL   string                 `json:"websocket_url,omitempty"`
 	CurrentPath    string                 `json:"current_path,omitempty"`
 	ShellType      string                 `json:"shell_type,omitempty"` // "bash", "sh", "zsh"
-	Columns        int                    `json:"columns,omitempty"` // Terminal columns
-	Rows           int                    `json:"rows,omitempty"` // Terminal rows
+	Columns        int                    `json:"columns,omitempty"`    // Terminal columns
+	Rows           int                    `json:"rows,omitempty"`       // Terminal rows
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 	ConnectedAt    time.Time              `json:"connected_at"`
 	LastActivityAt time.Time              `json:"last_activity_at"`
@@ -101,25 +101,25 @@ type ConsoleSession struct {
 
 // FileInfo represents file/directory information
 type FileInfo struct {
-	Name         string    `json:"name"`
-	Path         string    `json:"path"`
-	Size         int64     `json:"size"`
-	IsDirectory  bool      `json:"is_directory"`
-	Permissions  string    `json:"permissions"`
-	Owner        string    `json:"owner"`
-	Group        string    `json:"group"`
-	ModifiedAt   time.Time `json:"modified_at"`
-	MimeType     string    `json:"mime_type,omitempty"`
-	SymlinkTarget string   `json:"symlink_target,omitempty"`
+	Name          string    `json:"name"`
+	Path          string    `json:"path"`
+	Size          int64     `json:"size"`
+	IsDirectory   bool      `json:"is_directory"`
+	Permissions   string    `json:"permissions"`
+	Owner         string    `json:"owner"`
+	Group         string    `json:"group"`
+	ModifiedAt    time.Time `json:"modified_at"`
+	MimeType      string    `json:"mime_type,omitempty"`
+	SymlinkTarget string    `json:"symlink_target,omitempty"`
 }
 
 // FileOperation represents a file operation result
 type FileOperation struct {
-	Operation string      `json:"operation"` // "create", "delete", "rename", "copy", "move", "upload", "download"
-	SourcePath string     `json:"source_path"`
-	TargetPath string     `json:"target_path,omitempty"`
-	Success   bool        `json:"success"`
-	Error     string      `json:"error,omitempty"`
+	Operation      string `json:"operation"` // "create", "delete", "rename", "copy", "move", "upload", "download"
+	SourcePath     string `json:"source_path"`
+	TargetPath     string `json:"target_path,omitempty"`
+	Success        bool   `json:"success"`
+	Error          string `json:"error,omitempty"`
 	BytesProcessed int64  `json:"bytes_processed,omitempty"`
 }
 
@@ -384,9 +384,9 @@ func (h *Handler) GetFileContent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"path":    path,
-		"size":    info.Size(),
-		"content": string(content),
+		"path":     path,
+		"size":     info.Size(),
+		"content":  string(content),
 		"encoding": "utf-8",
 	})
 }
@@ -439,11 +439,11 @@ func (h *Handler) UploadFile(c *gin.Context) {
 	h.logFileOperation(sessionID, userID, "upload", filepath.Join(targetPath, header.Filename), "", bytesWritten)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":        "file uploaded successfully",
-		"filename":       header.Filename,
-		"size":           header.Size,
-		"bytes_written":  bytesWritten,
-		"path":           filepath.Join(targetPath, header.Filename),
+		"message":       "file uploaded successfully",
+		"filename":      header.Filename,
+		"size":          header.Size,
+		"bytes_written": bytesWritten,
+		"path":          filepath.Join(targetPath, header.Filename),
 	})
 }
 
@@ -646,24 +646,6 @@ func (h *Handler) RenameFile(c *gin.Context) {
 }
 
 // Helper functions
-
-func (h *Handler) canAccessSession(userID, sessionID string) bool {
-	var owner string
-	h.DB.QueryRow("SELECT user_id FROM sessions WHERE id = $1", sessionID).Scan(&owner)
-	if owner == userID {
-		return true
-	}
-
-	// Check shared access
-	var hasAccess bool
-	h.DB.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM session_shares
-			WHERE session_id = $1 AND shared_with_user_id = $2
-		)
-	`, sessionID, userID).Scan(&hasAccess)
-	return hasAccess
-}
 
 func (h *Handler) getSessionBasePath(sessionID string) string {
 	// In production, this would return the actual path to the session's persistent volume

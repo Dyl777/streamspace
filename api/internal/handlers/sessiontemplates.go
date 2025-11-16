@@ -1045,8 +1045,8 @@ func (h *SessionTemplatesHandler) canManageTemplate(ctx context.Context, templat
 
 // Template versioning implementations
 
-// TemplateVersion represents a version snapshot of a template
-type TemplateVersion struct {
+// TemplateSnapshot represents a version snapshot of a template
+type TemplateSnapshot struct {
 	ID            int                    `json:"id"`
 	TemplateID    string                 `json:"templateId"`
 	VersionNumber int                    `json:"versionNumber"`
@@ -1101,9 +1101,9 @@ func (h *SessionTemplatesHandler) ListTemplateVersions(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	versions := []TemplateVersion{}
+	versions := []TemplateSnapshot{}
 	for rows.Next() {
-		var version TemplateVersion
+		var version TemplateSnapshot
 		var templateDataJSON []byte
 		var tagsArray sql.NullString
 
