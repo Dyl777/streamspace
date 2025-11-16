@@ -102,6 +102,11 @@ func NewUserDB(db *sql.DB) *UserDB {
 	return &UserDB{db: db}
 }
 
+// DB returns the underlying database connection
+func (u *UserDB) DB() *sql.DB {
+	return u.db
+}
+
 // CreateUser creates a new user
 func (u *UserDB) CreateUser(ctx context.Context, req *models.CreateUserRequest) (*models.User, error) {
 	user := &models.User{
@@ -210,6 +215,42 @@ func (u *UserDB) GetUserByUsername(ctx context.Context, username string) (*model
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, err
+	}
+
+	return user, nil
+}
+
+// GetUserByEmail retrieves a user by email address
+func (u *UserDB) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	user := &models.User{}
+	query := `
+		SELECT id, username, email, full_name, role, provider, password_hash, active, created_at, updated_at, last_login
+		FROM users
+		WHERE email = $1
+	`
+
+	err := u.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID, &user.Username, &user.Email, &user.FullName,
+		&user.Role, &user.Provider, &user.PasswordHash, &user.Active,
+		&user.CreatedAt, &user.UpdatedAt, &user.LastLogin,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, err
+	}
+
+	// Load quota
+	quota, err := u.GetUserQuota(ctx, user.ID)
+	if err == nil {
+		user.Quota = quota
+	}
+
+	// Load groups
+	groups, err := u.GetUserGroups(ctx, user.ID)
+	if err == nil {
+		user.Groups = groups
 	}
 
 	return user, nil
@@ -337,6 +378,21 @@ func (u *UserDB) UpdateLastLogin(ctx context.Context, userID string) error {
 	_, err := u.db.ExecContext(ctx, `
 		UPDATE users SET last_login = $1, updated_at = $1 WHERE id = $2
 	`, time.Now(), userID)
+	return err
+}
+
+// UpdatePassword updates a user's password (local auth only)
+func (u *UserDB) UpdatePassword(ctx context.Context, userID string, newPassword string) error {
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update the password in the database
+	_, err = u.db.ExecContext(ctx, `
+		UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3
+	`, string(hashedPassword), time.Now(), userID)
 	return err
 }
 

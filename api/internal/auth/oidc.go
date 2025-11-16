@@ -267,7 +267,9 @@ func NewOIDCAuthenticator(config *OIDCConfig) (*OIDCAuthenticator, error) {
 		// For development only - skip TLS verification
 		client := &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &http.Transport{}.TLSClientConfig,
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
 			},
 		}
 		ctx = oidc.ClientContext(ctx, client)
