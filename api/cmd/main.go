@@ -437,25 +437,8 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 				recordings.POST("/cleanup", operatorMiddleware, h.CleanupExpiredRecordings)
 			}
 
-			// Data Loss Prevention (DLP) - Admin/Operator only
-			dlp := protected.Group("/dlp")
-			dlp.Use(operatorMiddleware)
-			{
-				// DLP Policies
-				dlp.GET("/policies", h.ListDLPPolicies)
-				dlp.POST("/policies", h.CreateDLPPolicy)
-				dlp.GET("/policies/:policyId", h.GetDLPPolicy)
-				dlp.PATCH("/policies/:policyId", h.UpdateDLPPolicy)
-				dlp.DELETE("/policies/:policyId", h.DeleteDLPPolicy)
-
-				// DLP Violations
-				dlp.POST("/violations", h.LogDLPViolation)
-				dlp.GET("/violations", h.ListDLPViolations)
-				dlp.POST("/violations/:violationId/resolve", h.ResolveDLPViolation)
-
-				// DLP Statistics
-				dlp.GET("/stats", h.GetDLPStats)
-			}
+		// NOTE: Data Loss Prevention (DLP) is now handled by the streamspace-dlp plugin
+		// Install it via: Admin → Plugins → streamspace-dlp
 
 			// Workflow Automation - Operator/Admin only
 			workflows := protected.Group("/workflows")
@@ -641,27 +624,8 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 			compliance.POST("/violations", h.RecordViolation)
 			compliance.POST("/violations/:violationId/resolve", h.ResolveViolation)
 
-			// Reports & Dashboard
-			compliance.POST("/reports/generate", h.GenerateComplianceReport)
-			compliance.GET("/dashboard", h.GetComplianceDashboard)
-		}
-
-			// Templates (read: all users, write: operators/admins)
-			templates := protected.Group("/templates")
-			{
-				// Cache template lists for 5 minutes (rarely changing)
-				templates.GET("", cache.CacheMiddleware(redisCache, 5*time.Minute), h.ListTemplates)
-
-				// User favorites (all authenticated users) - MUST be before /:id routes
-				templates.GET("/favorites", cache.CacheMiddleware(redisCache, 30*time.Second), h.ListUserFavoriteTemplates)
-
-				// Template details and favorite operations
-				templates.GET("/:id", cache.CacheMiddleware(redisCache, 5*time.Minute), h.GetTemplate)
-				templates.POST("/:id/favorite", cache.InvalidateCacheMiddleware(redisCache, cache.UserFavoritesPattern()), h.AddTemplateFavorite)
-				templates.DELETE("/:id/favorite", cache.InvalidateCacheMiddleware(redisCache, cache.UserFavoritesPattern()), h.RemoveTemplateFavorite)
-				templates.GET("/:id/favorite", cache.CacheMiddleware(redisCache, 30*time.Second), h.CheckTemplateFavorite)
-
-				// Write operations require operator role
+		// NOTE: Compliance & Governance is now handled by the streamspace-compliance plugin
+		// Install it via: Admin → Plugins → streamspace-compliance
 				templatesWrite := templates.Group("")
 				templatesWrite.Use(operatorMiddleware)
 				{
