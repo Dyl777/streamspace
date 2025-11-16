@@ -60,6 +60,10 @@ check_prerequisites() {
         exit 1
     fi
 
+    # Check Helm version
+    local helm_version=$(helm version --short 2>/dev/null || echo "unknown")
+    log_info "Helm version: ${helm_version}"
+
     if ! kubectl cluster-info &> /dev/null; then
         log_error "Cannot connect to Kubernetes cluster"
         log_info "Make sure your kubeconfig is properly configured"
@@ -133,6 +137,17 @@ deploy_helm() {
     fi
     log_success "Chart validation passed"
 
+    # Test if Helm can package the chart
+    log_info "Testing chart packaging..."
+    local temp_dir=$(mktemp -d)
+    if helm package "${CHART_PATH}" -d "${temp_dir}" &> /dev/null; then
+        log_success "Chart packaging test passed"
+        rm -rf "${temp_dir}"
+    else
+        log_warning "Chart packaging test failed (may not be critical)"
+        rm -rf "${temp_dir}"
+    fi
+
     # Check if release exists
     if helm status "${RELEASE_NAME}" -n "${NAMESPACE}" &> /dev/null; then
         log_info "Release exists, upgrading..."
@@ -162,6 +177,7 @@ deploy_helm() {
             --set ui.image.pullPolicy=Never \
             --set postgresql.enabled=true \
             --set postgresql.auth.password=streamspace \
+            --debug \
             --wait \
             --timeout 5m
     fi
