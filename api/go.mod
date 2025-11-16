@@ -1,8 +1,6 @@
 module github.com/streamspace/streamspace/api
 
-go 1.24.0
-
-toolchain go1.24.7
+go 1.23
 
 require (
 	github.com/crewjam/saml v0.5.1
