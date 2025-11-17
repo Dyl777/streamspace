@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 
 interface UseWebSocketOptions {
   url: string;
@@ -152,6 +152,11 @@ export function useWebSocket({
   }, []);
 
   useEffect(() => {
+    // Only connect if URL is not empty
+    if (!url) {
+      return;
+    }
+
     shouldReconnectRef.current = true;
     connect();
 
@@ -159,7 +164,7 @@ export function useWebSocket({
       close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount/unmount, not when connect/close change
+  }, [url]); // React to URL changes so we connect when token becomes available
 
   return {
     isConnected,
@@ -174,48 +179,27 @@ export function useWebSocket({
  * Only connects when a valid authentication token is available
  */
 export function useSessionsWebSocket(onUpdate: (sessions: any[]) => void) {
-  const [isEnabled, setIsEnabled] = useState(false);
-
-  // Check for token on mount and when storage changes
-  useEffect(() => {
+  // Memoize URL construction to prevent recalculation on every render
+  const wsUrl = useMemo(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = localStorage.getItem('token');
-    setIsEnabled(!!token);
 
-    // Listen for storage changes (login/logout in other tabs)
-    const handleStorageChange = () => {
-      const newToken = localStorage.getItem('token');
-      setIsEnabled(!!newToken);
-    };
+    // Don't connect without a token - return empty URL to prevent connection
+    return token
+      ? `${protocol}//${window.location.host}/api/v1/ws/sessions?token=${encodeURIComponent(token)}`
+      : '';
+  }, []); // Empty deps - only calculate once on mount
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  // Use window.location to connect through Vite proxy in dev, or directly in production
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const token = localStorage.getItem('token');
-  const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/sessions${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-
-  // Only initialize WebSocket if we have a token
-  const ws = useWebSocket({
-    url: isEnabled ? wsUrl : '', // Empty URL prevents connection
+  return useWebSocket({
+    url: wsUrl,
     onMessage: (data) => {
       if (data.type === 'sessions_update' && data.sessions) {
         onUpdate(data.sessions);
       }
     },
-    onError: (error) => {
-      // Token might be expired - check if we should reconnect
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        setIsEnabled(false); // Stop trying to reconnect without token
-      }
-    },
     // onOpen: () => console.log('Sessions WebSocket connected'),
     // onClose: () => console.log('Sessions WebSocket disconnected'),
   });
-
-  return ws;
 }
 
 /**
@@ -223,14 +207,16 @@ export function useSessionsWebSocket(onUpdate: (sessions: any[]) => void) {
  * Only connects when a valid authentication token is available
  */
 export function useMetricsWebSocket(onUpdate: (metrics: any) => void) {
-  // Use window.location to connect through Vite proxy in dev, or directly in production
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const token = localStorage.getItem('token');
+  // Memoize URL construction to prevent recalculation on every render
+  const wsUrl = useMemo(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const token = localStorage.getItem('token');
 
-  // Don't connect without a token
-  const wsUrl = token
-    ? `${protocol}//${window.location.host}/api/v1/ws/cluster?token=${encodeURIComponent(token)}`
-    : '';
+    // Don't connect without a token
+    return token
+      ? `${protocol}//${window.location.host}/api/v1/ws/cluster?token=${encodeURIComponent(token)}`
+      : '';
+  }, []); // Empty deps - only calculate once on mount
 
   return useWebSocket({
     url: wsUrl,
@@ -249,14 +235,16 @@ export function useMetricsWebSocket(onUpdate: (metrics: any) => void) {
  * Only connects when a valid authentication token is available
  */
 export function useLogsWebSocket(namespace: string, podName: string, onLog: (log: string) => void) {
-  // Use window.location to connect through Vite proxy in dev, or directly in production
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const token = localStorage.getItem('token');
+  // Memoize URL construction to prevent recalculation on every render
+  const wsUrl = useMemo(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const token = localStorage.getItem('token');
 
-  // Don't connect without a token
-  const wsUrl = token
-    ? `${protocol}//${window.location.host}/api/v1/ws/logs/${namespace}/${podName}?token=${encodeURIComponent(token)}`
-    : '';
+    // Don't connect without a token
+    return token
+      ? `${protocol}//${window.location.host}/api/v1/ws/logs/${namespace}/${podName}?token=${encodeURIComponent(token)}`
+      : '';
+  }, [namespace, podName]); // Recalculate if namespace or podName changes
 
   return useWebSocket({
     url: wsUrl,

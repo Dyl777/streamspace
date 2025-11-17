@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 
 export interface WebSocketMessage {
   type: string;
@@ -84,7 +84,8 @@ export function useEnterpriseWebSocket(
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  const getWebSocketUrl = useCallback(() => {
+  // Memoize WebSocket URL to prevent recalculation on every render
+  const wsUrl = useMemo(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const token = localStorage.getItem('token');
@@ -97,15 +98,13 @@ export function useEnterpriseWebSocket(
     // Include token as query parameter for WebSocket authentication
     // Browsers cannot send custom headers in WebSocket connections
     return `${protocol}//${host}/api/v1/ws/enterprise?token=${encodeURIComponent(token)}`;
-  }, []);
+  }, []); // Empty deps - only calculate once on mount
 
   const connect = useCallback(() => {
     // Don't create multiple connections
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       return;
     }
-
-    const wsUrl = getWebSocketUrl();
 
     // Don't connect if no token available
     if (!wsUrl) {
@@ -187,11 +186,7 @@ export function useEnterpriseWebSocket(
       console.error('[WebSocket] Failed to create WebSocket connection:', error);
       setIsConnected(false);
     }
-  }, [
-    getWebSocketUrl,
-    autoReconnect,
-    maxReconnectAttempts,
-  ]); // Removed reconnectInterval since we use getReconnectDelay
+  }, [wsUrl, autoReconnect, maxReconnectAttempts]); // Removed reconnectInterval since we use getReconnectDelay
 
   const disconnect = useCallback(() => {
     // console.log('[WebSocket] Disconnecting...');
@@ -220,8 +215,12 @@ export function useEnterpriseWebSocket(
     }
   }, []);
 
-  // Auto-connect on mount
+  // Auto-connect on mount (only if URL is not empty)
   useEffect(() => {
+    if (!wsUrl) {
+      return; // Don't connect without a valid URL
+    }
+
     connect();
 
     // Cleanup on unmount
@@ -236,7 +235,7 @@ export function useEnterpriseWebSocket(
         wsRef.current.close();
       }
     };
-  }, []); // Empty dependency array - only run on mount/unmount
+  }, [wsUrl, connect]); // React to URL changes so we connect when token becomes available
 
   // Handle page visibility changes (reconnect when page becomes visible)
   // Store isConnected in ref to avoid effect recreation
