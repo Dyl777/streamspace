@@ -9,7 +9,7 @@
  *
  * @component
  */
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import {
   Box,
   Chip,
@@ -60,24 +60,14 @@ function EnhancedWebSocketStatus({
     return 60; // 60 seconds for all subsequent retries
   };
 
-  // Countdown timer for reconnection
+  // Countdown timer for reconnection - DISABLED to prevent sidebar flickering
+  // The countdown state update every second was causing the entire component tree to re-render,
+  // which made the sidebar flicker. Instead, we show a static "Reconnecting..." message.
   useEffect(() => {
     if (reconnectAttempts > 0 && !isConnected) {
+      // Calculate next retry time but don't update state every second
       const delay = getReconnectDelay(reconnectAttempts - 1);
-      let remainingTime = delay;
-      setCountdown(remainingTime);
-
-      const interval = setInterval(() => {
-        remainingTime -= 1;
-        if (remainingTime <= 0) {
-          clearInterval(interval);
-          setCountdown(null);
-        } else {
-          setCountdown(remainingTime);
-        }
-      }, 1000);
-
-      return () => clearInterval(interval);
+      setCountdown(delay); // Set once, don't update every second
     } else {
       setCountdown(null);
     }
@@ -113,9 +103,8 @@ function EnhancedWebSocketStatus({
       return latency ? `Live • ${latency}ms` : 'Live Updates';
     }
     if (reconnectAttempts > 0) {
-      return countdown !== null
-        ? `Reconnecting in ${countdown}s...`
-        : `Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`;
+      // Show attempt count only, not countdown (to prevent re-renders)
+      return `Reconnecting... (${reconnectAttempts}/${maxReconnectAttempts})`;
     }
     if (reconnectAttempts >= maxReconnectAttempts) {
       return 'Connection Failed';
@@ -130,12 +119,14 @@ function EnhancedWebSocketStatus({
     return 'default' as const;
   };
 
-  const getStatusIcon = () => {
+  // Memoize the status icon to prevent CircularProgress from restarting on every render
+  // Only recreate when connection status actually changes, not when latency updates
+  const statusIcon = useMemo(() => {
     if (isConnected) return <ConnectedIcon />;
     if (reconnectAttempts >= maxReconnectAttempts) return <ErrorIcon />;
     if (reconnectAttempts > 0) return <CircularProgress size={16} />;
     return <DisconnectedIcon />;
-  };
+  }, [isConnected, reconnectAttempts, maxReconnectAttempts]);
 
   const quality = getConnectionQuality(latency);
   const open = Boolean(anchorEl);
@@ -143,7 +134,7 @@ function EnhancedWebSocketStatus({
   return (
     <>
       <Chip
-        icon={getStatusIcon()}
+        icon={statusIcon}
         label={getStatusLabel()}
         size={size}
         color={getStatusColor()}
@@ -177,7 +168,7 @@ function EnhancedWebSocketStatus({
 
             {/* Connection State */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              {getStatusIcon()}
+              {statusIcon}
               <Box sx={{ flex: 1 }}>
                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                   {isConnected ? 'Connected' : reconnectAttempts > 0 ? 'Reconnecting' : 'Disconnected'}
@@ -197,13 +188,12 @@ function EnhancedWebSocketStatus({
                   </Typography>
                   {countdown !== null && (
                     <Typography variant="caption" color="text.secondary">
-                      {countdown}s
+                      Next retry in ~{countdown}s
                     </Typography>
                   )}
                 </Box>
                 <LinearProgress
-                  variant={countdown !== null ? 'determinate' : 'indeterminate'}
-                  value={countdown !== null ? ((getReconnectDelay(reconnectAttempts - 1) - countdown) / getReconnectDelay(reconnectAttempts - 1)) * 100 : undefined}
+                  variant="indeterminate"
                   color={reconnectAttempts >= maxReconnectAttempts ? 'error' : 'primary'}
                 />
               </Box>
