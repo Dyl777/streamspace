@@ -223,9 +223,15 @@ export function useEnterpriseWebSocket(
   }, []); // Empty dependency array - only run on mount/unmount
 
   // Handle page visibility changes (reconnect when page becomes visible)
+  // Store isConnected in ref to avoid effect recreation
+  const isConnectedRef = useRef(isConnected);
+  useEffect(() => {
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !isConnected) {
+      if (document.visibilityState === 'visible' && !isConnectedRef.current) {
         // console.log('[WebSocket] Page visible, attempting reconnection');
         connect();
       }
@@ -236,7 +242,8 @@ export function useEnterpriseWebSocket(
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isConnected, connect]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only set up listener once on mount
 
   return {
     isConnected,

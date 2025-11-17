@@ -145,7 +145,8 @@ export function useWebSocket({
     return () => {
       close();
     };
-  }, [connect, close]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount/unmount, not when connect/close change
 
   return {
     isConnected,
