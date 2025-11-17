@@ -781,13 +781,14 @@ func setupRoutes(router *gin.Engine, h *api.Handler, userHandler *handlers.UserH
 	ws := router.Group("/api/v1/ws")
 	ws.Use(authMiddleware)
 	{
-		ws.GET("/sessions", h.SessionsWebSocket)
+		// NOTE: /ws/sessions is now handled by websocketHandler.RegisterRoutes() below
 		ws.GET("/cluster", operatorMiddleware, h.ClusterWebSocket)
 		ws.GET("/logs/:namespace/:pod", operatorMiddleware, h.LogsWebSocket)
 		ws.GET("/enterprise", handlers.HandleEnterpriseWebSocket) // Real-time enterprise features
 	}
 
 	// Real-time updates via WebSocket - using dedicated handler (all authenticated users)
+	// Registers: /ws/sessions, /ws/notifications, /ws/metrics, /ws/alerts
 	websocketHandler.RegisterRoutes(router.Group("/api/v1", authMiddleware))
 
 	// Webhook endpoints (HMAC signature validation required)
