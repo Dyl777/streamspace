@@ -172,8 +172,25 @@ func InvalidateCacheMiddleware(cache *Cache, pattern string) gin.HandlerFunc {
 // CacheControl middleware adds cache control headers to responses
 func CacheControl(maxAge time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Only add cache headers for GET requests
-		if c.Request.Method == http.MethodGet {
+		path := c.Request.URL.Path
+
+		// Never cache authentication/authorization endpoints
+		noCachePaths := []string{
+			"/api/v1/auth/",     // All auth endpoints (login, logout, setup, etc.)
+			"/api/v1/users/me",  // Current user info
+			"/api/v1/sessions/", // Session state (dynamic)
+		}
+
+		shouldCache := true
+		for _, prefix := range noCachePaths {
+			if len(path) >= len(prefix) && path[:len(prefix)] == prefix {
+				shouldCache = false
+				break
+			}
+		}
+
+		// Only add cache headers for GET requests on cacheable paths
+		if c.Request.Method == http.MethodGet && shouldCache {
 			c.Header("Cache-Control", fmt.Sprintf("public, max-age=%d", int(maxAge.Seconds())))
 		} else {
 			c.Header("Cache-Control", "no-store, no-cache, must-revalidate")
