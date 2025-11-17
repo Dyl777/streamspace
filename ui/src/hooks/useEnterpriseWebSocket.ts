@@ -86,21 +86,26 @@ export function useEnterpriseWebSocket(
   }, [onClose]);
 
   // Get token directly from Zustand store - automatically reactive
-  const token = useUserStore((state) => state.token);
+  const token = useUserStore((state) => state?.token);
 
   // Memoize WebSocket URL, recalculate when token changes
   const wsUrl = useMemo(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
 
-    // Don't connect without a token
-    if (!token) {
+      // Don't connect without a token
+      if (!token) {
+        return '';
+      }
+
+      // Include token as query parameter for WebSocket authentication
+      // Browsers cannot send custom headers in WebSocket connections
+      return `${protocol}//${host}/api/v1/ws/enterprise?token=${encodeURIComponent(token)}`;
+    } catch (error) {
+      console.error('[useEnterpriseWebSocket] Error building URL:', error);
       return '';
     }
-
-    // Include token as query parameter for WebSocket authentication
-    // Browsers cannot send custom headers in WebSocket connections
-    return `${protocol}//${host}/api/v1/ws/enterprise?token=${encodeURIComponent(token)}`;
   }, [token]); // Recalculate when token changes
 
   const connect = useCallback(() => {

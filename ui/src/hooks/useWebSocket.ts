@@ -182,24 +182,36 @@ export function useWebSocket({
  */
 export function useSessionsWebSocket(onUpdate: (sessions: any[]) => void) {
   // Get token directly from Zustand store - automatically reactive
-  const token = useUserStore((state) => state.token);
+  const token = useUserStore((state) => state?.token);
 
   // Memoize URL construction, recalculate when token changes
   const wsUrl = useMemo(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // Don't connect without a token - return empty URL to prevent connection
-    return token
-      ? `${protocol}//${window.location.host}/api/v1/ws/sessions?token=${encodeURIComponent(token)}`
-      : '';
+      // Don't connect without a token - return empty URL to prevent connection
+      return token
+        ? `${protocol}//${window.location.host}/api/v1/ws/sessions?token=${encodeURIComponent(token)}`
+        : '';
+    } catch (error) {
+      console.error('[useSessionsWebSocket] Error building URL:', error);
+      return '';
+    }
   }, [token]); // Recalculate when token changes
 
   return useWebSocket({
     url: wsUrl,
     onMessage: (data) => {
-      if (data.type === 'sessions_update' && data.sessions) {
-        onUpdate(data.sessions);
+      try {
+        if (data.type === 'sessions_update' && data.sessions) {
+          onUpdate(data.sessions);
+        }
+      } catch (error) {
+        console.error('[useSessionsWebSocket] Error in onMessage:', error);
       }
+    },
+    onError: (error) => {
+      console.error('[useSessionsWebSocket] WebSocket error:', error);
     },
     // onOpen: () => console.log('Sessions WebSocket connected'),
     // onClose: () => console.log('Sessions WebSocket disconnected'),
@@ -213,24 +225,36 @@ export function useSessionsWebSocket(onUpdate: (sessions: any[]) => void) {
  */
 export function useMetricsWebSocket(onUpdate: (metrics: any) => void) {
   // Get token directly from Zustand store - automatically reactive
-  const token = useUserStore((state) => state.token);
+  const token = useUserStore((state) => state?.token);
 
   // Memoize URL construction, recalculate when token changes
   const wsUrl = useMemo(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // Don't connect without a token
-    return token
-      ? `${protocol}//${window.location.host}/api/v1/ws/cluster?token=${encodeURIComponent(token)}`
-      : '';
+      // Don't connect without a token
+      return token
+        ? `${protocol}//${window.location.host}/api/v1/ws/cluster?token=${encodeURIComponent(token)}`
+        : '';
+    } catch (error) {
+      console.error('[useMetricsWebSocket] Error building URL:', error);
+      return '';
+    }
   }, [token]); // Recalculate when token changes
 
   return useWebSocket({
     url: wsUrl,
     onMessage: (data) => {
-      if (data.type === 'metrics_update' && data.metrics) {
-        onUpdate(data.metrics);
+      try {
+        if (data.type === 'metrics_update' && data.metrics) {
+          onUpdate(data.metrics);
+        }
+      } catch (error) {
+        console.error('[useMetricsWebSocket] Error in onMessage:', error);
       }
+    },
+    onError: (error) => {
+      console.error('[useMetricsWebSocket] WebSocket error:', error);
     },
     // onOpen: () => console.log('Metrics WebSocket connected'),
     // onClose: () => console.log('Metrics WebSocket disconnected'),
@@ -244,24 +268,36 @@ export function useMetricsWebSocket(onUpdate: (metrics: any) => void) {
  */
 export function useLogsWebSocket(namespace: string, podName: string, onLog: (log: string) => void) {
   // Get token directly from Zustand store - automatically reactive
-  const token = useUserStore((state) => state.token);
+  const token = useUserStore((state) => state?.token);
 
   // Memoize URL construction, recalculate when token or params change
   const wsUrl = useMemo(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // Don't connect without a token
-    return token
-      ? `${protocol}//${window.location.host}/api/v1/ws/logs/${namespace}/${podName}?token=${encodeURIComponent(token)}`
-      : '';
+      // Don't connect without a token
+      return token
+        ? `${protocol}//${window.location.host}/api/v1/ws/logs/${namespace}/${podName}?token=${encodeURIComponent(token)}`
+        : '';
+    } catch (error) {
+      console.error('[useLogsWebSocket] Error building URL:', error);
+      return '';
+    }
   }, [token, namespace, podName]); // Recalculate when any dependency changes
 
   return useWebSocket({
     url: wsUrl,
     onMessage: (data) => {
-      if (typeof data === 'string') {
-        onLog(data);
+      try {
+        if (typeof data === 'string') {
+          onLog(data);
+        }
+      } catch (error) {
+        console.error('[useLogsWebSocket] Error in onMessage:', error);
       }
+    },
+    onError: (error) => {
+      console.error('[useLogsWebSocket] WebSocket error:', error);
     },
     // onOpen: () => console.log(`Logs WebSocket connected: ${namespace}/${podName}`),
     // onClose: () => console.log(`Logs WebSocket disconnected: ${namespace}/${podName}`),
