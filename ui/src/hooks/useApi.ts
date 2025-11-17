@@ -222,3 +222,56 @@ export function useCurrentUserQuota() {
     // Polling disabled - quota data is relatively static, refresh on user actions only
   });
 }
+
+// ============================================================================
+// Scheduling Hooks
+// ============================================================================
+
+export function useScheduledSessions() {
+  return useQuery({
+    queryKey: ['scheduled-sessions'],
+    queryFn: () => api.listScheduledSessions(),
+    select: (data) => data.schedules,
+    // Polling disabled - use WebSocket for real-time updates via useScheduleEvents
+  });
+}
+
+export function useCalendarIntegrations() {
+  return useQuery({
+    queryKey: ['calendar-integrations'],
+    queryFn: () => api.listCalendarIntegrations(),
+    select: (data) => data.integrations,
+    // Polling disabled - calendar integrations are relatively static
+  });
+}
+
+// ============================================================================
+// Security Settings Hooks
+// ============================================================================
+
+export function useMFAMethods() {
+  return useQuery({
+    queryKey: ['mfa-methods'],
+    queryFn: () => api.listMFAMethods(),
+    select: (data) => data.methods,
+    // Polling disabled - MFA methods are relatively static
+  });
+}
+
+export function useIPWhitelist() {
+  return useQuery({
+    queryKey: ['ip-whitelist'],
+    queryFn: () => api.listIPWhitelist(),
+    select: (data) => data.entries,
+    // Polling disabled - IP whitelist is static configuration
+  });
+}
+
+export function useSecurityAlerts() {
+  return useQuery({
+    queryKey: ['security-alerts'],
+    queryFn: () => api.getSecurityAlerts(),
+    select: (data) => data.alerts,
+    // Polling disabled - use WebSocket for real-time updates via useSecurityAlertEvents
+  });
+}
