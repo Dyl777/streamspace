@@ -11,7 +11,7 @@
  *
  * @component
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Snackbar,
   Alert,
@@ -359,11 +359,13 @@ export default function NotificationQueue({
 
 // Export hook for easy use
 export function useNotificationQueue() {
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp'>) => {
+  // Use useCallback to return a stable function reference
+  // This prevents unnecessary re-renders in components that use this hook
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp'>) => {
     if ((window as any).addNotification) {
       (window as any).addNotification(notification);
     }
-  };
+  }, []);
 
   return { addNotification };
 }
