@@ -28,8 +28,10 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 
@@ -79,6 +81,10 @@ type SetupStatusResponse struct {
 func (h *SetupHandler) GetSetupStatus(c *gin.Context) {
 	setupRequired, adminExists, hasPassword := h.isSetupRequired()
 
+	// Debug logging
+	fmt.Printf("DEBUG GetSetupStatus: setupRequired=%v, adminExists=%v, hasPassword=%v\n",
+		setupRequired, adminExists, hasPassword)
+
 	var message string
 	if setupRequired {
 		message = "Setup wizard is available - admin account needs password configuration"
@@ -88,12 +94,17 @@ func (h *SetupHandler) GetSetupStatus(c *gin.Context) {
 		message = "Setup wizard disabled - admin account is already configured"
 	}
 
-	c.JSON(http.StatusOK, SetupStatusResponse{
+	response := SetupStatusResponse{
 		SetupRequired: setupRequired,
 		AdminExists:   adminExists,
 		HasPassword:   hasPassword,
 		Message:       message,
-	})
+	}
+
+	// Debug logging
+	fmt.Printf("DEBUG GetSetupStatus response: %+v\n", response)
+
+	c.JSON(http.StatusOK, response)
 }
 
 // isSetupRequired checks if the setup wizard should be accessible
@@ -105,17 +116,23 @@ func (h *SetupHandler) isSetupRequired() (bool, bool, bool) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// Admin user doesn't exist yet
+			fmt.Printf("DEBUG isSetupRequired: Admin user not found (sql.ErrNoRows)\n")
 			return false, false, false
 		}
 		// Database error - don't allow setup
+		fmt.Printf("DEBUG isSetupRequired: Database error: %v\n", err)
 		return false, true, false
 	}
 
 	// Admin exists, check if password is set
 	hasPassword := passwordHash.Valid && passwordHash.String != ""
+	fmt.Printf("DEBUG isSetupRequired: Admin found - passwordHash.Valid=%v, passwordHash.String=%q, hasPassword=%v\n",
+		passwordHash.Valid, passwordHash.String, hasPassword)
 
 	// Setup required if admin exists but has no password
-	return !hasPassword, true, hasPassword
+	setupRequired := !hasPassword
+	fmt.Printf("DEBUG isSetupRequired: setupRequired=%v\n", setupRequired)
+	return setupRequired, true, hasPassword
 }
 
 // ============================================================================
@@ -158,6 +175,10 @@ func (h *SetupHandler) SetupAdmin(c *gin.Context) {
 	// Check if setup is allowed
 	setupRequired, adminExists, hasPassword := h.isSetupRequired()
 
+	// Debug logging
+	fmt.Printf("DEBUG SetupAdmin: setupRequired=%v, adminExists=%v, hasPassword=%v\n",
+		setupRequired, adminExists, hasPassword)
+
 	if !setupRequired {
 		if !adminExists {
 			c.JSON(http.StatusForbidden, gin.H{
@@ -175,15 +196,26 @@ func (h *SetupHandler) SetupAdmin(c *gin.Context) {
 		}
 	}
 
+	// Debug: Log request body
+	bodyBytes, _ := c.GetRawData()
+	fmt.Printf("DEBUG SetupAdmin request body: %s\n", string(bodyBytes))
+	fmt.Printf("DEBUG SetupAdmin Content-Type: %s\n", c.ContentType())
+	// Restore body for binding
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	// Parse and validate request
 	var req SetupAdminRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("DEBUG SetupAdmin bind error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request format",
+			"error":   "Invalid request format",
 			"details": err.Error(),
 		})
 		return
 	}
+
+	fmt.Printf("DEBUG SetupAdmin parsed: password=%d chars, email=%s\n",
+		len(req.Password), req.Email)
 
 	// Validate password confirmation
 	if req.Password != req.PasswordConfirm {
