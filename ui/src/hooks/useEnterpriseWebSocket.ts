@@ -51,6 +51,7 @@ export function useEnterpriseWebSocket(
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldReconnectRef = useRef(true);
+  const reconnectAttemptsRef = useRef(0);
 
   // Store callbacks in refs to avoid reconnection when they change
   const onMessageRef = useRef(onMessage);
@@ -105,6 +106,7 @@ export function useEnterpriseWebSocket(
         // console.log('[WebSocket] Connected to enterprise WebSocket');
         setIsConnected(true);
         setReconnectAttempts(0);
+        reconnectAttemptsRef.current = 0;
         shouldReconnectRef.current = true;
 
         if (onOpenRef.current) {
@@ -145,20 +147,22 @@ export function useEnterpriseWebSocket(
         }
 
         // Attempt reconnection if enabled and within retry limit
+        const currentAttempts = reconnectAttemptsRef.current;
         if (
           shouldReconnectRef.current &&
           autoReconnect &&
-          reconnectAttempts < maxReconnectAttempts
+          currentAttempts < maxReconnectAttempts
         ) {
           // console.log(
-          //   `[WebSocket] Attempting reconnection in ${reconnectInterval}ms (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`
+          //   `[WebSocket] Attempting reconnection in ${reconnectInterval}ms (attempt ${currentAttempts + 1}/${maxReconnectAttempts})`
           // );
 
           reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttemptsRef.current += 1;
             setReconnectAttempts((prev) => prev + 1);
             connect();
           }, reconnectInterval);
-        } else if (reconnectAttempts >= maxReconnectAttempts) {
+        } else if (currentAttempts >= maxReconnectAttempts) {
           console.error('[WebSocket] Max reconnection attempts reached');
         }
       };
@@ -171,7 +175,6 @@ export function useEnterpriseWebSocket(
     autoReconnect,
     reconnectInterval,
     maxReconnectAttempts,
-    reconnectAttempts,
   ]);
 
   const disconnect = useCallback(() => {
