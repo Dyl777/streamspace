@@ -9,7 +9,7 @@
  *
  * @module useWebSocketEnhancements
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 /**
  * Throttle function - limits function execution to once per interval
@@ -250,12 +250,14 @@ export function useEnhancedWebSocket(
   const { latency, quality } = useConnectionQuality(isConnected);
   const { manualReconnect } = useManualReconnect(reconnectCallback);
 
-  return {
+  // Memoize the return value to prevent unnecessary re-renders
+  // Only update when actual values change, not on every render
+  return useMemo(() => ({
     isConnected,
     reconnectAttempts,
     maxReconnectAttempts,
     latency,
     quality,
     onManualReconnect: manualReconnect,
-  };
+  }), [isConnected, reconnectAttempts, maxReconnectAttempts, latency, quality, manualReconnect]);
 }

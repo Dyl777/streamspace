@@ -9,7 +9,7 @@
  *
  * @component
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import {
   Box,
   Chip,
@@ -39,7 +39,7 @@ interface EnhancedWebSocketStatusProps {
   showDetails?: boolean;
 }
 
-export default function EnhancedWebSocketStatus({
+function EnhancedWebSocketStatus({
   isConnected,
   reconnectAttempts,
   maxReconnectAttempts = 10,
@@ -250,3 +250,6 @@ export default function EnhancedWebSocketStatus({
     </>
   );
 }
+
+// Export memoized version to prevent re-renders when props haven't changed
+export default memo(EnhancedWebSocketStatus);
