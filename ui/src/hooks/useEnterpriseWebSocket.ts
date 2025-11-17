@@ -40,9 +40,17 @@ export function useEnterpriseWebSocket(
     onClose,
     onOpen,
     autoReconnect = true,
-    reconnectInterval = 3000,
+    reconnectInterval = 3000, // Not used with custom backoff
     maxReconnectAttempts = 10,
   } = options;
+
+  // Custom backoff pattern: 30s, 15s, 15s, then 60s for all subsequent attempts
+  const getReconnectDelay = (attemptNumber: number): number => {
+    if (attemptNumber === 0) return 30000; // 30 seconds for first retry
+    if (attemptNumber === 1) return 15000; // 15 seconds for second retry
+    if (attemptNumber === 2) return 15000; // 15 seconds for third retry
+    return 60000; // 60 seconds for all subsequent retries
+  };
 
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
@@ -153,15 +161,16 @@ export function useEnterpriseWebSocket(
           autoReconnect &&
           currentAttempts < maxReconnectAttempts
         ) {
-          // console.log(
-          //   `[WebSocket] Attempting reconnection in ${reconnectInterval}ms (attempt ${currentAttempts + 1}/${maxReconnectAttempts})`
-          // );
+          const delay = getReconnectDelay(currentAttempts);
+          console.log(
+            `[WebSocket] Attempting reconnection in ${delay / 1000}s (attempt ${currentAttempts + 1}/${maxReconnectAttempts})`
+          );
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current += 1;
             setReconnectAttempts((prev) => prev + 1);
             connect();
-          }, reconnectInterval);
+          }, delay);
         } else if (currentAttempts >= maxReconnectAttempts) {
           console.error('[WebSocket] Max reconnection attempts reached');
         }
@@ -173,9 +182,8 @@ export function useEnterpriseWebSocket(
   }, [
     getWebSocketUrl,
     autoReconnect,
-    reconnectInterval,
     maxReconnectAttempts,
-  ]);
+  ]); // Removed reconnectInterval since we use getReconnectDelay
 
   const disconnect = useCallback(() => {
     // console.log('[WebSocket] Disconnecting...');
@@ -265,11 +273,18 @@ export function useWebSocketEvent(
     autoReconnect: true,
   });
 
+  // Store handler in ref to avoid re-running effect when handler changes
+  const handlerRef = useRef(handler);
+
+  useEffect(() => {
+    handlerRef.current = handler;
+  }, [handler]);
+
   useEffect(() => {
     if (enabled && lastMessage && lastMessage.type === eventType) {
-      handler(lastMessage.data);
+      handlerRef.current(lastMessage.data);
     }
-  }, [lastMessage, eventType, handler, enabled]);
+  }, [lastMessage, eventType, enabled]);
 }
 
 // Predefined hooks for enterprise events

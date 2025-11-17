@@ -29,7 +29,7 @@ export function useWebSocket({
   onError,
   onOpen,
   onClose,
-  reconnectInterval = 3000,
+  reconnectInterval = 3000, // Not used with custom backoff
   maxReconnectAttempts = 10,
 }: UseWebSocketOptions): UseWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
@@ -39,6 +39,14 @@ export function useWebSocket({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldReconnectRef = useRef(true);
   const reconnectAttemptsRef = useRef(0);
+
+  // Custom backoff pattern: 30s, 15s, 15s, then 60s for all subsequent attempts
+  const getReconnectDelay = (attemptNumber: number): number => {
+    if (attemptNumber === 0) return 30000; // 30 seconds for first retry
+    if (attemptNumber === 1) return 15000; // 15 seconds for second retry
+    if (attemptNumber === 2) return 15000; // 15 seconds for third retry
+    return 60000; // 60 seconds for all subsequent retries
+  };
 
   // Store callbacks in refs to avoid reconnection when they change
   const onMessageRef = useRef(onMessage);
@@ -94,11 +102,11 @@ export function useWebSocket({
         setIsConnected(false);
         onCloseRef.current?.();
 
-        // Attempt reconnection with exponential backoff
+        // Attempt reconnection with custom backoff pattern
         const currentAttempts = reconnectAttemptsRef.current;
         if (shouldReconnectRef.current && currentAttempts < maxReconnectAttempts) {
-          const delay = Math.min(reconnectInterval * Math.pow(1.5, currentAttempts), 30000);
-          // console.log(`Reconnecting in ${delay}ms (attempt ${currentAttempts + 1}/${maxReconnectAttempts})`);
+          const delay = getReconnectDelay(currentAttempts);
+          console.log(`Reconnecting in ${delay / 1000}s (attempt ${currentAttempts + 1}/${maxReconnectAttempts})`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current += 1;
@@ -114,7 +122,7 @@ export function useWebSocket({
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
     }
-  }, [url, reconnectInterval, maxReconnectAttempts]);
+  }, [url, maxReconnectAttempts]); // Removed reconnectInterval since we use getReconnectDelay
 
   const sendMessage = useCallback((message: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
