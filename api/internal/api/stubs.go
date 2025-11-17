@@ -932,3 +932,87 @@ func (h *Handler) WebhookRepositorySync(c *gin.Context) {
 		"repositoryID": repoID,
 	})
 }
+
+// ====================================================================================
+// COMPLIANCE STUBS
+// ====================================================================================
+// NOTE: These are stub endpoints that return empty data when the compliance plugin
+// is not installed. When streamspace-compliance plugin is installed, it will
+// override these endpoints with actual functionality.
+// ====================================================================================
+
+// ListComplianceFrameworks returns available compliance frameworks
+// Stub returns empty list - install streamspace-compliance plugin for real data
+func (h *Handler) ListComplianceFrameworks(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"frameworks": []gin.H{},
+	})
+}
+
+// CreateComplianceFramework creates a new compliance framework
+// Stub returns not implemented - install streamspace-compliance plugin
+func (h *Handler) CreateComplianceFramework(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error":   "Compliance features require the streamspace-compliance plugin",
+		"message": "Please install the streamspace-compliance plugin from Admin → Plugins",
+	})
+}
+
+// ListCompliancePolicies returns all compliance policies
+// Stub returns empty list - install streamspace-compliance plugin for real data
+func (h *Handler) ListCompliancePolicies(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"policies": []gin.H{},
+	})
+}
+
+// CreateCompliancePolicy creates a new compliance policy
+// Stub returns not implemented - install streamspace-compliance plugin
+func (h *Handler) CreateCompliancePolicy(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error":   "Compliance features require the streamspace-compliance plugin",
+		"message": "Please install the streamspace-compliance plugin from Admin → Plugins",
+	})
+}
+
+// ListViolations returns all compliance violations
+// Stub returns empty list - install streamspace-compliance plugin for real data
+func (h *Handler) ListViolations(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"violations": []gin.H{},
+	})
+}
+
+// RecordViolation records a new compliance violation
+// Stub returns not implemented - install streamspace-compliance plugin
+func (h *Handler) RecordViolation(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error":   "Compliance features require the streamspace-compliance plugin",
+		"message": "Please install the streamspace-compliance plugin from Admin → Plugins",
+	})
+}
+
+// ResolveViolation marks a violation as resolved
+// Stub returns not implemented - install streamspace-compliance plugin
+func (h *Handler) ResolveViolation(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"error":   "Compliance features require the streamspace-compliance plugin",
+		"message": "Please install the streamspace-compliance plugin from Admin → Plugins",
+	})
+}
+
+// GetComplianceDashboard returns compliance dashboard metrics
+// Stub returns zero metrics - install streamspace-compliance plugin for real data
+func (h *Handler) GetComplianceDashboard(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"total_policies":   0,
+		"active_policies":  0,
+		"total_open_violations": 0,
+		"violations_by_severity": gin.H{
+			"critical": 0,
+			"high":     0,
+			"medium":   0,
+			"low":      0,
+		},
+	})
+}
