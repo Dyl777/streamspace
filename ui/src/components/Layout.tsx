@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, memo } from 'react';
 import {
   Box,
   Drawer,
@@ -74,7 +74,7 @@ interface LayoutProps {
  * @see useUserStore for user authentication state
  * @see useNavigate for route navigation
  */
-export default function Layout({ children }: LayoutProps) {
+function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
@@ -273,3 +273,7 @@ export default function Layout({ children }: LayoutProps) {
     </Box>
   );
 }
+
+// Export memoized version to prevent unnecessary re-renders
+// Only re-render when location changes, not when parent re-renders
+export default memo(Layout);

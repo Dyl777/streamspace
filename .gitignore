@@ -55,6 +55,10 @@ charts/*/charts/
 *.log
 logs/
 
+# Port forward artifacts
+.port-forward-logs/
+.port-forward-pids/
+
 # Temporary files
 tmp/
 temp/
