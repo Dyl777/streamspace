@@ -1,4 +1,4 @@
-import { useEffect, useState, memo } from 'react';
+import { memo } from 'react';
 import {
   Card,
   CardContent,
@@ -16,7 +16,8 @@ import {
   Workspaces as SessionsIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { api, type UserQuota } from '../lib/api';
+import { type UserQuota } from '../lib/api';
+import { useCurrentUserQuota } from '../hooks/useApi';
 
 interface QuotaMetric {
   label: string;
@@ -50,30 +51,11 @@ interface QuotaMetric {
  * @example
  * <QuotaCard />
  *
- * @see api.getCurrentUserQuota for quota data fetching
+ * @see useCurrentUserQuota for React Query-based quota data fetching
  * @see QuotaAlert for alert-style quota warnings
  */
 function QuotaCard() {
-  const [quota, setQuota] = useState<UserQuota | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadQuota();
-  }, []);
-
-  const loadQuota = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await api.getCurrentUserQuota();
-      setQuota(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load quota');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: quota, isLoading: loading, error } = useCurrentUserQuota();
 
   const parseMemory = (mem: string): number => {
     if (!mem || mem === '0') return 0;
@@ -138,14 +120,16 @@ function QuotaCard() {
     );
   }
 
-  if (error || !quota) {
+  if (error || (!loading && !quota)) {
     return (
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             Resource Quota
           </Typography>
-          <Alert severity="error">{error || 'Unable to load quota information'}</Alert>
+          <Alert severity="error">
+            {error instanceof Error ? error.message : 'Unable to load quota information'}
+          </Alert>
         </CardContent>
       </Card>
     );

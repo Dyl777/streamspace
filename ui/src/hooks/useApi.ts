@@ -210,3 +210,15 @@ export function useMetrics() {
     // Polling disabled - use WebSocket for real-time updates via useMetricsWebSocket
   });
 }
+
+// ============================================================================
+// Quota Hooks
+// ============================================================================
+
+export function useCurrentUserQuota() {
+  return useQuery({
+    queryKey: ['current-user-quota'],
+    queryFn: () => api.getCurrentUserQuota(),
+    // Polling disabled - quota data is relatively static, refresh on user actions only
+  });
+}
