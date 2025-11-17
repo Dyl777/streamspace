@@ -72,7 +72,8 @@ func (h *ActivityHandler) RegisterRoutes(router *gin.RouterGroup) {
 	sessions := router.Group("/sessions")
 	{
 		sessions.POST("/:id/heartbeat", h.RecordHeartbeat)
-		sessions.GET("/:id/activity", h.GetActivity)
+		// NOTE: GET /:id/activity is now handled by SessionActivityHandler
+		// which provides more comprehensive activity tracking with database persistence
 	}
 }
 
