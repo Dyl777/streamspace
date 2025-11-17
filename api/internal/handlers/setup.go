@@ -28,8 +28,10 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 
@@ -173,6 +175,10 @@ func (h *SetupHandler) SetupAdmin(c *gin.Context) {
 	// Check if setup is allowed
 	setupRequired, adminExists, hasPassword := h.isSetupRequired()
 
+	// Debug logging
+	fmt.Printf("DEBUG SetupAdmin: setupRequired=%v, adminExists=%v, hasPassword=%v\n",
+		setupRequired, adminExists, hasPassword)
+
 	if !setupRequired {
 		if !adminExists {
 			c.JSON(http.StatusForbidden, gin.H{
@@ -190,15 +196,26 @@ func (h *SetupHandler) SetupAdmin(c *gin.Context) {
 		}
 	}
 
+	// Debug: Log request body
+	bodyBytes, _ := c.GetRawData()
+	fmt.Printf("DEBUG SetupAdmin request body: %s\n", string(bodyBytes))
+	fmt.Printf("DEBUG SetupAdmin Content-Type: %s\n", c.ContentType())
+	// Restore body for binding
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	// Parse and validate request
 	var req SetupAdminRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("DEBUG SetupAdmin bind error: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request format",
+			"error":   "Invalid request format",
 			"details": err.Error(),
 		})
 		return
 	}
+
+	fmt.Printf("DEBUG SetupAdmin parsed: password=%d chars, email=%s\n",
+		len(req.Password), req.Email)
 
 	// Validate password confirmation
 	if req.Password != req.PasswordConfirm {
