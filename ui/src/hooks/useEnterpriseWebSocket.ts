@@ -84,11 +84,35 @@ export function useEnterpriseWebSocket(
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Memoize WebSocket URL to prevent recalculation on every render
+  // Get token from state to react to authentication changes
+  const [token, setToken] = useState(localStorage.getItem('token'));
+
+  // Listen for token changes (login/logout)
+  useEffect(() => {
+    const checkToken = () => {
+      const newToken = localStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    };
+
+    // Check immediately
+    checkToken();
+
+    // Check periodically and on storage events
+    const interval = setInterval(checkToken, 1000);
+    window.addEventListener('storage', checkToken);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', checkToken);
+    };
+  }, [token]);
+
+  // Memoize WebSocket URL, recalculate when token changes
   const wsUrl = useMemo(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const token = localStorage.getItem('token');
 
     // Don't connect without a token
     if (!token) {
@@ -98,7 +122,7 @@ export function useEnterpriseWebSocket(
     // Include token as query parameter for WebSocket authentication
     // Browsers cannot send custom headers in WebSocket connections
     return `${protocol}//${host}/api/v1/ws/enterprise?token=${encodeURIComponent(token)}`;
-  }, []); // Empty deps - only calculate once on mount
+  }, [token]); // Recalculate when token changes
 
   const connect = useCallback(() => {
     // Don't create multiple connections

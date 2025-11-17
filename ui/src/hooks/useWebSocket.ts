@@ -179,16 +179,40 @@ export function useWebSocket({
  * Only connects when a valid authentication token is available
  */
 export function useSessionsWebSocket(onUpdate: (sessions: any[]) => void) {
-  // Memoize URL construction to prevent recalculation on every render
+  // Get token from store to react to authentication changes
+  const [token, setToken] = useState(localStorage.getItem('token'));
+
+  // Listen for token changes (login/logout)
+  useEffect(() => {
+    const checkToken = () => {
+      const newToken = localStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    };
+
+    // Check immediately
+    checkToken();
+
+    // Check periodically and on storage events
+    const interval = setInterval(checkToken, 1000);
+    window.addEventListener('storage', checkToken);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', checkToken);
+    };
+  }, [token]);
+
+  // Memoize URL construction, recalculate when token changes
   const wsUrl = useMemo(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = localStorage.getItem('token');
 
     // Don't connect without a token - return empty URL to prevent connection
     return token
       ? `${protocol}//${window.location.host}/api/v1/ws/sessions?token=${encodeURIComponent(token)}`
       : '';
-  }, []); // Empty deps - only calculate once on mount
+  }, [token]); // Recalculate when token changes
 
   return useWebSocket({
     url: wsUrl,
@@ -207,16 +231,40 @@ export function useSessionsWebSocket(onUpdate: (sessions: any[]) => void) {
  * Only connects when a valid authentication token is available
  */
 export function useMetricsWebSocket(onUpdate: (metrics: any) => void) {
-  // Memoize URL construction to prevent recalculation on every render
+  // Get token from store to react to authentication changes
+  const [token, setToken] = useState(localStorage.getItem('token'));
+
+  // Listen for token changes (login/logout)
+  useEffect(() => {
+    const checkToken = () => {
+      const newToken = localStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    };
+
+    // Check immediately
+    checkToken();
+
+    // Check periodically and on storage events
+    const interval = setInterval(checkToken, 1000);
+    window.addEventListener('storage', checkToken);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', checkToken);
+    };
+  }, [token]);
+
+  // Memoize URL construction, recalculate when token changes
   const wsUrl = useMemo(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = localStorage.getItem('token');
 
     // Don't connect without a token
     return token
       ? `${protocol}//${window.location.host}/api/v1/ws/cluster?token=${encodeURIComponent(token)}`
       : '';
-  }, []); // Empty deps - only calculate once on mount
+  }, [token]); // Recalculate when token changes
 
   return useWebSocket({
     url: wsUrl,
