@@ -44,7 +44,6 @@ const InstalledPlugins = lazy(() => import('./pages/InstalledPlugins'));
 // Admin Pages (loaded only for admin users)
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminNodes = lazy(() => import('./pages/admin/Nodes'));
-const AdminQuotas = lazy(() => import('./pages/admin/Quotas'));
 const AdminPlugins = lazy(() => import('./pages/admin/Plugins'));
 const Users = lazy(() => import('./pages/admin/Users'));
 const UserDetail = lazy(() => import('./pages/admin/UserDetail'));
@@ -252,14 +251,6 @@ function App() {
               element={
                 <AdminRoute>
                   <AdminNodes />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/quotas"
-              element={
-                <AdminRoute>
-                  <AdminQuotas />
                 </AdminRoute>
               }
             />
