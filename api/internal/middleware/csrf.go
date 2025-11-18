@@ -471,16 +471,21 @@ func CSRFProtection() gin.HandlerFunc {
 			// - MaxAge: 86400 seconds (24 hours)
 			// - Path: "/" (available to all endpoints)
 			// - Domain: "" (current domain only)
-			// - Secure: true (HTTPS-only in production)
+			// - Secure: true in production (HTTPS-only), false in debug mode
 			// - HttpOnly: true (not accessible to JavaScript - prevents XSS)
+
+			// Determine if we should use secure cookies
+			// In debug/development mode, allow HTTP for local testing
+			secureCookie := gin.Mode() != gin.DebugMode
+
 			c.SetCookie(
 				CSRFCookieName,
 				token,
 				int(CSRFTokenExpiry.Seconds()),
 				"/",
 				"",
-				true,  // Secure: HTTPS-only (should be true in production)
-				true,  // HttpOnly: JavaScript cannot access (XSS protection)
+				secureCookie, // Secure: HTTPS-only in production, HTTP allowed in debug
+				true,         // HttpOnly: JavaScript cannot access (XSS protection)
 			)
 
 			// Continue to next handler
