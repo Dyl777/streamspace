@@ -150,7 +150,7 @@ function ApplicationsContent() {
       });
       setAddDialogOpen(false);
       resetAddDialog();
-      loadApplications();
+      await loadApplications();
     } catch (error) {
       console.error('Failed to install application:', error);
       addNotification({
@@ -175,7 +175,7 @@ function ApplicationsContent() {
         priority: 'medium',
       });
       setEditDialogOpen(false);
-      loadApplications();
+      await loadApplications();
     } catch (error) {
       console.error('Failed to update application:', error);
       addNotification({
@@ -198,7 +198,7 @@ function ApplicationsContent() {
       });
       setDeleteDialogOpen(false);
       setSelectedApp(null);
-      loadApplications();
+      await loadApplications();
     } catch (error) {
       console.error('Failed to delete application:', error);
       addNotification({
@@ -217,7 +217,7 @@ function ApplicationsContent() {
         severity: 'success',
         priority: 'low',
       });
-      loadApplications();
+      await loadApplications();
     } catch (error) {
       console.error('Failed to toggle application:', error);
       addNotification({
