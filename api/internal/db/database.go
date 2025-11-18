@@ -487,6 +487,39 @@ func (d *Database) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_views ON catalog_templates(view_count DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_catalog_templates_installs ON catalog_templates(install_count DESC)`,
 
+		// Installed applications (applications installed from catalog templates)
+		`CREATE TABLE IF NOT EXISTS installed_applications (
+			id VARCHAR(255) PRIMARY KEY,
+			catalog_template_id INT REFERENCES catalog_templates(id) ON DELETE SET NULL,
+			name VARCHAR(255) NOT NULL,
+			display_name VARCHAR(255) NOT NULL,
+			folder_path VARCHAR(255),
+			enabled BOOLEAN DEFAULT true,
+			configuration JSONB DEFAULT '{}',
+			created_by VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// Create indexes for installed applications
+		`CREATE INDEX IF NOT EXISTS idx_installed_applications_template ON installed_applications(catalog_template_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_installed_applications_enabled ON installed_applications(enabled)`,
+		`CREATE INDEX IF NOT EXISTS idx_installed_applications_created_by ON installed_applications(created_by)`,
+
+		// Application group access (controls which groups can access which applications)
+		`CREATE TABLE IF NOT EXISTS application_group_access (
+			id VARCHAR(255) PRIMARY KEY,
+			application_id VARCHAR(255) REFERENCES installed_applications(id) ON DELETE CASCADE,
+			group_id VARCHAR(255) REFERENCES groups(id) ON DELETE CASCADE,
+			access_level VARCHAR(50) DEFAULT 'launch',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(application_id, group_id)
+		)`,
+
+		// Create indexes for application group access
+		`CREATE INDEX IF NOT EXISTS idx_application_group_access_app ON application_group_access(application_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_application_group_access_group ON application_group_access(group_id)`,
+
 		// Configuration table
 		`CREATE TABLE IF NOT EXISTS configuration (
 			key VARCHAR(255) PRIMARY KEY,
