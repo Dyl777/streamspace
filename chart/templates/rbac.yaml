@@ -9,13 +9,13 @@ metadata:
     {{- include "streamspace.controller.labels" . | nindent 4 }}
 rules:
   # Sessions and Templates CRDs
-  - apiGroups: ["stream.streamspace.io"]
+  - apiGroups: ["stream.space"]
     resources: ["sessions", "templates"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["stream.streamspace.io"]
+  - apiGroups: ["stream.space"]
     resources: ["sessions/status", "templates/status"]
     verbs: ["get", "update", "patch"]
-  - apiGroups: ["stream.streamspace.io"]
+  - apiGroups: ["stream.space"]
     resources: ["sessions/finalizers", "templates/finalizers"]
     verbs: ["update"]
   
@@ -68,13 +68,13 @@ metadata:
     {{- include "streamspace.api.labels" . | nindent 4 }}
 rules:
   # Sessions and Templates CRDs
-  - apiGroups: ["stream.streamspace.io"]
+  - apiGroups: ["stream.space"]
     resources: ["sessions", "templates"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  - apiGroups: ["stream.streamspace.io"]
+  - apiGroups: ["stream.space"]
     resources: ["sessions/status", "templates/status"]
     verbs: ["get", "update", "patch"]
-  
+
   # Pods for logs streaming
   - apiGroups: [""]
     resources: ["pods", "pods/log"]
