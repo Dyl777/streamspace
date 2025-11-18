@@ -21,12 +21,12 @@ import {
   Apps as AppsIcon,
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
-import { useTemplates, useSessions } from '../hooks/useApi';
+import { useUserApplications, useSessions } from '../hooks/useApi';
 import { useUserStore } from '../store/userStore';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { toast } from '../lib/toast';
-import type { Template, Session } from '../lib/api';
+import type { InstalledApplication, Session } from '../lib/api';
 
 /**
  * OktaStyleDashboard - Okta-style app launcher with grid of application tiles
@@ -67,7 +67,7 @@ export default function OktaStyleDashboard() {
   const username = useUserStore((state) => state.user?.username);
   const navigate = useNavigate();
 
-  const { data: templates = [], isLoading: templatesLoading } = useTemplates();
+  const { data: applications = [], isLoading: applicationsLoading } = useUserApplications();
   const { data: sessions = [], isLoading: sessionsLoading, refetch: refetchSessions } = useSessions();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,21 +106,23 @@ export default function OktaStyleDashboard() {
   };
 
   // Launch an application (create new session)
-  const launchApp = async (template: Template) => {
+  const launchApp = async (app: InstalledApplication) => {
     if (!username) {
       toast.error('User not authenticated');
       return;
     }
 
+    const templateName = app.templateName || app.name;
+
     // Check if user already has an active session for this template
     const existingSession = sessions.find(
-      (s: Session) => s.template === template.name && (s.state === 'running' || s.state === 'hibernated')
+      (s: Session) => s.template === templateName && (s.state === 'running' || s.state === 'hibernated')
     );
 
     if (existingSession) {
       // Navigate to existing session instead of creating new one
       if (existingSession.state === 'hibernated') {
-        toast.info(`Waking up hibernated session for ${template.displayName}...`);
+        toast.info(`Waking up hibernated session for ${app.displayName}...`);
         try {
           await api.updateSession(existingSession.name, { state: 'running' });
           await refetchSessions();
@@ -133,20 +135,19 @@ export default function OktaStyleDashboard() {
     }
 
     // Create new session
-    setLaunching(new Set(launching).add(template.name));
+    setLaunching(new Set(launching).add(app.id));
     try {
-      const sessionName = `${username}-${template.name}-${Date.now()}`.toLowerCase();
+      const sessionName = `${username}-${templateName}-${Date.now()}`.toLowerCase();
       await api.createSession({
         name: sessionName,
         namespace: 'streamspace',
         user: username,
-        template: template.name,
+        template: templateName,
         state: 'running',
         persistentHome: true,
-        resources: template.defaultResources,
       });
 
-      toast.success(`Launching ${template.displayName}...`);
+      toast.success(`Launching ${app.displayName}...`);
       await refetchSessions();
 
       // Navigate to sessions page to view/access the new session
@@ -157,7 +158,7 @@ export default function OktaStyleDashboard() {
       toast.error(error.response?.data?.message || 'Failed to launch application');
     } finally {
       const newLaunching = new Set(launching);
-      newLaunching.delete(template.name);
+      newLaunching.delete(app.id);
       setLaunching(newLaunching);
     }
   };
@@ -169,21 +170,20 @@ export default function OktaStyleDashboard() {
     );
   };
 
-  // Filter templates based on search query
-  const filteredTemplates = templates.filter((template: Template) => {
+  // Filter applications based on search query
+  const filteredApplications = applications.filter((app: InstalledApplication) => {
     const query = searchQuery.toLowerCase();
     return (
-      template.displayName.toLowerCase().includes(query) ||
-      template.description.toLowerCase().includes(query) ||
-      template.category.toLowerCase().includes(query) ||
-      template.tags?.some((tag) => tag.toLowerCase().includes(query))
+      app.displayName.toLowerCase().includes(query) ||
+      (app.description || '').toLowerCase().includes(query) ||
+      (app.category || '').toLowerCase().includes(query)
     );
   });
 
   // Sort: favorites first, then by display name
-  const sortedTemplates = [...filteredTemplates].sort((a, b) => {
-    const aFav = favorites.has(a.name);
-    const bFav = favorites.has(b.name);
+  const sortedApplications = [...filteredApplications].sort((a, b) => {
+    const aFav = favorites.has(a.id);
+    const bFav = favorites.has(b.id);
     if (aFav && !bFav) return -1;
     if (!aFav && bFav) return 1;
     return a.displayName.localeCompare(b.displayName);
@@ -203,7 +203,7 @@ export default function OktaStyleDashboard() {
     return colors[category] || '#607d8b';
   };
 
-  if (templatesLoading || sessionsLoading) {
+  if (applicationsLoading || sessionsLoading) {
     return (
       <Layout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -243,7 +243,7 @@ export default function OktaStyleDashboard() {
         />
 
         {/* Application Grid */}
-        {sortedTemplates.length === 0 ? (
+        {sortedApplications.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <AppsIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
@@ -255,13 +255,14 @@ export default function OktaStyleDashboard() {
           </Box>
         ) : (
           <Grid container spacing={3}>
-            {sortedTemplates.map((template: Template) => {
-              const activeSession = getActiveSession(template.name);
-              const isLaunching = launching.has(template.name);
-              const isFavorite = favorites.has(template.name);
+            {sortedApplications.map((app: InstalledApplication) => {
+              const templateName = app.templateName || app.name;
+              const activeSession = getActiveSession(templateName);
+              const isLaunching = launching.has(app.id);
+              const isFavorite = favorites.has(app.id);
 
               return (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={template.name}>
+                <Grid item xs={12} sm={6} md={4} lg={3} key={app.id}>
                   <Card
                     sx={{
                       height: '100%',
@@ -286,7 +287,7 @@ export default function OktaStyleDashboard() {
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleFavorite(template.name);
+                        toggleFavorite(app.id);
                       }}
                     >
                       {isFavorite ? (
@@ -297,7 +298,7 @@ export default function OktaStyleDashboard() {
                     </IconButton>
 
                     <CardActionArea
-                      onClick={() => !isLaunching && launchApp(template)}
+                      onClick={() => !isLaunching && launchApp(app)}
                       disabled={isLaunching}
                       sx={{ height: '100%' }}
                     >
@@ -308,24 +309,24 @@ export default function OktaStyleDashboard() {
                             width: 64,
                             height: 64,
                             margin: '0 auto 16px',
-                            bgcolor: getCategoryColor(template.category),
+                            bgcolor: getCategoryColor(app.category || 'Other'),
                             fontSize: 28,
                           }}
                         >
-                          {template.icon ? (
+                          {app.icon ? (
                             <img
-                              src={template.icon}
-                              alt={template.displayName}
+                              src={app.icon}
+                              alt={app.displayName}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                           ) : (
-                            template.displayName.charAt(0).toUpperCase()
+                            app.displayName.charAt(0).toUpperCase()
                           )}
                         </Avatar>
 
                         {/* App Name */}
                         <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                          {template.displayName}
+                          {app.displayName}
                         </Typography>
 
                         {/* App Description */}
@@ -342,15 +343,15 @@ export default function OktaStyleDashboard() {
                             WebkitBoxOrient: 'vertical',
                           }}
                         >
-                          {template.description}
+                          {app.description || 'No description'}
                         </Typography>
 
                         {/* Category Badge */}
                         <Chip
-                          label={template.category}
+                          label={app.category || 'Other'}
                           size="small"
                           sx={{
-                            bgcolor: getCategoryColor(template.category),
+                            bgcolor: getCategoryColor(app.category || 'Other'),
                             color: 'white',
                             fontWeight: 500,
                             mb: 1,
