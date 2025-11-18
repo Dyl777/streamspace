@@ -450,7 +450,9 @@ function ApplicationsContent() {
                   onChange={(e) => setSelectedTemplate(e.target.value as number)}
                   label="Select Application"
                 >
-                  {catalogTemplates.map((template) => (
+                  {[...catalogTemplates]
+                    .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''))
+                    .map((template) => (
                     <MenuItem key={template.id} value={template.id}>
                       {template.displayName} ({template.category})
                     </MenuItem>

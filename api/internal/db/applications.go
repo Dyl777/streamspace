@@ -59,6 +59,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -135,6 +137,18 @@ func (a *ApplicationDB) InstallApplication(ctx context.Context, req *models.Inst
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to install application: %w", err)
+	}
+
+	// Create the application folder
+	// Use APPS_BASE_PATH environment variable or default to /app
+	basePath := os.Getenv("APPS_BASE_PATH")
+	if basePath == "" {
+		basePath = "/app"
+	}
+	fullFolderPath := filepath.Join(basePath, folderPath)
+	if err := os.MkdirAll(fullFolderPath, 0755); err != nil {
+		// Log warning but don't fail - folder creation is not critical for database record
+		fmt.Printf("Warning: failed to create application folder %s: %v\n", fullFolderPath, err)
 	}
 
 	return app, nil
