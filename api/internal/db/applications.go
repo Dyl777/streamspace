@@ -59,6 +59,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -137,6 +139,18 @@ func (a *ApplicationDB) InstallApplication(ctx context.Context, req *models.Inst
 		return nil, fmt.Errorf("failed to install application: %w", err)
 	}
 
+	// Create the application folder
+	// Use APPS_BASE_PATH environment variable or default to /app
+	basePath := os.Getenv("APPS_BASE_PATH")
+	if basePath == "" {
+		basePath = "/app"
+	}
+	fullFolderPath := filepath.Join(basePath, folderPath)
+	if err := os.MkdirAll(fullFolderPath, 0755); err != nil {
+		// Log warning but don't fail - folder creation is not critical for database record
+		fmt.Printf("Warning: failed to create application folder %s: %v\n", fullFolderPath, err)
+	}
+
 	return app, nil
 }
 
@@ -149,10 +163,12 @@ func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*mode
 		SELECT
 			ia.id, ia.catalog_template_id, ia.name, ia.display_name, ia.folder_path,
 			ia.enabled, ia.configuration, ia.created_by, ia.created_at, ia.updated_at,
-			ct.name as template_name, ct.display_name as template_display_name,
-			ct.description, ct.category, ct.app_type, ct.icon_url, ct.manifest
+			COALESCE(ct.name, '') as template_name, COALESCE(ct.display_name, ia.display_name) as template_display_name,
+			COALESCE(ct.description, '') as description, COALESCE(ct.category, '') as category,
+			COALESCE(ct.app_type, '') as app_type, COALESCE(ct.icon_url, '') as icon_url,
+			COALESCE(ct.manifest, '') as manifest
 		FROM installed_applications ia
-		JOIN catalog_templates ct ON ia.catalog_template_id = ct.id
+		LEFT JOIN catalog_templates ct ON ia.catalog_template_id = ct.id
 		WHERE ia.id = $1
 	`
 
@@ -183,10 +199,11 @@ func (a *ApplicationDB) ListApplications(ctx context.Context, enabledOnly bool) 
 		SELECT
 			ia.id, ia.catalog_template_id, ia.name, ia.display_name, ia.folder_path,
 			ia.enabled, ia.configuration, ia.created_by, ia.created_at, ia.updated_at,
-			ct.name as template_name, ct.display_name as template_display_name,
-			ct.description, ct.category, ct.app_type, ct.icon_url
+			COALESCE(ct.name, '') as template_name, COALESCE(ct.display_name, ia.display_name) as template_display_name,
+			COALESCE(ct.description, '') as description, COALESCE(ct.category, '') as category,
+			COALESCE(ct.app_type, '') as app_type, COALESCE(ct.icon_url, '') as icon_url
 		FROM installed_applications ia
-		JOIN catalog_templates ct ON ia.catalog_template_id = ct.id
+		LEFT JOIN catalog_templates ct ON ia.catalog_template_id = ct.id
 		WHERE 1=1
 	`
 
@@ -202,24 +219,52 @@ func (a *ApplicationDB) ListApplications(ctx context.Context, enabledOnly bool) 
 	}
 	defer rows.Close()
 
+	// Get base path for folder checks
+	basePath := os.Getenv("APPS_BASE_PATH")
+	if basePath == "" {
+		basePath = "/app"
+	}
+
 	apps := []*models.InstalledApplication{}
 	for rows.Next() {
 		app := &models.InstalledApplication{}
 		var configJSON []byte
+		var catalogTemplateID sql.NullInt64
 
 		err := rows.Scan(
-			&app.ID, &app.CatalogTemplateID, &app.Name, &app.DisplayName, &app.FolderPath,
+			&app.ID, &catalogTemplateID, &app.Name, &app.DisplayName, &app.FolderPath,
 			&app.Enabled, &configJSON, &app.CreatedBy, &app.CreatedAt, &app.UpdatedAt,
 			&app.TemplateName, &app.TemplateDisplayName, &app.Description,
 			&app.Category, &app.AppType, &app.IconURL,
 		)
 		if err != nil {
+			fmt.Printf("Error scanning application row: %v\n", err)
 			continue
+		}
+
+		// Handle NULL catalog_template_id
+		if catalogTemplateID.Valid {
+			app.CatalogTemplateID = int(catalogTemplateID.Int64)
 		}
 
 		// Unmarshal configuration
 		if len(configJSON) > 0 {
 			json.Unmarshal(configJSON, &app.Configuration)
+		}
+
+		// Check if folder exists - if not and app is enabled, auto-disable it
+		if app.Enabled && app.FolderPath != "" {
+			fullPath := filepath.Join(basePath, app.FolderPath)
+			if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+				// Folder doesn't exist, disable the application
+				_, updateErr := a.db.ExecContext(ctx,
+					"UPDATE installed_applications SET enabled = false, updated_at = $1 WHERE id = $2",
+					time.Now(), app.ID)
+				if updateErr == nil {
+					app.Enabled = false
+					fmt.Printf("Auto-disabled application %s: folder %s does not exist\n", app.DisplayName, fullPath)
+				}
+			}
 		}
 
 		apps = append(apps, app)
@@ -269,8 +314,21 @@ func (a *ApplicationDB) UpdateApplication(ctx context.Context, appID string, req
 	query := fmt.Sprintf("UPDATE installed_applications SET %s WHERE id = $%d",
 		joinStrings(updates, ", "), argIdx)
 
-	_, err := a.db.ExecContext(ctx, query, args...)
-	return err
+	result, err := a.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	// Check if application was actually updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("application not found")
+	}
+
+	return nil
 }
 
 // DeleteApplication deletes an installed application
@@ -384,19 +442,32 @@ func (a *ApplicationDB) HasGroupAccess(ctx context.Context, appID, groupID strin
 	return exists, err
 }
 
-// GetUserAccessibleApplications retrieves applications accessible to a user (via their groups)
+// GetUserAccessibleApplications retrieves applications accessible to a user (via their groups, as creator, or public)
 func (a *ApplicationDB) GetUserAccessibleApplications(ctx context.Context, userID string) ([]*models.InstalledApplication, error) {
+	// Simplified query: return all enabled applications where user has group access,
+	// is the creator, or the app has no group restrictions (public to all)
 	query := `
 		SELECT DISTINCT
 			ia.id, ia.catalog_template_id, ia.name, ia.display_name, ia.folder_path,
 			ia.enabled, ia.configuration, ia.created_by, ia.created_at, ia.updated_at,
-			ct.name as template_name, ct.display_name as template_display_name,
-			ct.description, ct.category, ct.app_type, ct.icon_url
+			COALESCE(ct.name, '') as template_name, COALESCE(ct.display_name, ia.display_name) as template_display_name,
+			COALESCE(ct.description, '') as description, COALESCE(ct.category, '') as category,
+			COALESCE(ct.app_type, '') as app_type, COALESCE(ct.icon_url, '') as icon_url
 		FROM installed_applications ia
-		JOIN catalog_templates ct ON ia.catalog_template_id = ct.id
-		JOIN application_group_access aga ON ia.id = aga.application_id
-		JOIN group_memberships gm ON aga.group_id = gm.group_id
-		WHERE gm.user_id = $1 AND ia.enabled = true
+		LEFT JOIN catalog_templates ct ON ia.catalog_template_id = ct.id
+		WHERE ia.enabled = true
+		AND (
+			ia.created_by = $1
+			OR EXISTS (
+				SELECT 1 FROM application_group_access aga
+				JOIN group_memberships gm ON aga.group_id = gm.group_id
+				WHERE aga.application_id = ia.id AND gm.user_id = $1
+			)
+			OR NOT EXISTS (
+				SELECT 1 FROM application_group_access aga2
+				WHERE aga2.application_id = ia.id
+			)
+		)
 		ORDER BY ia.display_name ASC
 	`
 
@@ -410,15 +481,22 @@ func (a *ApplicationDB) GetUserAccessibleApplications(ctx context.Context, userI
 	for rows.Next() {
 		app := &models.InstalledApplication{}
 		var configJSON []byte
+		var catalogTemplateID sql.NullInt64
 
 		err := rows.Scan(
-			&app.ID, &app.CatalogTemplateID, &app.Name, &app.DisplayName, &app.FolderPath,
+			&app.ID, &catalogTemplateID, &app.Name, &app.DisplayName, &app.FolderPath,
 			&app.Enabled, &configJSON, &app.CreatedBy, &app.CreatedAt, &app.UpdatedAt,
 			&app.TemplateName, &app.TemplateDisplayName, &app.Description,
 			&app.Category, &app.AppType, &app.IconURL,
 		)
 		if err != nil {
+			fmt.Printf("Error scanning application row: %v\n", err)
 			continue
+		}
+
+		// Handle NULL catalog_template_id
+		if catalogTemplateID.Valid {
+			app.CatalogTemplateID = int(catalogTemplateID.Int64)
 		}
 
 		// Unmarshal configuration

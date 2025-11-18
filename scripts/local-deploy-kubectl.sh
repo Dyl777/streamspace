@@ -355,6 +355,8 @@ spec:
           name: http
           protocol: TCP
         env:
+        - name: GIN_MODE
+          value: debug
         - name: DB_HOST
           value: streamspace-postgres
         - name: DB_PORT
