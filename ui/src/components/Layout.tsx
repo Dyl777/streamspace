@@ -110,17 +110,8 @@ function Layout({ children }: LayoutProps) {
   ];
 
   const handleOpenAdminPortal = () => {
-    // Open admin portal in new window
-    const width = 1400;
-    const height = 900;
-    const left = (window.screen.width - width) / 2;
-    const top = (window.screen.height - height) / 2;
-
-    window.open(
-      '/admin/dashboard',
-      'StreamSpace Admin Portal',
-      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no`
-    );
+    // Open admin portal in new tab
+    window.open('/admin/dashboard', '_blank');
   };
 
   const drawer = (
