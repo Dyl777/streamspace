@@ -1501,8 +1501,6 @@ func (h *Handler) AddRepository(c *gin.Context) {
 
 // SyncRepository triggers a sync for a repository
 func (h *Handler) SyncRepository(c *gin.Context) {
-	// SECURITY FIX: Use request context for proper cancellation and timeout handling
-	ctx := c.Request.Context()
 	repoIDStr := c.Param("id")
 
 	// Convert repo ID to int
