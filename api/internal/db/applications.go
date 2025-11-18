@@ -314,8 +314,21 @@ func (a *ApplicationDB) UpdateApplication(ctx context.Context, appID string, req
 	query := fmt.Sprintf("UPDATE installed_applications SET %s WHERE id = $%d",
 		joinStrings(updates, ", "), argIdx)
 
-	_, err := a.db.ExecContext(ctx, query, args...)
-	return err
+	result, err := a.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	// Check if application was actually updated
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("application not found")
+	}
+
+	return nil
 }
 
 // DeleteApplication deletes an installed application

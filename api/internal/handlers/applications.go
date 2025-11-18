@@ -233,6 +233,13 @@ func (h *ApplicationHandler) UpdateApplication(c *gin.Context) {
 
 	err := h.appDB.UpdateApplication(c.Request.Context(), appID, &req)
 	if err != nil {
+		if err.Error() == "application not found" {
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error:   "Application not found",
+				Message: "The application does not exist or was deleted",
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Update failed",
 			Message: err.Error(),
