@@ -1976,6 +1976,11 @@ func (d *Database) Migrate() error {
 		return fmt.Errorf("failed to process password reset: %w", err)
 	}
 
+	// Ensure default template repository is configured
+	if err := d.ensureDefaultRepository(); err != nil {
+		return fmt.Errorf("failed to configure default repository: %w", err)
+	}
+
 	return nil
 }
 
@@ -2093,6 +2098,69 @@ func (d *Database) checkPasswordReset() error {
 	log.Println("⚠️  3. Log in with the new password")
 	log.Println("⚠️  ")
 	log.Println("⚠️  ═══════════════════════════════════════════════════════════════")
+
+	return nil
+}
+
+// ensureDefaultRepository ensures the official StreamSpace templates repository is configured.
+// This hardcodes the default repository URL: https://github.com/JoshuaAFerguson/streamspace-templates
+//
+// The repository will be automatically synced by the sync service on startup.
+//
+// Behavior:
+//   - If repository already exists (by name or URL), skip insertion
+//   - If not exists, insert with status 'pending' to trigger sync
+//   - Does not fail if repository already configured
+//
+// Default repository configuration:
+//   - Name: "streamspace-templates"
+//   - URL: https://github.com/JoshuaAFerguson/streamspace-templates
+//   - Branch: main
+//   - Auth: none (public repository)
+//   - Status: pending (will be synced automatically)
+func (d *Database) ensureDefaultRepository() error {
+	const (
+		defaultRepoName = "streamspace-templates"
+		defaultRepoURL  = "https://github.com/JoshuaAFerguson/streamspace-templates"
+		defaultBranch   = "main"
+	)
+
+	// Check if default repository already exists (by name or URL)
+	var existingID int
+	err := d.db.QueryRow(`
+		SELECT id FROM repositories
+		WHERE name = $1 OR url = $2
+		LIMIT 1
+	`, defaultRepoName, defaultRepoURL).Scan(&existingID)
+
+	// Repository already exists - skip
+	if err == nil {
+		log.Printf("✓ Default template repository '%s' already configured (ID: %d)", defaultRepoName, existingID)
+		return nil
+	}
+
+	// Error other than "not found" - report it
+	if err != sql.ErrNoRows {
+		return fmt.Errorf("failed to check existing repository: %w", err)
+	}
+
+	// Repository doesn't exist - insert it
+	log.Println("📦 Adding default template repository...")
+	log.Printf("   Name: %s", defaultRepoName)
+	log.Printf("   URL: %s", defaultRepoURL)
+	log.Printf("   Branch: %s", defaultBranch)
+
+	_, err = d.db.Exec(`
+		INSERT INTO repositories (name, url, branch, auth_type, status, created_at, updated_at)
+		VALUES ($1, $2, $3, 'none', 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, defaultRepoName, defaultRepoURL, defaultBranch)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert default repository: %w", err)
+	}
+
+	log.Println("✓ Default template repository added successfully")
+	log.Println("   The repository will be synced automatically on startup")
 
 	return nil
 }

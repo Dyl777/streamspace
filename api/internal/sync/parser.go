@@ -25,7 +25,7 @@ import (
 //
 // Validation:
 //   - Required fields: name, displayName, baseImage
-//   - API version: stream.streamspace.io/v1alpha1
+//   - API version: stream.space/v1alpha1 (or stream.streamspace.io/v1alpha1 for backward compatibility)
 //   - App type inference: desktop (VNC) or webapp (HTTP)
 //
 // Example usage:
@@ -119,7 +119,7 @@ type ParsedTemplate struct {
 //
 // Example YAML:
 //
-//	apiVersion: stream.streamspace.io/v1alpha1
+//	apiVersion: stream.space/v1alpha1
 //	kind: Template
 //	metadata:
 //	  name: firefox-browser
@@ -293,8 +293,9 @@ func (p *TemplateParser) ParseTemplateFile(filePath string) (*ParsedTemplate, er
 		return nil, fmt.Errorf("not a Template resource (kind: %s)", manifest.Kind)
 	}
 
-	if manifest.APIVersion != "stream.streamspace.io/v1alpha1" {
-		return nil, fmt.Errorf("unsupported API version: %s", manifest.APIVersion)
+	// Support both old and new API versions for backward compatibility
+	if manifest.APIVersion != "stream.space/v1alpha1" && manifest.APIVersion != "stream.streamspace.io/v1alpha1" {
+		return nil, fmt.Errorf("unsupported API version: %s (expected stream.space/v1alpha1)", manifest.APIVersion)
 	}
 
 	// Validate required fields
@@ -406,8 +407,9 @@ func (p *TemplateParser) ValidateTemplateManifest(yamlContent string) error {
 		return fmt.Errorf("kind must be 'Template', got '%s'", manifest.Kind)
 	}
 
-	if manifest.APIVersion != "stream.streamspace.io/v1alpha1" {
-		return fmt.Errorf("apiVersion must be 'stream.streamspace.io/v1alpha1', got '%s'", manifest.APIVersion)
+	// Support both old and new API versions
+	if manifest.APIVersion != "stream.space/v1alpha1" && manifest.APIVersion != "stream.streamspace.io/v1alpha1" {
+		return fmt.Errorf("apiVersion must be 'stream.space/v1alpha1', got '%s'", manifest.APIVersion)
 	}
 
 	if manifest.Metadata.Name == "" {
