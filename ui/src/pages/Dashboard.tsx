@@ -9,7 +9,7 @@ import {
 } from '@mui/icons-material';
 import Layout from '../components/Layout';
 import QuotaCard from '../components/QuotaCard';
-import { useTemplates, useRepositories, useUserApplications } from '../hooks/useApi';
+import { useRepositories, useUserApplications } from '../hooks/useApi';
 import { useMetricsWebSocket, useSessionsWebSocket } from '../hooks/useWebSocket';
 import { useUserStore } from '../store/userStore';
 import type { Session } from '../lib/api';
@@ -71,7 +71,6 @@ export default function Dashboard() {
   const usernameRef = useRef(username);
   usernameRef.current = username;
 
-  const { data: templates = [], isLoading: templatesLoading } = useTemplates();
   const { data: repositories = [], isLoading: reposLoading } = useRepositories();
   const { data: applications = [], isLoading: applicationsLoading } = useUserApplications();
 
