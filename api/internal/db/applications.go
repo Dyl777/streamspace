@@ -158,6 +158,7 @@ func (a *ApplicationDB) InstallApplication(ctx context.Context, req *models.Inst
 func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*models.InstalledApplication, error) {
 	app := &models.InstalledApplication{}
 	var configJSON []byte
+	var catalogTemplateID sql.NullInt64
 
 	query := `
 		SELECT
@@ -173,7 +174,7 @@ func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*mode
 	`
 
 	err := a.db.QueryRowContext(ctx, query, appID).Scan(
-		&app.ID, &app.CatalogTemplateID, &app.Name, &app.DisplayName, &app.FolderPath,
+		&app.ID, &catalogTemplateID, &app.Name, &app.DisplayName, &app.FolderPath,
 		&app.Enabled, &configJSON, &app.CreatedBy, &app.CreatedAt, &app.UpdatedAt,
 		&app.TemplateName, &app.TemplateDisplayName, &app.Description,
 		&app.Category, &app.AppType, &app.IconURL, &app.Manifest,
@@ -183,6 +184,11 @@ func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*mode
 			return nil, fmt.Errorf("application not found")
 		}
 		return nil, err
+	}
+
+	// Handle NULL catalog_template_id
+	if catalogTemplateID.Valid {
+		app.CatalogTemplateID = int(catalogTemplateID.Int64)
 	}
 
 	// Unmarshal configuration
