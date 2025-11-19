@@ -74,12 +74,12 @@ StreamSpace uses separate repositories for templates and plugins:
 | **High Priority (3 issues)** | **Complete** | Builder | **100%** |
 | Plugin Enable/Config | Complete | Builder | 100% |
 | SAML Validation | Complete | Builder | 100% |
-| **Medium Priority (4 issues)** | Not Started | Builder | 0% |
-| MFA SMS/Email | Not Started | Builder | 0% |
-| Session Status Conditions | Not Started | Builder | 0% |
-| Batch Operations Errors | Not Started | Builder | 0% |
-| Docker Controller Lookup | Not Started | Builder | 0% |
-| **UI Fixes (4 issues)** | Not Started | Builder | 0% |
+| **Medium Priority (4 issues)** | **Complete** | Builder | **100%** |
+| MFA SMS/Email | Complete (appropriate 501) | Builder | 100% |
+| Session Status Conditions | Complete | Builder | 100% |
+| Batch Operations Errors | Complete | Builder | 100% |
+| Docker Controller Lookup | Complete | Builder | 100% |
+| **UI Fixes (4 issues)** | In Progress | Builder | 0% |
 | Dashboard Favorites | Not Started | Builder | 0% |
 | Demo Mode Security | Not Started | Builder | 0% |
 | Delete Obsolete Pages | Not Started | Builder | 0% |
