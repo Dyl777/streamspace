@@ -167,7 +167,7 @@ func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*mode
 			COALESCE(ct.name, '') as template_name, COALESCE(ct.display_name, ia.display_name) as template_display_name,
 			COALESCE(ct.description, '') as description, COALESCE(ct.category, '') as category,
 			COALESCE(ct.app_type, '') as app_type, COALESCE(ct.icon_url, '') as icon_url,
-			COALESCE(ct.manifest, '') as manifest,
+			COALESCE(ct.manifest::text, '{}') as manifest,
 			COALESCE(ia.install_status, '') as install_status,
 			COALESCE(ia.install_message, '') as install_message
 		FROM installed_applications ia
