@@ -1934,7 +1934,37 @@ func (h *Handler) convertDBSessionsToResponse(sessions []*db.Session) []map[stri
 }
 
 // convertDBSessionToResponse converts a database session to API response format.
+// If the database doesn't have the session URL, it fetches the status from Kubernetes.
 func (h *Handler) convertDBSessionToResponse(session *db.Session) map[string]interface{} {
+	// Fetch Kubernetes status if database is missing URL or phase is empty
+	// This handles the case where the controller hasn't yet communicated status back to API
+	url := session.URL
+	podName := session.PodName
+	phase := session.State
+
+	if (url == "" || phase == "") && h.k8sClient != nil {
+		ctx := context.Background()
+		k8sSession, err := h.k8sClient.GetSession(ctx, h.namespace, session.ID)
+		if err == nil && k8sSession != nil {
+			if k8sSession.Status.URL != "" {
+				url = k8sSession.Status.URL
+			}
+			if k8sSession.Status.PodName != "" {
+				podName = k8sSession.Status.PodName
+			}
+			if k8sSession.Status.Phase != "" {
+				phase = k8sSession.Status.Phase
+			}
+			// Also update resources from Kubernetes if missing
+			if session.Memory == "" && k8sSession.Resources.Memory != "" {
+				session.Memory = k8sSession.Resources.Memory
+			}
+			if session.CPU == "" && k8sSession.Resources.CPU != "" {
+				session.CPU = k8sSession.Resources.CPU
+			}
+		}
+	}
+
 	result := map[string]interface{}{
 		"name":               session.ID,
 		"namespace":          session.Namespace,
@@ -1948,9 +1978,9 @@ func (h *Handler) convertDBSessionToResponse(session *db.Session) map[string]int
 		"platform":           session.Platform,
 		"activeConnections":  session.ActiveConnections,
 		"status": map[string]interface{}{
-			"phase":   session.State,
-			"url":     session.URL,
-			"podName": session.PodName,
+			"phase":   phase,
+			"url":     url,
+			"podName": podName,
 		},
 	}
 
