@@ -7,10 +7,12 @@ import (
 	"log"
 	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -127,7 +129,7 @@ func (c *Client) CreateSession(ctx context.Context, config SessionConfig) (strin
 			CPUShares: config.CPUShares,
 		},
 		RestartPolicy: container.RestartPolicy{
-			Name: container.RestartPolicyUnlessStopped,
+			Name: "unless-stopped",
 		},
 	}
 
@@ -145,9 +147,9 @@ func (c *Client) CreateSession(ctx context.Context, config SessionConfig) (strin
 	}
 
 	// Start container
-	if err := c.docker.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if err := c.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		// Clean up on failure
-		c.docker.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		c.docker.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true})
 		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 
@@ -175,7 +177,7 @@ func (c *Client) StopSession(ctx context.Context, sessionID string) error {
 func (c *Client) StartSession(ctx context.Context, sessionID string) error {
 	containerName := fmt.Sprintf("ss-%s", sessionID)
 
-	if err := c.docker.ContainerStart(ctx, containerName, container.StartOptions{}); err != nil {
+	if err := c.docker.ContainerStart(ctx, containerName, types.ContainerStartOptions{}); err != nil {
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
@@ -187,7 +189,7 @@ func (c *Client) StartSession(ctx context.Context, sessionID string) error {
 func (c *Client) RemoveSession(ctx context.Context, sessionID string, force bool) error {
 	containerName := fmt.Sprintf("ss-%s", sessionID)
 
-	if err := c.docker.ContainerRemove(ctx, containerName, container.RemoveOptions{
+	if err := c.docker.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{
 		Force:         force,
 		RemoveVolumes: false, // Keep volumes for data persistence
 	}); err != nil {
@@ -268,7 +270,7 @@ func (c *Client) EnsureUserVolume(ctx context.Context, userID string) (string, e
 
 // ListSessions returns all StreamSpace session containers.
 func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
-	containers, err := c.docker.ContainerList(ctx, container.ListOptions{
+	containers, err := c.docker.ContainerList(ctx, types.ContainerListOptions{
 		All: true,
 		Filters: filters.NewArgs(
 			filters.Arg("label", "streamspace.io/managed=true"),
@@ -287,6 +289,3 @@ func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
 
 	return sessions, nil
 }
-
-// Need to import volume package
-type volume struct{}

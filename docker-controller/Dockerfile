@@ -6,7 +6,7 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates
 
-# Copy source code
+# Copy source code (cache bust: v2)
 COPY . .
 
 # Download dependencies and generate go.sum if missing
