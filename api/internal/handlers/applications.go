@@ -198,49 +198,52 @@ func (h *ApplicationHandler) InstallApplication(c *gin.Context) {
 		return
 	}
 
-	// Step 3: Create ApplicationInstall CRD
+	// Step 3: Create ApplicationInstall CRD (optional - for controller to create Template)
 	// The controller will watch this and create the corresponding Template CRD
-	if h.k8sClient == nil {
-		log.Printf("Error: k8sClient is nil, cannot create ApplicationInstall for %s", name)
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Kubernetes client not configured",
-			Message: "Cannot install application: Kubernetes client is not available. Please check API server configuration.",
-		})
-		return
-	}
+	// This step is skipped if k8sClient is nil (development mode without K8s)
+	if h.k8sClient != nil {
+		// Generate unique name for ApplicationInstall
+		appInstallName := fmt.Sprintf("%s-%d", name, req.CatalogTemplateID)
 
-	// Generate unique name for ApplicationInstall
-	appInstallName := fmt.Sprintf("%s-%d", name, req.CatalogTemplateID)
+		appInstall := &k8s.ApplicationInstall{
+			Name:              appInstallName,
+			Namespace:         h.namespace,
+			CatalogTemplateID: req.CatalogTemplateID,
+			TemplateName:      name,
+			DisplayName:       displayName,
+			Description:       description,
+			Category:          category,
+			Icon:              iconURL,
+			Manifest:          manifest,
+			InstalledBy:       userID.(string),
+		}
 
-	appInstall := &k8s.ApplicationInstall{
-		Name:              appInstallName,
-		Namespace:         h.namespace,
-		CatalogTemplateID: req.CatalogTemplateID,
-		TemplateName:      name,
-		DisplayName:       displayName,
-		Description:       description,
-		Category:          category,
-		Icon:              iconURL,
-		Manifest:          manifest,
-		InstalledBy:       userID.(string),
-	}
-
-	_, err = h.k8sClient.CreateApplicationInstall(ctx, appInstall)
-	if err != nil {
-		// "already exists" is OK - application may have been installed before
-		errStr := err.Error()
-		if strings.Contains(errStr, "already exists") {
-			log.Printf("ApplicationInstall %s already exists, continuing with database record", appInstallName)
+		_, err = h.k8sClient.CreateApplicationInstall(ctx, appInstall)
+		if err != nil {
+			// "already exists" is OK - application may have been installed before
+			errStr := err.Error()
+			if strings.Contains(errStr, "already exists") {
+				log.Printf("ApplicationInstall %s already exists, continuing with database record", appInstallName)
+			} else if strings.Contains(errStr, "not find the requested resource") ||
+				strings.Contains(errStr, "the server could not find") {
+				// CRD is not installed - log warning but continue with database record
+				// This allows development without the full K8s setup
+				log.Printf("Warning: ApplicationInstall CRD not found, skipping K8s resource creation for %s. "+
+					"Install the CRD with: kubectl apply -f manifests/crds/applicationinstall.yaml", appInstallName)
+			} else {
+				log.Printf("Failed to create ApplicationInstall %s: %v", appInstallName, err)
+				c.JSON(http.StatusInternalServerError, ErrorResponse{
+					Error:   "Failed to create application install request",
+					Message: fmt.Sprintf("Could not create ApplicationInstall '%s': %v", appInstallName, err),
+				})
+				return
+			}
 		} else {
-			log.Printf("Failed to create ApplicationInstall %s: %v", appInstallName, err)
-			c.JSON(http.StatusInternalServerError, ErrorResponse{
-				Error:   "Failed to create application install request",
-				Message: fmt.Sprintf("Could not create ApplicationInstall '%s': %v", appInstallName, err),
-			})
-			return
+			log.Printf("Successfully created ApplicationInstall %s (controller will create Template)", appInstallName)
 		}
 	} else {
-		log.Printf("Successfully created ApplicationInstall %s (controller will create Template)", appInstallName)
+		log.Printf("Warning: k8sClient is nil, skipping ApplicationInstall CRD creation for %s. "+
+			"Database record will be created but Template CRD won't be auto-generated.", name)
 	}
 
 	// Step 4: Create database record in installed_applications table
