@@ -157,7 +157,7 @@ func (a *ApplicationDB) InstallApplication(ctx context.Context, req *models.Inst
 // GetApplication retrieves an installed application by ID
 func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*models.InstalledApplication, error) {
 	app := &models.InstalledApplication{}
-	var configJSON []byte
+	var configJSON sql.NullString
 	var catalogTemplateID sql.NullInt64
 
 	query := `
@@ -191,9 +191,9 @@ func (a *ApplicationDB) GetApplication(ctx context.Context, appID string) (*mode
 		app.CatalogTemplateID = int(catalogTemplateID.Int64)
 	}
 
-	// Unmarshal configuration
-	if len(configJSON) > 0 {
-		json.Unmarshal(configJSON, &app.Configuration)
+	// Unmarshal configuration from JSONB string
+	if configJSON.Valid && len(configJSON.String) > 0 {
+		json.Unmarshal([]byte(configJSON.String), &app.Configuration)
 	}
 
 	return app, nil
