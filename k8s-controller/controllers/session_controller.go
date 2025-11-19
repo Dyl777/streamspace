@@ -454,6 +454,16 @@ func (r *SessionReconciler) handleRunning(ctx context.Context, session *streamv1
 			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 
+		// BUG FIX: Handle race condition where Valid field is stale but Message shows success
+		// This can happen when the session controller's cache hasn't been updated yet after
+		// the template controller set Valid=true. If Message indicates success, wait for
+		// the Valid field to be updated rather than treating it as an error.
+		if template.Status.Message == "Template is valid and ready to use" {
+			log.Info("Template validation status inconsistent (Valid=false but success message present), waiting for cache sync", "template", template.Name)
+			// Requeue after a short delay to allow cache to sync
+			return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+		}
+
 		// Template was validated but is invalid - this is a real error
 		err := fmt.Errorf("template %s is not valid: %s", template.Name, template.Status.Message)
 		log.Error(err, "Cannot create session from invalid template")
