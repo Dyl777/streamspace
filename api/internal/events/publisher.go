@@ -75,6 +75,15 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 	js, err := conn.JetStream()
 	if err != nil {
 		log.Printf("JetStream not available: %v (using core NATS)", err)
+	} else {
+		// Create streams for durable message delivery
+		if err := createStreams(js); err != nil {
+			log.Printf("Warning: Failed to create JetStream streams: %v", err)
+			log.Println("Events will be published without durability guarantees")
+			js = nil
+		} else {
+			log.Println("JetStream streams configured for durable event delivery")
+		}
 	}
 
 	return &Publisher{
@@ -82,6 +91,64 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 		js:      js,
 		enabled: true,
 	}, nil
+}
+
+// createStreams creates JetStream streams for durable event delivery.
+func createStreams(js nats.JetStreamContext) error {
+	streams := []struct {
+		name     string
+		subjects []string
+	}{
+		{
+			name: "STREAMSPACE_SESSIONS",
+			subjects: []string{
+				"streamspace.session.>",
+			},
+		},
+		{
+			name: "STREAMSPACE_APPS",
+			subjects: []string{
+				"streamspace.app.>",
+			},
+		},
+		{
+			name: "STREAMSPACE_TEMPLATES",
+			subjects: []string{
+				"streamspace.template.>",
+			},
+		},
+		{
+			name: "STREAMSPACE_NODES",
+			subjects: []string{
+				"streamspace.node.>",
+			},
+		},
+		{
+			name: "STREAMSPACE_CONTROLLERS",
+			subjects: []string{
+				"streamspace.controller.>",
+			},
+		},
+	}
+
+	for _, s := range streams {
+		_, err := js.AddStream(&nats.StreamConfig{
+			Name:      s.name,
+			Subjects:  s.subjects,
+			Retention: nats.WorkQueuePolicy, // Messages deleted after acknowledgment
+			MaxAge:    24 * time.Hour,       // Keep messages for 24 hours max
+			Storage:   nats.FileStorage,     // Persist to disk
+			Replicas:  1,                    // Single replica for simplicity
+		})
+		if err != nil {
+			// Stream might already exist, try to update it
+			if err.Error() != "stream name already in use" {
+				return fmt.Errorf("failed to create stream %s: %w", s.name, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // Close closes the NATS connection.
