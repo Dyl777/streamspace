@@ -436,6 +436,378 @@ func (h *Handler) ConnectSession(c *gin.Context) {
 
 ---
 
+#### Decision 5: UseSessionTemplate Session Creation
+**Date:** 2025-11-19
+**Decided By:** Architect
+**Issue:** #3 - UseSessionTemplate Doesn't Create Sessions
+
+**Problem:** `UseSessionTemplate()` only increments usage counter, never creates an actual session.
+
+**Decision:** Implement full session creation workflow
+```go
+func (h *SessionTemplatesHandler) UseSessionTemplate(c *gin.Context) {
+    templateID := c.Param("id")
+    userID, _ := c.Get("userID")
+    userIDStr := userID.(string)
+    ctx := context.Background()
+
+    // 1. Get the session template
+    var template struct {
+        Name         string
+        TemplateName string  // Base application template
+        Config       []byte  // JSON config overrides
+    }
+    err := h.db.DB().QueryRowContext(ctx, `
+        SELECT name, template_name, config
+        FROM user_session_templates WHERE id = $1
+    `, templateID).Scan(&template.Name, &template.TemplateName, &template.Config)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Template not found"})
+        return
+    }
+
+    // 2. Generate unique session name
+    sessionName := fmt.Sprintf("%s-%s-%s", userIDStr, template.Name, uuid.New().String()[:8])
+
+    // 3. Create session in database
+    sessionID := uuid.New().String()
+    _, err = h.db.DB().ExecContext(ctx, `
+        INSERT INTO sessions (id, name, user_id, template, state, config, created_at)
+        VALUES ($1, $2, $3, $4, 'pending', $5, NOW())
+    `, sessionID, sessionName, userIDStr, template.TemplateName, template.Config)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+        return
+    }
+
+    // 4. Create Session CRD in Kubernetes
+    session := &streamspacev1.Session{
+        ObjectMeta: metav1.ObjectMeta{
+            Name:      sessionName,
+            Namespace: h.namespace,
+        },
+        Spec: streamspacev1.SessionSpec{
+            User:     userIDStr,
+            Template: template.TemplateName,
+            State:    "running",
+        },
+    }
+    if err := h.k8sClient.Create(ctx, session); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session in cluster"})
+        return
+    }
+
+    // 5. Increment usage count
+    h.db.DB().ExecContext(ctx, `
+        UPDATE user_session_templates SET usage_count = usage_count + 1 WHERE id = $1
+    `, templateID)
+
+    c.JSON(http.StatusCreated, gin.H{
+        "message":   "Session created from template",
+        "sessionId": sessionID,
+        "name":      sessionName,
+        "template":  template.TemplateName,
+    })
+}
+```
+
+**Rationale:**
+- Complete session creation workflow
+- Links to base application template
+- Applies user's saved configuration
+
+---
+
+#### Decision 6: Heartbeat Connection Validation
+**Date:** 2025-11-19
+**Decided By:** Architect
+**Issue:** #5 - Heartbeat Has No Connection Validation
+
+**Problem:** Any connectionId is accepted without validation. Stale connections persist forever.
+
+**Decision:** Validate connection ownership and add cleanup
+```go
+func (h *Handler) SessionHeartbeat(c *gin.Context) {
+    ctx := c.Request.Context()
+    connectionID := c.Query("connectionId")
+    userID, _ := c.Get("userID")
+    userIDStr := userID.(string)
+
+    if connectionID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "connectionId parameter required"})
+        return
+    }
+
+    // Validate connection belongs to this user
+    conn, err := h.connTracker.GetConnection(ctx, connectionID)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Connection not found"})
+        return
+    }
+
+    if conn.UserID != userIDStr {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Connection does not belong to user"})
+        return
+    }
+
+    // Check connection is not stale (last heartbeat within threshold)
+    if time.Since(conn.LastHeartbeat) > 5*time.Minute {
+        // Clean up stale connection
+        h.connTracker.RemoveConnection(ctx, connectionID)
+        c.JSON(http.StatusGone, gin.H{"error": "Connection expired"})
+        return
+    }
+
+    if err := h.connTracker.UpdateHeartbeat(ctx, connectionID); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update heartbeat"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":        "ok",
+        "connectionId":  connectionID,
+        "nextHeartbeat": 30, // seconds
+    })
+}
+```
+
+**Connection Tracker Enhancement:**
+```go
+type Connection struct {
+    ID            string
+    SessionID     string
+    UserID        string
+    LastHeartbeat time.Time
+    CreatedAt     time.Time
+}
+
+func (t *ConnectionTracker) GetConnection(ctx context.Context, id string) (*Connection, error) {
+    // Return full connection details for validation
+}
+```
+
+**Rationale:**
+- Security: Prevent users from manipulating others' sessions
+- Resource cleanup: Stale connections are removed
+- Enables proper auto-hibernation
+
+---
+
+#### Decision 7: Plugin Enable with Runtime Loading
+**Date:** 2025-11-19
+**Decided By:** Architect
+**Issue:** #9 - Plugin Enable Runtime Loading
+
+**Problem:** `EnablePlugin()` updates database but doesn't load plugin into runtime.
+
+**Decision:** Add runtime loading after database update
+```go
+func (h *PluginMarketplaceHandler) EnablePlugin(c *gin.Context) {
+    name := c.Param("name")
+    ctx := c.Request.Context()
+
+    // 1. Update database first
+    result, err := h.db.DB().ExecContext(ctx, `
+        UPDATE installed_plugins SET enabled = true, updated_at = NOW()
+        WHERE name = $1
+    `, name)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Failed to enable plugin",
+            "details": err.Error(),
+        })
+        return
+    }
+
+    rows, _ := result.RowsAffected()
+    if rows == 0 {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Plugin not installed"})
+        return
+    }
+
+    // 2. Load plugin into runtime
+    if err := h.runtime.LoadPlugin(ctx, name); err != nil {
+        // Rollback database change
+        h.db.DB().ExecContext(ctx, `
+            UPDATE installed_plugins SET enabled = false WHERE name = $1
+        `, name)
+
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Failed to load plugin",
+            "details": err.Error(),
+        })
+        return
+    }
+
+    // 3. Initialize plugin with stored config
+    var config []byte
+    h.db.DB().QueryRowContext(ctx, `
+        SELECT config FROM installed_plugins WHERE name = $1
+    `, name).Scan(&config)
+
+    if len(config) > 0 {
+        if err := h.runtime.ConfigurePlugin(ctx, name, config); err != nil {
+            // Log but don't fail - plugin is loaded
+            log.Printf("Warning: failed to apply config to plugin %s: %v", name, err)
+        }
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Plugin enabled and loaded successfully",
+        "name":    name,
+    })
+}
+```
+
+**Rationale:**
+- Atomic operation with rollback on failure
+- Applies saved configuration automatically
+- Consistent state between database and runtime
+
+---
+
+#### Decision 8: Plugin Configuration Update
+**Date:** 2025-11-19
+**Decided By:** Architect
+**Issue:** #10 - Plugin Config Update
+
+**Problem:** Config updates return success without persisting or reloading.
+
+**Decision:** Persist to database and reload plugin with new config
+```go
+func (h *PluginMarketplaceHandler) UpdatePluginConfig(c *gin.Context) {
+    name := c.Param("name")
+    ctx := c.Request.Context()
+
+    var config map[string]interface{}
+    if err := c.ShouldBindJSON(&config); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    configJSON, err := json.Marshal(config)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid config format"})
+        return
+    }
+
+    // 1. Update database
+    result, err := h.db.DB().ExecContext(ctx, `
+        UPDATE installed_plugins
+        SET config = $1, updated_at = NOW()
+        WHERE name = $2
+    `, configJSON, name)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error":   "Failed to save config",
+            "details": err.Error(),
+        })
+        return
+    }
+
+    rows, _ := result.RowsAffected()
+    if rows == 0 {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Plugin not installed"})
+        return
+    }
+
+    // 2. Apply config to running plugin (if enabled)
+    var enabled bool
+    h.db.DB().QueryRowContext(ctx, `
+        SELECT enabled FROM installed_plugins WHERE name = $1
+    `, name).Scan(&enabled)
+
+    if enabled {
+        if err := h.runtime.ConfigurePlugin(ctx, name, configJSON); err != nil {
+            c.JSON(http.StatusOK, gin.H{
+                "message": "Config saved but failed to apply",
+                "warning": err.Error(),
+                "name":    name,
+            })
+            return
+        }
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Config updated successfully",
+        "name":    name,
+        "applied": enabled,
+    })
+}
+```
+
+**Rationale:**
+- Config persists across restarts
+- Hot-reload for enabled plugins
+- Clear feedback on apply status
+
+---
+
+#### Decision 9: SAML Return URL Validation
+**Date:** 2025-11-19
+**Decided By:** Architect
+**Issue:** #11 - SAML Return URL Validation
+
+**Problem:** Open redirect vulnerability - no validation of return URLs.
+
+**Decision:** Whitelist-based validation with configurable allowed domains
+```go
+func (h *SAMLHandler) validateReturnURL(returnURL string) error {
+    if returnURL == "" {
+        return nil // Use default
+    }
+
+    parsed, err := url.Parse(returnURL)
+    if err != nil {
+        return fmt.Errorf("invalid URL format")
+    }
+
+    // Must be same origin or in whitelist
+    allowedDomains := h.config.AllowedRedirectDomains
+    if len(allowedDomains) == 0 {
+        // Default: only allow same origin
+        allowedDomains = []string{h.config.BaseURL}
+    }
+
+    for _, allowed := range allowedDomains {
+        allowedParsed, _ := url.Parse(allowed)
+        if parsed.Host == allowedParsed.Host {
+            return nil
+        }
+    }
+
+    return fmt.Errorf("redirect URL not in allowed domains")
+}
+
+func (h *SAMLHandler) HandleACSCallback(c *gin.Context) {
+    // ... existing SAML response processing ...
+
+    returnURL := c.Query("RelayState")
+    if err := h.validateReturnURL(returnURL); err != nil {
+        log.Printf("SAML redirect validation failed: %v", err)
+        returnURL = h.config.DefaultRedirect // Fall back to default
+    }
+
+    // ... continue with redirect ...
+}
+```
+
+**Configuration:**
+```yaml
+saml:
+  allowedRedirectDomains:
+    - "https://app.streamspace.io"
+    - "https://admin.streamspace.io"
+  defaultRedirect: "/dashboard"
+```
+
+**Rationale:**
+- Prevents open redirect attacks
+- Configurable for multi-domain deployments
+- Secure default behavior
+
+---
+
 ## Agent Communication Log
 
 ### 2025-11-19
