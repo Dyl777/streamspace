@@ -62,19 +62,23 @@ StreamSpace uses separate repositories for templates and plugins:
 
 | Task Area | Status | Assigned To | Progress |
 |-----------|--------|-------------|----------|
-| **Critical Issues** | In Progress | Builder | 0% |
+| **CRITICAL (8 issues)** | Not Started | Builder | 0% |
+| Session Name/ID Mismatch | Not Started | Builder | 0% |
+| Template Name in Sessions | Not Started | Builder | 0% |
+| UseSessionTemplate Creation | Not Started | Builder | 0% |
+| VNC URL Empty | Not Started | Builder | 0% |
+| Heartbeat Validation | Not Started | Builder | 0% |
+| Installation Status | Not Started | Builder | 0% |
 | Plugin Runtime Loading | Not Started | Builder | 0% |
-| Webhook Secret Panic Fix | Not Started | Builder | 0% |
-| **High Priority** | Not Started | Builder | 0% |
+| Webhook Secret Panic | Not Started | Builder | 0% |
+| **High Priority (3 issues)** | Not Started | Builder | 0% |
 | Plugin Enable/Config | Not Started | Builder | 0% |
+| SAML Validation | Not Started | Builder | 0% |
+| **Medium Priority (6 issues)** | Not Started | Builder | 0% |
 | MFA SMS/Email | Not Started | Builder | 0% |
-| **Medium Priority** | Not Started | Builder | 0% |
 | Multi-Monitor Plugin | Not Started | Builder | 0% |
 | Calendar Plugin | Not Started | Builder | 0% |
-| Session Status Conditions | Not Started | Builder | 0% |
-| **UI Fixes** | Not Started | Builder | 0% |
-| Marketplace Install Button | Not Started | Builder | 0% |
-| Favorites API | Not Started | Builder | 0% |
+| **UI Fixes (4 issues)** | Not Started | Builder | 0% |
 | **Testing** | Not Started | Validator | 0% |
 | **Documentation** | Not Started | Scribe | 0% |
 
@@ -98,15 +102,53 @@ StreamSpace uses separate repositories for templates and plugins:
 
 ## Task Backlog (Phase 5.5: Feature Completion)
 
-### CRITICAL Priority (Must Fix Immediately)
+### CRITICAL Priority (Core Platform Broken)
 
-1. **Plugin Runtime Loading** (Builder)
+**These issues prevent users from using the basic platform functionality!**
+
+1. **Session Name/ID Mismatch in API Response** (Builder)
+   - **File:** `/home/user/streamspace/api/internal/api/handlers.go:1838`
+   - **Issue:** `convertDBSessionToResponse()` returns `session.ID` instead of `session.Name`
+   - **Impact:** UI cannot find sessions, SessionViewer fails, all session navigation broken
+   - **Acceptance Criteria:** API returns correct session name, UI can open sessions
+
+2. **Template Name Not Used in Session Creation** (Builder)
+   - **File:** `/home/user/streamspace/api/internal/api/handlers.go:551,557`
+   - **Issue:** Uses `req.Template` (empty) instead of resolved `templateName`
+   - **Impact:** Sessions created with wrong/empty template names, controller can't find template
+   - **Acceptance Criteria:** Sessions created with correct template name from applicationId resolution
+
+3. **UseSessionTemplate Doesn't Create Sessions** (Builder)
+   - **File:** `/home/user/streamspace/api/internal/handlers/sessiontemplates.go:488-508`
+   - **Issue:** Only increments counter, never creates actual session
+   - **Impact:** Custom session templates cannot be launched
+   - **Acceptance Criteria:** Endpoint creates session from template and returns session details
+
+4. **VNC URL Empty When Connecting** (Builder)
+   - **File:** `/home/user/streamspace/api/internal/api/handlers.go:744-748`
+   - **Issue:** `session.Status.URL` may be empty if pod not ready
+   - **Impact:** Session viewer shows blank iframe, users cannot see session
+   - **Acceptance Criteria:** Wait for URL to be set before returning connection, or poll for readiness
+
+5. **Heartbeat Has No Connection Validation** (Builder)
+   - **File:** `/home/user/streamspace/api/internal/api/handlers.go:776-792`
+   - **Issue:** No validation that connectionId belongs to session, stale connections persist
+   - **Impact:** Auto-hibernation never triggers, resource leaks
+   - **Acceptance Criteria:** Validate connection ownership, clean up stale connections
+
+6. **Installation Status Never Updates** (Builder)
+   - **File:** `/home/user/streamspace/api/internal/handlers/applications.go:232-268`
+   - **Issue:** No mechanism to update from 'pending' to 'installed' after Template created
+   - **Impact:** Users see "Installing..." forever, cannot launch installed apps
+   - **Acceptance Criteria:** Status updates to 'installed' when Template CRD exists
+
+7. **Plugin Runtime Loading** (Builder)
    - **File:** `/home/user/streamspace/api/internal/plugins/runtime.go:1043`
    - **Issue:** `LoadHandler()` returns "not yet implemented" error
    - **Impact:** Plugins cannot be dynamically loaded from disk
    - **Acceptance Criteria:** Plugins load successfully at runtime
 
-2. **Webhook Secret Generation Panic** (Builder)
+8. **Webhook Secret Generation Panic** (Builder)
    - **File:** `/home/user/streamspace/api/internal/handlers/integrations.go:896`
    - **Issue:** `panic()` instead of graceful error handling
    - **Impact:** API crashes if random generation fails
@@ -114,57 +156,57 @@ StreamSpace uses separate repositories for templates and plugins:
 
 ### HIGH Priority (Core Functionality Broken)
 
-3. **Plugin Enable Runtime Loading** (Builder)
+9. **Plugin Enable Runtime Loading** (Builder)
    - **File:** `/home/user/streamspace/api/internal/handlers/plugin_marketplace.go:455-476`
    - **Issue:** `EnablePlugin()` only updates database, doesn't load into runtime
    - **Impact:** Enabled plugins don't actually run
    - **Acceptance Criteria:** Enabled plugins are loaded and functional
 
-4. **Plugin Config Update** (Builder)
-   - **File:** `/home/user/streamspace/api/internal/handlers/plugin_marketplace.go:620-641`
-   - **Issue:** Returns success without updating database or reloading
-   - **Impact:** Plugin configuration changes are ignored
-   - **Acceptance Criteria:** Config updates persist and reload plugins
+10. **Plugin Config Update** (Builder)
+    - **File:** `/home/user/streamspace/api/internal/handlers/plugin_marketplace.go:620-641`
+    - **Issue:** Returns success without updating database or reloading
+    - **Impact:** Plugin configuration changes are ignored
+    - **Acceptance Criteria:** Config updates persist and reload plugins
 
-5. **SAML Return URL Validation** (Builder)
-   - **File:** SAML handler
-   - **Issue:** Open redirect vulnerability - no whitelist validation
-   - **Impact:** Security vulnerability
-   - **Acceptance Criteria:** Validate return URLs against whitelist
+11. **SAML Return URL Validation** (Builder)
+    - **File:** SAML handler
+    - **Issue:** Open redirect vulnerability - no whitelist validation
+    - **Impact:** Security vulnerability
+    - **Acceptance Criteria:** Validate return URLs against whitelist
 
 ### MEDIUM Priority (Features Incomplete)
 
-6. **MFA SMS/Email Implementation** (Builder)
-   - **File:** `/home/user/streamspace/api/internal/handlers/security.go:283-315`
-   - **Issue:** SMS/Email return 501 Not Implemented
-   - **Impact:** Users cannot use SMS/Email for 2FA
-   - **Acceptance Criteria:** SMS/Email MFA works end-to-end (or remove from UI)
+12. **MFA SMS/Email Implementation** (Builder)
+    - **File:** `/home/user/streamspace/api/internal/handlers/security.go:283-315`
+    - **Issue:** SMS/Email return 501 Not Implemented
+    - **Impact:** Users cannot use SMS/Email for 2FA
+    - **Acceptance Criteria:** SMS/Email MFA works end-to-end (or remove from UI)
 
-7. **Multi-Monitor Plugin** (Builder)
-   - **File:** `/home/user/streamspace/plugins/streamspace-multi-monitor/multi_monitor_plugin.go:20-28`
-   - **Issue:** `OnLoad()` returns nil without doing anything
-   - **Impact:** Multi-monitor feature completely non-functional
-   - **Acceptance Criteria:** Plugin registers endpoints and creates tables
+13. **Multi-Monitor Plugin** (Builder)
+    - **File:** `/home/user/streamspace/plugins/streamspace-multi-monitor/multi_monitor_plugin.go:20-28`
+    - **Issue:** `OnLoad()` returns nil without doing anything
+    - **Impact:** Multi-monitor feature completely non-functional
+    - **Acceptance Criteria:** Plugin registers endpoints and creates tables
 
-8. **Calendar Plugin** (Builder)
-   - **File:** `/home/user/streamspace/plugins/streamspace-calendar/calendar_plugin.go:20-30`
-   - **Issue:** `OnLoad()` returns nil without doing anything
-   - **Impact:** Calendar integration completely non-functional
-   - **Acceptance Criteria:** OAuth handlers and sync jobs functional
+14. **Calendar Plugin** (Builder)
+    - **File:** `/home/user/streamspace/plugins/streamspace-calendar/calendar_plugin.go:20-30`
+    - **Issue:** `OnLoad()` returns nil without doing anything
+    - **Impact:** Calendar integration completely non-functional
+    - **Acceptance Criteria:** OAuth handlers and sync jobs functional
 
-9. **Session Status Conditions** (Builder)
-   - **Files:** `/home/user/streamspace/k8s-controller/controllers/session_controller.go:314,435,493`
-   - **Issue:** TODOs for setting Status.Conditions on errors
-   - **Impact:** API users can't track failure reasons
-   - **Acceptance Criteria:** Proper conditions set for all error states
+15. **Session Status Conditions** (Builder)
+    - **Files:** `/home/user/streamspace/k8s-controller/controllers/session_controller.go:314,435,493`
+    - **Issue:** TODOs for setting Status.Conditions on errors
+    - **Impact:** API users can't track failure reasons
+    - **Acceptance Criteria:** Proper conditions set for all error states
 
-10. **Batch Operations Error Collection** (Builder)
+16. **Batch Operations Error Collection** (Builder)
     - **File:** `/home/user/streamspace/api/internal/handlers/batch.go:632-851`
     - **Issue:** Errors not collected in error array
     - **Impact:** Users can't see what failed in batch operations
     - **Acceptance Criteria:** All errors included in response
 
-11. **Docker Controller Template Lookup** (Builder)
+17. **Docker Controller Template Lookup** (Builder)
     - **File:** `/home/user/streamspace/docker-controller/pkg/events/subscriber.go:118`
     - **Issue:** Hardcodes Firefox image instead of looking up template
     - **Impact:** Docker sessions ignore template settings
@@ -172,47 +214,47 @@ StreamSpace uses separate repositories for templates and plugins:
 
 ### UI Fixes (User-Facing Issues)
 
-12. **Marketplace Install Button** (Builder)
+18. **Marketplace Install Button** (Builder)
     - **File:** `/home/user/streamspace/ui/src/pages/Catalog.tsx:185-187`
     - **Issue:** Install button has no onClick handler
     - **Impact:** Users cannot install marketplace templates
     - **Acceptance Criteria:** Install functionality works
 
-13. **Dashboard Favorites API** (Builder)
+19. **Dashboard Favorites API** (Builder)
     - **File:** `/home/user/streamspace/ui/src/pages/Dashboard.tsx:78-94`
     - **Issue:** Uses localStorage instead of backend API
     - **Impact:** Favorites not synced across devices
     - **Acceptance Criteria:** API endpoint for user favorites
 
-14. **Demo Mode Security** (Builder)
+20. **Demo Mode Security** (Builder)
     - **File:** `/home/user/streamspace/ui/src/pages/Login.tsx:103-123`
     - **Issue:** Hardcoded auth allows ANY username
     - **Impact:** Security risk if enabled in production
     - **Acceptance Criteria:** Guard with environment variable
 
-15. **Remove Debug Console.log** (Builder)
+21. **Remove Debug Console.log** (Builder)
     - **File:** `/home/user/streamspace/ui/src/pages/Scheduling.tsx:157`
     - **Issue:** Debug console.log in production
     - **Acceptance Criteria:** Remove debug statements
 
 ### LOW Priority (Enhancements)
 
-16. **Hibernation Scheduling** (Builder)
+22. **Hibernation Scheduling** (Builder)
     - **File:** `/home/user/streamspace/k8s-controller/controllers/hibernation_controller.go:286-289`
     - **Issue:** Scheduled hibernation not implemented
     - **Impact:** Cannot hibernate at specific times
 
-17. **Wake-on-Access** (Builder)
+23. **Wake-on-Access** (Builder)
     - **File:** `/home/user/streamspace/k8s-controller/controllers/hibernation_controller.go:291-293`
     - **Issue:** Sessions don't auto-wake on request
     - **Impact:** Manual wake required
 
-18. **Hibernation Notifications** (Builder)
+24. **Hibernation Notifications** (Builder)
     - **File:** `/home/user/streamspace/k8s-controller/controllers/hibernation_controller.go:295-297`
     - **Issue:** No warnings before hibernation
     - **Impact:** Users lose unsaved work
 
-19. **Template Watching** (Builder)
+25. **Template Watching** (Builder)
     - **File:** `/home/user/streamspace/k8s-controller/controllers/session_controller.go:1272`
     - **Issue:** Sessions not updated when template changes
     - **Impact:** Manual session updates required
@@ -272,21 +314,78 @@ Completed comprehensive research on incomplete features. Key findings:
 
 **Recommendation**: Complete Phase 5.5 before Phase 6. The plugin system is fundamentally broken and must be fixed first.
 
+#### Architect - Additional Research (11:00)
+
+User feedback: "Applications system and sessions managers still don't work yet either."
+
+Conducted additional research and found **CRITICAL PLATFORM BLOCKERS**:
+
+**Applications System Issues:**
+1. Template name not used in session creation (lines 551, 557) - sessions have wrong/empty template names
+2. UseSessionTemplate only increments counter, doesn't create session
+3. Installation status never updates from 'pending' to 'installed'
+
+**Sessions Manager Issues:**
+1. Session Name/ID mismatch in API response - UI can't find sessions at all
+2. VNC URL empty when connecting - session viewer shows blank iframe
+3. Heartbeat has no validation - auto-hibernation never triggers
+
+**Root Cause Analysis:**
+- Session objects use 'name' property but API returns database ID instead
+- Template name resolution works but the resolved value is never used
+- No end-to-end testing of session creation → connection → viewing flow
+
+**Impact:** Users cannot:
+- Launch applications from Dashboard
+- Create sessions from templates
+- View or connect to sessions
+- Use the session viewer at all
+
+These are now the **TOP PRIORITY** issues in the task backlog.
+
 ---
 
 ## Architect → Builder - Assignment Ready
 
-Builder, please start with **Critical Issues** in Week 2:
+Builder, please start with **Critical Core Platform Issues** FIRST (before plugins):
 
-1. **Plugin Runtime Loading** (`api/internal/plugins/runtime.go:1043`)
-   - Implement `LoadHandler()` to actually load plugins from disk
-   - This is blocking all plugin functionality
+**Week 2 - Day 1-2: Session Manager Fixes**
 
-2. **Webhook Secret Panic** (`api/internal/handlers/integrations.go:896`)
+1. **Session Name/ID Mismatch** (`api/internal/api/handlers.go:1838`)
+   - Fix `convertDBSessionToResponse()` to return `session.Name` not `session.ID`
+   - This is blocking ALL session viewing
+
+2. **Template Name Not Used** (`api/internal/api/handlers.go:551,557`)
+   - Use `templateName` (resolved value) instead of `req.Template`
+   - This is blocking application launching
+
+3. **VNC URL Empty** (`api/internal/api/handlers.go:744-748`)
+   - Wait for URL to be set before returning connection
+   - This causes blank session viewer
+
+**Week 2 - Day 3-4: Applications System Fixes**
+
+4. **UseSessionTemplate Creation** (`handlers/sessiontemplates.go:488-508`)
+   - Implement actual session creation, not just counter increment
+   - Custom templates can't be launched
+
+5. **Installation Status** (`handlers/applications.go:232-268`)
+   - Add mechanism to update from 'pending' to 'installed'
+   - Apps stuck at "Installing..."
+
+6. **Heartbeat Validation** (`api/internal/api/handlers.go:776-792`)
+   - Validate connectionId belongs to session
+   - Auto-hibernation broken
+
+**Week 2 - Day 5: Plugin & Stability Fixes**
+
+7. **Plugin Runtime Loading** (`api/internal/plugins/runtime.go:1043`)
+   - Implement `LoadHandler()` to load plugins from disk
+
+8. **Webhook Secret Panic** (`api/internal/handlers/integrations.go:896`)
    - Replace `panic()` with proper error return
-   - Simple fix but critical for stability
 
-After Critical, proceed to High Priority items. See Task Backlog for full details with file paths and acceptance criteria.
+See Task Backlog for full details with file paths and acceptance criteria.
 
 ---
 
@@ -336,17 +435,25 @@ Wait for implementation to stabilize before writing final docs.
 ### Phase 5.5: Incomplete Features Analysis (COMPLETE)
 
 #### Summary Statistics
-- **Total incomplete features found:** 40+
-- **Critical issues:** 2
+- **Total incomplete features found:** 50+
+- **Critical issues:** 8 (including core platform blockers)
 - **High priority issues:** 3
-- **Medium priority issues:** 11
+- **Medium priority issues:** 6
 - **UI fixes needed:** 4
 - **Low priority enhancements:** 4
 
-#### Critical Issues Found
+#### CRITICAL: Core Platform Blockers
 
-1. **Plugin Runtime Loading** - Core plugin feature not implemented
-2. **Webhook Secret Panic** - API can crash on random generation failure
+**These prevent users from using basic functionality!**
+
+1. **Session Name/ID Mismatch** - API returns wrong field, UI can't find sessions
+2. **Template Name Not Used** - Sessions created with empty/wrong template names
+3. **UseSessionTemplate Doesn't Create** - Custom templates can't be launched
+4. **VNC URL Empty** - Session viewer shows blank iframe
+5. **Heartbeat No Validation** - Auto-hibernation never triggers
+6. **Installation Status Never Updates** - Apps stuck at "Installing..."
+7. **Plugin Runtime Loading** - Plugins cannot be loaded
+8. **Webhook Secret Panic** - API can crash
 
 #### Security Vulnerabilities
 
@@ -356,10 +463,12 @@ Wait for implementation to stabilize before writing final docs.
 
 #### Broken Core Features
 
-1. **Plugin System** - Enable/Config updates don't work
-2. **MFA SMS/Email** - Returns 501 Not Implemented
-3. **Multi-Monitor Plugin** - Completely non-functional
-4. **Calendar Plugin** - Completely non-functional
+1. **Applications System** - Installation appears successful but fails
+2. **Sessions Manager** - Cannot create/view/connect to sessions
+3. **Plugin System** - Enable/Config updates don't work
+4. **MFA SMS/Email** - Returns 501 Not Implemented
+5. **Multi-Monitor Plugin** - Completely non-functional
+6. **Calendar Plugin** - Completely non-functional
 
 #### UI Issues
 
