@@ -96,8 +96,15 @@ func CacheMiddleware(cache *Cache, ttl time.Duration) gin.HandlerFunc {
 			return
 		}
 
-		// Generate cache key from request path and query params
-		cacheKey := generateCacheKey(c.Request.URL.RequestURI())
+		// Generate cache key from request path, query params, and userID for user-specific endpoints
+		// This ensures each user gets their own cached response for endpoints like /applications/user
+		userID := ""
+		if uid, exists := c.Get("userID"); exists {
+			if id, ok := uid.(string); ok {
+				userID = id
+			}
+		}
+		cacheKey := generateCacheKey(c.Request.URL.RequestURI(), userID)
 
 		// Try to get cached response
 		var cachedResp CachedResponse
@@ -146,9 +153,16 @@ func CacheMiddleware(cache *Cache, ttl time.Duration) gin.HandlerFunc {
 	}
 }
 
-// generateCacheKey creates a consistent cache key from the request URI
-func generateCacheKey(uri string) string {
-	hash := sha256.Sum256([]byte(uri))
+// generateCacheKey creates a consistent cache key from the request URI and optional userID
+// Including userID ensures user-specific responses are cached separately
+func generateCacheKey(uri string, userID string) string {
+	// Combine URI and userID for the hash
+	// This ensures each user gets their own cache entry for user-specific endpoints
+	keyInput := uri
+	if userID != "" {
+		keyInput = fmt.Sprintf("%s:user:%s", uri, userID)
+	}
+	hash := sha256.Sum256([]byte(keyInput))
 	return fmt.Sprintf("response:%s", hex.EncodeToString(hash[:]))
 }
 
