@@ -155,6 +155,7 @@ var (
 // Each request gets its own Gin context with isolated state.
 type Handler struct {
 	db             *db.Database                 // Database for caching and metadata
+	sessionDB      *db.SessionDB                // Session database operations
 	k8sClient      *k8s.Client                  // Kubernetes client for CRD operations
 	publisher      *events.Publisher            // NATS event publisher
 	connTracker    *tracker.ConnectionTracker   // Active connection tracking
@@ -200,6 +201,7 @@ func NewHandler(database *db.Database, k8sClient *k8s.Client, publisher *events.
 	}
 	return &Handler{
 		db:            database,
+		sessionDB:     db.NewSessionDB(database.DB()),
 		k8sClient:     k8sClient,
 		publisher:     publisher,
 		connTracker:   connTracker,
@@ -262,26 +264,43 @@ func (h *Handler) ListSessions(c *gin.Context) {
 	ctx := c.Request.Context()
 	userID := c.Query("user")
 
-	var sessions []*k8s.Session
+	// Use database as source of truth for multi-platform support
+	var dbSessions []*db.Session
 	var err error
 
 	if userID != "" {
-		sessions, err = h.k8sClient.ListSessionsByUser(ctx, h.namespace, userID)
+		dbSessions, err = h.sessionDB.ListSessionsByUser(ctx, userID)
 	} else {
-		sessions, err = h.k8sClient.ListSessions(ctx, h.namespace)
+		dbSessions, err = h.sessionDB.ListSessions(ctx)
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// Fall back to Kubernetes for backward compatibility
+		log.Printf("Database session query failed, falling back to k8s: %v", err)
+		var k8sSessions []*k8s.Session
+		if userID != "" {
+			k8sSessions, err = h.k8sClient.ListSessionsByUser(ctx, h.namespace, userID)
+		} else {
+			k8sSessions, err = h.k8sClient.ListSessions(ctx, h.namespace)
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		enriched := h.enrichSessionsWithDBInfo(ctx, k8sSessions)
+		c.JSON(http.StatusOK, gin.H{
+			"sessions": enriched,
+			"total":    len(enriched),
+		})
 		return
 	}
 
-	// Enrich with database info (active connections)
-	enriched := h.enrichSessionsWithDBInfo(ctx, sessions)
+	// Convert database sessions to API response format
+	sessions := h.convertDBSessionsToResponse(dbSessions)
 
 	c.JSON(http.StatusOK, gin.H{
-		"sessions": enriched,
-		"total":    len(enriched),
+		"sessions": sessions,
+		"total":    len(sessions),
 	})
 }
 
@@ -291,16 +310,24 @@ func (h *Handler) GetSession(c *gin.Context) {
 	ctx := c.Request.Context()
 	sessionID := c.Param("id")
 
-	session, err := h.k8sClient.GetSession(ctx, h.namespace, sessionID)
+	// Use database as source of truth for multi-platform support
+	dbSession, err := h.sessionDB.GetSession(ctx, sessionID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+		// Fall back to Kubernetes for backward compatibility
+		log.Printf("Database session query failed, falling back to k8s: %v", err)
+		k8sSession, k8sErr := h.k8sClient.GetSession(ctx, h.namespace, sessionID)
+		if k8sErr != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
+			return
+		}
+		enriched := h.enrichSessionWithDBInfo(ctx, k8sSession)
+		c.JSON(http.StatusOK, enriched)
 		return
 	}
 
-	// Enrich with database info
-	enriched := h.enrichSessionWithDBInfo(ctx, session)
-
-	c.JSON(http.StatusOK, enriched)
+	// Convert to API response format
+	session := h.convertDBSessionToResponse(dbSession)
+	c.JSON(http.StatusOK, session)
 }
 
 // CreateSession creates a new container session for a user.
@@ -1714,6 +1741,50 @@ func (h *Handler) enrichSessionWithDBInfo(ctx context.Context, session *k8s.Sess
 	return result
 }
 
+// convertDBSessionsToResponse converts database sessions to API response format.
+func (h *Handler) convertDBSessionsToResponse(sessions []*db.Session) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0, len(sessions))
+	for _, session := range sessions {
+		result = append(result, h.convertDBSessionToResponse(session))
+	}
+	return result
+}
+
+// convertDBSessionToResponse converts a database session to API response format.
+func (h *Handler) convertDBSessionToResponse(session *db.Session) map[string]interface{} {
+	result := map[string]interface{}{
+		"name":               session.ID,
+		"namespace":          session.Namespace,
+		"user":               session.UserID,
+		"template":           session.TemplateName,
+		"state":              session.State,
+		"persistentHome":     session.PersistentHome,
+		"idleTimeout":        session.IdleTimeout,
+		"maxSessionDuration": session.MaxSessionDuration,
+		"createdAt":          session.CreatedAt,
+		"platform":           session.Platform,
+		"activeConnections":  session.ActiveConnections,
+		"status": map[string]interface{}{
+			"phase":   session.State,
+			"url":     session.URL,
+			"podName": session.PodName,
+		},
+	}
+
+	if session.Memory != "" || session.CPU != "" {
+		result["resources"] = map[string]string{
+			"memory": session.Memory,
+			"cpu":    session.CPU,
+		}
+	}
+
+	if session.LastActivity != nil {
+		result["status"].(map[string]interface{})["lastActivity"] = session.LastActivity
+	}
+
+	return result
+}
+
 // cacheSessionInDB caches a session in the PostgreSQL database.
 //
 // DATABASE TRANSACTION BOUNDARY:
@@ -1747,14 +1818,26 @@ func (h *Handler) enrichSessionWithDBInfo(ctx context.Context, session *k8s.Sess
 //       log.Printf("Cache update failed (non-fatal): %v", err)
 //   }
 func (h *Handler) cacheSessionInDB(ctx context.Context, session *k8s.Session) error {
-	_, err := h.db.DB().ExecContext(ctx, `
-		INSERT INTO sessions (id, user_id, template_name, state, app_type, namespace, url, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (id) DO UPDATE
-		SET user_id = $2, template_name = $3, state = $4, updated_at = $9
-	`, session.Name, session.User, session.Template, session.State, "desktop", session.Namespace, session.Status.URL, session.CreatedAt, time.Now())
+	dbSession := &db.Session{
+		ID:                 session.Name,
+		UserID:             session.User,
+		TemplateName:       session.Template,
+		State:              session.State,
+		AppType:            "desktop",
+		Namespace:          session.Namespace,
+		Platform:           h.platform,
+		URL:                session.Status.URL,
+		PodName:            session.Status.PodName,
+		Memory:             session.Resources.Memory,
+		CPU:                session.Resources.CPU,
+		PersistentHome:     session.PersistentHome,
+		IdleTimeout:        session.IdleTimeout,
+		MaxSessionDuration: session.MaxSessionDuration,
+		CreatedAt:          session.CreatedAt,
+		LastActivity:       session.Status.LastActivity,
+	}
 
-	return err
+	return h.sessionDB.CreateSession(ctx, dbSession)
 }
 
 // updateSessionInDB updates a cached session in the database.

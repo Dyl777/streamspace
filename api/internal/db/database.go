@@ -2067,6 +2067,18 @@ func (d *Database) Migrate() error {
 		// Create indexes for session platform tracking
 		`CREATE INDEX IF NOT EXISTS idx_sessions_platform ON sessions(platform)`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_controller_id ON sessions(controller_id)`,
+
+		// Add additional session fields for multi-platform support
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS pod_name VARCHAR(255)`,
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS memory VARCHAR(50)`,
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS cpu VARCHAR(50)`,
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS persistent_home BOOLEAN DEFAULT false`,
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS idle_timeout VARCHAR(50)`,
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS max_session_duration VARCHAR(50)`,
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_activity TIMESTAMP`,
+
+		// Create index for idle session queries
+		`CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions(last_activity)`,
 	}
 
 	// Execute migrations
