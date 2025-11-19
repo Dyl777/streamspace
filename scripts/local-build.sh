@@ -73,13 +73,13 @@ check_prerequisites() {
 build_kubernetes_controller() {
     log "Building Kubernetes controller image..."
     log_info "Image: ${KUBERNETES_CONTROLLER_IMAGE}:${VERSION}"
-    log_info "Context: ${PROJECT_ROOT}/controller"
+    log_info "Context: ${PROJECT_ROOT}/k8s-controller"
 
     docker build ${BUILD_ARGS} \
         -t "${KUBERNETES_CONTROLLER_IMAGE}:${VERSION}" \
         -t "${KUBERNETES_CONTROLLER_IMAGE}:latest" \
-        -f "${PROJECT_ROOT}/controller/Dockerfile" \
-        "${PROJECT_ROOT}/controller/"
+        -f "${PROJECT_ROOT}/k8s-controller/Dockerfile" \
+        "${PROJECT_ROOT}/k8s-controller/"
 
     log_success "Kubernetes controller image built successfully"
 }
