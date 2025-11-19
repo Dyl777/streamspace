@@ -71,9 +71,9 @@ StreamSpace uses separate repositories for templates and plugins:
 | Installation Status | Complete | Builder | 100% |
 | Plugin Runtime Loading | Complete | Builder | 100% |
 | Webhook Secret Panic | Complete | Builder | 100% |
-| **High Priority (3 issues)** | Not Started | Builder | 0% |
-| Plugin Enable/Config | Not Started | Builder | 0% |
-| SAML Validation | Not Started | Builder | 0% |
+| **High Priority (3 issues)** | **Complete** | Builder | **100%** |
+| Plugin Enable/Config | Complete | Builder | 100% |
+| SAML Validation | Complete | Builder | 100% |
 | **Medium Priority (4 issues)** | Not Started | Builder | 0% |
 | MFA SMS/Email | Not Started | Builder | 0% |
 | Session Status Conditions | Not Started | Builder | 0% |
@@ -284,6 +284,41 @@ Phase 6 tasks will resume after Phase 5.5 is complete:
 ## Agent Communication Log
 
 ### 2025-11-19
+
+#### Builder - HIGH Priority Fixes Complete (15:00)
+
+**ALL 3 HIGH PRIORITY ISSUES RESOLVED**
+
+Implementation complete for all high priority issues. Commit: 996e6e4
+
+**Changes Made:**
+
+1. **Plugin Enable Runtime Loading** (`handlers/plugin_marketplace.go`, `plugins/runtime_v2.go`)
+   - Added LoadPluginByName method to RuntimeV2
+   - Added ReloadPlugin method for config updates
+   - EnablePlugin now loads plugin after database update
+   - UpdatePluginConfig now persists and reloads plugins
+
+2. **SAML Return URL Validation** (`auth/handlers.go`, `auth/saml.go`)
+   - Added validateReturnURL function to prevent open redirect attacks
+   - Validates URLs are relative paths (start with /)
+   - Blocks protocol-relative URLs (//evil.com)
+   - Blocks backslashes and encoded characters
+   - Applied to both SAMLLogin handlers
+
+**Files Modified:**
+- api/internal/plugins/runtime_v2.go (LoadPluginByName, ReloadPlugin)
+- api/internal/handlers/plugin_marketplace.go (EnablePlugin, UpdatePluginConfig)
+- api/internal/auth/handlers.go (validateReturnURL, SAMLLogin)
+- api/internal/auth/saml.go (SAML login route)
+
+**Progress:** 11/23 issues complete (8 Critical + 3 High)
+
+**Ready For:**
+- Validator testing of HIGH priority fixes
+- Medium priority issues (MFA SMS/Email, Session Status Conditions, Batch Errors, Docker Controller)
+
+---
 
 #### Builder - Critical Fixes Complete (14:00)
 
