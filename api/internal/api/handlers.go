@@ -1021,8 +1021,8 @@ func (h *Handler) DeleteTemplate(c *gin.Context) {
 
 	// Publish template delete event for controllers
 	deleteEvent := &events.TemplateDeleteEvent{
-		TemplateID: templateID,
-		Platform:   h.platform,
+		TemplateName: templateID,
+		Platform:     h.platform,
 	}
 	if err := h.publisher.PublishTemplateDelete(ctx, deleteEvent); err != nil {
 		log.Printf("Warning: Failed to publish template delete event: %v", err)
