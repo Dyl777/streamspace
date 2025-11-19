@@ -301,7 +301,7 @@ func (s *Subscriber) handleControllerSyncRequest(data []byte) {
 		}
 
 		// Publish AppInstallEvent for this application
-		if err := s.publisher.PublishAppInstall(ctx, AppInstallEvent{
+		if err := s.publisher.PublishAppInstall(ctx, &AppInstallEvent{
 			InstallID:         id,
 			CatalogTemplateID: catalogTemplateID,
 			TemplateName:      templateName,
