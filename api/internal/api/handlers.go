@@ -645,6 +645,25 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		return
 	}
 
+	// Cache session in database so status updates can be applied
+	// This is best-effort - failure doesn't block session creation
+	dbSession := &db.Session{
+		ID:                 sessionName,
+		UserID:             req.User,
+		TemplateName:       templateName,
+		State:              "pending",
+		Namespace:          h.namespace,
+		Platform:           h.platform,
+		Memory:             memory,
+		CPU:                cpu,
+		PersistentHome:     session.PersistentHome,
+		IdleTimeout:        session.IdleTimeout,
+		MaxSessionDuration: session.MaxSessionDuration,
+	}
+	if err := h.sessionDB.CreateSession(ctx, dbSession); err != nil {
+		log.Printf("Failed to cache session %s in database (non-fatal): %v", sessionName, err)
+	}
+
 	// Return the session info immediately
 	// The controller will create the actual Kubernetes resources
 	response := map[string]interface{}{
