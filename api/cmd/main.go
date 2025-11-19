@@ -18,6 +18,7 @@ import (
 	"github.com/streamspace/streamspace/api/internal/auth"
 	"github.com/streamspace/streamspace/api/internal/cache"
 	"github.com/streamspace/streamspace/api/internal/db"
+	"github.com/streamspace/streamspace/api/internal/events"
 	"github.com/streamspace/streamspace/api/internal/handlers"
 	"github.com/streamspace/streamspace/api/internal/k8s"
 	"github.com/streamspace/streamspace/api/internal/middleware"
@@ -91,6 +92,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
+
+	// Initialize NATS event publisher
+	// This enables event-driven communication with platform controllers
+	log.Println("Initializing NATS event publisher...")
+	natsURL := getEnv("NATS_URL", "")
+	natsUser := getEnv("NATS_USER", "")
+	natsPassword := getEnv("NATS_PASSWORD", "")
+	eventPublisher, err := events.NewPublisher(events.Config{
+		URL:      natsURL,
+		User:     natsUser,
+		Password: natsPassword,
+	})
+	if err != nil {
+		log.Printf("Warning: Failed to initialize NATS publisher: %v", err)
+		log.Println("Event publishing will be disabled - controllers will not receive events")
+	}
+	defer eventPublisher.Close()
 
 	// Initialize connection tracker
 	log.Println("Starting connection tracker...")
@@ -266,12 +284,12 @@ func main() {
 	securityHandler := handlers.NewSecurityHandler(database)
 	templateVersioningHandler := handlers.NewTemplateVersioningHandler(database)
 	setupHandler := handlers.NewSetupHandler(database)
-	// Get namespace from environment (same as api.NewHandler)
-	appNamespace := os.Getenv("NAMESPACE")
-	if appNamespace == "" {
-		appNamespace = "streamspace" // Default namespace
+	// Get platform from environment (for multi-platform support)
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		platform = events.PlatformKubernetes // Default platform
 	}
-	applicationHandler := handlers.NewApplicationHandler(database, k8sClient, appNamespace)
+	applicationHandler := handlers.NewApplicationHandler(database, eventPublisher, platform)
 	// NOTE: Billing is now handled by the streamspace-billing plugin
 
 	// SECURITY: Initialize webhook authentication
