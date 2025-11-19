@@ -26,6 +26,7 @@ BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 CONTROLLER_IMAGE="streamspace/streamspace-controller"
 API_IMAGE="streamspace/streamspace-api"
 UI_IMAGE="streamspace/streamspace-ui"
+DOCKER_CONTROLLER_IMAGE="streamspace/streamspace-docker-controller"
 
 # Build arguments
 BUILD_ARGS="--build-arg VERSION=${VERSION} --build-arg COMMIT=${GIT_COMMIT} --build-arg BUILD_DATE=${BUILD_DATE}"
@@ -113,12 +114,33 @@ build_ui() {
     log_success "UI image built successfully"
 }
 
+# Build Docker controller image
+build_docker_controller() {
+    log "Building Docker controller image..."
+    log_info "Image: ${DOCKER_CONTROLLER_IMAGE}:${VERSION}"
+    log_info "Context: ${PROJECT_ROOT}/docker-controller"
+
+    # Check if docker-controller directory exists
+    if [ ! -d "${PROJECT_ROOT}/docker-controller" ]; then
+        log_warning "Docker controller directory not found, skipping"
+        return 0
+    fi
+
+    docker build ${BUILD_ARGS} \
+        -t "${DOCKER_CONTROLLER_IMAGE}:${VERSION}" \
+        -t "${DOCKER_CONTROLLER_IMAGE}:latest" \
+        -f "${PROJECT_ROOT}/docker-controller/Dockerfile" \
+        "${PROJECT_ROOT}/docker-controller/"
+
+    log_success "Docker controller image built successfully"
+}
+
 # List built images
 list_images() {
     log "Built images:"
     echo ""
     docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}" | \
-        grep -E "REPOSITORY|streamspace/streamspace-(controller|api|ui)" || true
+        grep -E "REPOSITORY|streamspace/streamspace-(controller|api|ui|docker-controller)" || true
     echo ""
 }
 
@@ -141,6 +163,7 @@ main() {
         build_controller
         build_api
         build_ui
+        build_docker_controller
     else
         # Build specific components
         for component in "$@"; do
@@ -154,9 +177,12 @@ main() {
                 ui)
                     build_ui
                     ;;
+                docker-controller)
+                    build_docker_controller
+                    ;;
                 *)
                     log_error "Unknown component: $component"
-                    log_info "Valid components: controller, api, ui"
+                    log_info "Valid components: controller, api, ui, docker-controller"
                     exit 1
                     ;;
             esac
