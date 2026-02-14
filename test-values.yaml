@@ -1,0 +1,58 @@
+# Test values for StreamSpace deployment
+
+controller:
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: ""
+  podDisruptionBudget:
+    enabled: false
+  autoscaling:
+    enabled: false
+  config:
+    ingressDomain: "streamspace.local"
+    ingressClass: "nginx"
+
+api:
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: ""
+  podDisruptionBudget:
+    enabled: false
+  autoscaling:
+    enabled: false
+
+ui:
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: ""
+  podDisruptionBudget:
+    enabled: false
+  autoscaling:
+    enabled: false
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "testpassword"
+    database: "streamspace"
+
+redis:
+  enabled: true
+
+nats:
+  enabled: true
+
+ingress:
+  enabled: false  # We'll use port-forward for testing
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+  prometheusRule:
+    enabled: false
+  grafanaDashboard:
+    enabled: false

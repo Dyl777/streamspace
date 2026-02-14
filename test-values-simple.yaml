@@ -1,0 +1,10 @@
+# Simple test values with monitoring disabled
+
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+  prometheusRule:
+    enabled: false
+  grafanaDashboard:
+    enabled: false

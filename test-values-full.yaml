@@ -1,0 +1,700 @@
+# Default values for StreamSpace
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+## Global settings
+global:
+  # Image registry to use for all images
+  imageRegistry: ""
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  # Storage class for all PVCs
+  storageClass: ""
+
+## StreamSpace Kubernetes Controller
+## This is the Kubernetes-specific platform controller for the multi-platform architecture.
+## For Docker environments, use the Docker controller (docker-controller/).
+controller:
+  enabled: true
+
+  image:
+    registry: ghcr.io
+    repository: streamspace/streamspace-kubernetes-controller
+    tag: "v0.2.0"
+    pullPolicy: IfNotPresent
+
+  # Number of controller replicas (use 3+ with leader election for HA)
+  replicaCount: 1
+
+  # Leader election for high availability
+  leaderElection:
+    enabled: false  # Enable when replicaCount > 1
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 200m
+    limits:
+      memory: 512Mi
+      cpu: 1000m
+
+  # Controller configuration
+  config:
+    # Ingress settings for created sessions
+    ingressDomain: streamspace.local
+    ingressClass: traefik
+
+    # Metrics and health
+    metricsBindAddress: ":8080"
+    healthProbeBindAddress: ":8081"
+
+  # Service for metrics
+  service:
+    type: ClusterIP
+    metricsPort: 8080
+
+  # Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+  # Pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+
+  # Security context
+  podSecurityContext:
+    fsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    # maxUnavailable: 1
+
+## API Backend
+api:
+  enabled: true
+
+  image:
+    registry: ghcr.io
+    repository: streamspace/streamspace-api
+    tag: "v0.2.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 200m
+    limits:
+      memory: 512Mi
+      cpu: 1000m
+
+  # API configuration
+  config:
+    port: 8000
+    ginMode: release
+
+    # CORS settings
+    corsOrigins: "*"  # Restrict in production
+
+    # Repository sync (deprecated - use repositories section below)
+    syncInterval: "1h"
+    syncWorkDir: /tmp/streamspace-repos
+
+    # Default user quota settings (applied to new users)
+    quota:
+      defaultMaxSessions: 5        # Maximum concurrent sessions per user
+      defaultMaxCPU: "4000m"        # Maximum CPU allocation (4 cores)
+      defaultMaxMemory: "16Gi"      # Maximum memory allocation
+      defaultMaxStorage: "100Gi"    # Maximum persistent storage
+
+  # Authentication configuration
+  auth:
+    # Authentication mode: jwt, saml, hybrid, oidc
+    mode: jwt
+
+    # JWT configuration
+    jwt:
+      secret: ""  # Set via existingSecret or auto-generate
+      expiration: 24h
+
+## Admin User Configuration
+# Configure the initial admin user credentials
+auth:
+  admin:
+    # Admin password (leave empty for auto-generation)
+    # ⚠️ SECURITY: For production, provide a secure password or use existingSecret
+    password: ""  # Empty = auto-generate 32-character random password
+
+    # Admin email
+    email: "admin@streamspace.local"
+
+    # Use existing secret for admin credentials (optional)
+    # If set, password and email above will be ignored
+    existingSecret: ""
+    # Keys in the existing secret:
+    # - username: Admin username (default: admin)
+    # - password: Admin password
+    # - email: Admin email
+
+    # SAML SSO configuration
+    saml:
+      enabled: false
+
+      # SAML provider: okta, azuread, google, auth0, keycloak, authentik, generic
+      provider: generic
+
+      # Entity ID (SP identifier)
+      entityID: ""  # e.g., https://streamspace.example.com
+
+      # IdP Metadata (choose one)
+      metadataURL: ""  # URL to fetch IdP metadata
+      metadataXML: ""  # Or provide XML directly
+
+      # Assertion Consumer Service URL
+      acsURL: ""  # e.g., https://streamspace.example.com/saml/acs
+
+      # Single Logout URL
+      sloURL: ""  # e.g., https://streamspace.example.com/saml/slo
+
+      # Certificate and private key (for signing requests)
+      certificate: ""  # Path to certificate file or PEM content
+      privateKey: ""   # Path to private key file or PEM content
+
+      # Or use existing secret
+      existingSecret: ""
+      existingSecretCertKey: "saml-cert"
+      existingSecretKeyKey: "saml-key"
+
+      # SAML options
+      allowIDPInitiated: true
+      signRequest: true
+      forceAuthn: false
+
+      # Attribute mapping (maps SAML attributes to user fields)
+      attributeMapping:
+        email: ""      # Leave empty to use provider defaults
+        username: ""
+        firstName: ""
+        lastName: ""
+        groups: ""
+
+      # Provider-specific configuration (optional overrides)
+      okta:
+        domain: ""     # e.g., mycompany.okta.com
+        appID: ""
+
+      azuread:
+        tenantID: ""   # Azure AD tenant ID
+
+      google:
+        idpID: ""      # Google Workspace IdP ID
+
+      auth0:
+        domain: ""
+        clientID: ""
+
+      keycloak:
+        domain: ""
+        realm: ""
+
+      authentik:
+        domain: ""
+        slug: ""
+
+  # Service
+  service:
+    type: ClusterIP
+    port: 8000
+
+  # Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+  # Pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+
+  # Security context
+  podSecurityContext:
+    fsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false  # Needs to write to /tmp for repo clones
+
+  # Autoscaling
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    # maxUnavailable: 1
+
+## Web UI
+ui:
+  enabled: true
+
+  image:
+    registry: ghcr.io
+    repository: streamspace/streamspace-ui
+    tag: "v0.2.0"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+      cpu: 200m
+
+  # Service
+  service:
+    type: ClusterIP
+    port: 80
+
+  # Security context
+  podSecurityContext:
+    fsGroup: 101
+    runAsNonRoot: true
+    runAsUser: 101  # nginx user
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  # Autoscaling
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    # maxUnavailable: 1
+
+## PostgreSQL Database
+postgresql:
+  enabled: true
+
+  # Use external PostgreSQL
+  external:
+    enabled: false
+    host: ""
+    port: 5432
+    database: streamspace
+    username: streamspace
+    # Password should be in existingSecret
+    existingSecret: ""
+    existingSecretPasswordKey: "postgres-password"
+
+  # Internal PostgreSQL (for development/testing)
+  internal:
+    image:
+      registry: docker.io
+      repository: postgres
+      tag: "15-alpine"
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 250m
+      limits:
+        memory: 512Mi
+        cpu: 500m
+
+    # Persistent volume
+    persistence:
+      enabled: true
+      storageClass: ""
+      size: 20Gi
+      accessMode: ReadWriteOnce
+
+    # Security
+    podSecurityContext:
+      fsGroup: 999
+      runAsNonRoot: true
+      runAsUser: 999
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+  # Database configuration
+  auth:
+    database: streamspace
+    username: streamspace
+    # Password from secret
+    existingSecret: ""
+    secretKeys:
+      adminPasswordKey: "postgres-password"
+
+## NATS Message Broker (Required for multi-platform support)
+nats:
+  enabled: true  # Required for event communication between API and controllers
+
+  # Use external NATS
+  external:
+    enabled: false
+    url: ""  # e.g., "nats://nats.example.com:4222"
+    user: ""
+    password: ""
+    existingSecret: ""
+    existingSecretUserKey: "nats-user"
+    existingSecretPasswordKey: "nats-password"
+
+  # Internal NATS (for development/testing)
+  internal:
+    image:
+      registry: docker.io
+      repository: nats
+      tag: "2.10-alpine"
+      pullPolicy: IfNotPresent
+
+    # Enable JetStream for durable messaging
+    jetstream:
+      enabled: true
+      storeDir: /data
+
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 200m
+
+    # Persistence for JetStream (optional)
+    persistence:
+      enabled: false
+      storageClass: ""
+      size: 1Gi
+      accessMode: ReadWriteOnce
+
+    # Security
+    podSecurityContext:
+      fsGroup: 1000
+      runAsNonRoot: true
+      runAsUser: 1000
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+    # Service configuration
+    service:
+      type: ClusterIP
+      clientPort: 4222
+      monitorPort: 8222
+      clusterPort: 6222
+
+## Redis Cache (Optional)
+redis:
+  enabled: false  # Set to true to enable caching
+
+  # Use external Redis
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    # Password should be in existingSecret
+    password: ""
+    existingSecret: ""
+    existingSecretPasswordKey: "redis-password"
+    database: 0
+
+  # Internal Redis (for development/testing)
+  internal:
+    image:
+      registry: docker.io
+      repository: redis
+      tag: "7-alpine"
+      pullPolicy: IfNotPresent
+
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 200m
+
+    # Persistent volume (optional for cache)
+    persistence:
+      enabled: false  # Usually not needed for cache
+      storageClass: ""
+      size: 5Gi
+      accessMode: ReadWriteOnce
+
+    # Security
+    podSecurityContext:
+      fsGroup: 999
+      runAsNonRoot: true
+      runAsUser: 999
+
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+    # Redis configuration
+    config:
+      maxMemory: "200mb"
+      maxMemoryPolicy: "allkeys-lru"  # Evict least recently used keys
+      appendOnly: "no"  # Don't persist to disk for cache
+
+  # Cache TTL configuration (used by API)
+  ttl:
+    sessions: 30s        # Session lists
+    templates: 5m        # Template catalog
+    catalog: 10m         # External catalog data
+    config: 5m           # Configuration values
+    cluster: 1m          # Kubernetes cluster resources
+
+## Ingress
+ingress:
+  enabled: true
+  className: traefik
+
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+
+  hosts:
+    - host: streamspace.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: ui
+        - path: /api
+          pathType: Prefix
+          service: api
+        - path: /health
+          pathType: Exact
+          service: api
+        - path: /version
+          pathType: Exact
+          service: api
+
+  tls:
+    enabled: false
+    # - secretName: streamspace-tls
+    #   hosts:
+    #     - streamspace.local
+
+## Secrets
+secrets:
+  # Create secrets automatically (NOT for production!)
+  # ⚠️ WARNING: This will create secrets with default passwords - ONLY for development/testing
+  # For production, set create: false and use existingSecret with proper secret management
+  create: true
+
+  # PostgreSQL password
+  # ⚠️ SECURITY WARNING: Change this password before deploying to production!
+  # Generate a secure password with: openssl rand -base64 32
+  # Or use existingSecret below with a properly managed secret
+  postgresPassword: "changeme"  # DEFAULT - CHANGE FOR PRODUCTION!
+
+  # Or use existing secret
+  existingSecret: ""
+  existingSecretKeys:
+    postgresPassword: "postgres-password"
+
+## Application Templates
+templates:
+  # Deploy bundled sample templates on install (minimal set)
+  # For full catalog, enable external repository below
+  deploy: true
+
+  # Categories to deploy from bundled templates
+  categories:
+    browsers: true      # Firefox only (minimal default)
+    development: false  # Use external repository
+    productivity: false # Use external repository
+    design: false       # Use external repository
+    media: false        # Use external repository
+    gaming: false       # Use external repository
+    webtop: false       # Use external repository
+
+## External Repositories
+# StreamSpace can sync templates and plugins from external Git repositories
+repositories:
+  # Application templates repository
+  templates:
+    enabled: true
+    url: https://github.com/JoshuaAFerguson/streamspace-templates
+    branch: main
+    syncInterval: 1h  # How often to sync (e.g., 15m, 1h, 24h)
+
+    # Categories to sync from external repository
+    categories:
+      browsers: true      # Firefox, Chromium, Brave, LibreWolf
+      development: true   # VS Code, GitHub Desktop
+      productivity: true  # LibreOffice, Calligra
+      design: true        # GIMP, Krita, Inkscape, Blender
+      media: true         # Audacity, Kdenlive
+      gaming: true        # DuckStation, Dolphin
+      webtop: true        # Desktop environments
+
+  # Plugin repository
+  plugins:
+    enabled: true
+    url: https://github.com/JoshuaAFerguson/streamspace-plugins
+    branch: main
+    syncInterval: 1h
+
+    # Auto-install official plugins
+    autoInstall:
+      official: false  # Set to true to auto-install all official plugins
+      community: false # Set to true to auto-install all community plugins (not recommended)
+
+    # Specific plugins to auto-install
+    install:
+      []
+      # - session-recorder
+      # - audit-logger
+      # - slack-integration
+
+## Monitoring & Observability
+monitoring:
+  enabled: true
+
+  # Prometheus ServiceMonitor
+  serviceMonitor:
+    enabled: true
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    relabelings: []
+
+  # Prometheus Rules
+  prometheusRules:
+    enabled: true
+    namespace: ""
+    labels: {}
+    interval: 30s
+    alerts:
+      highSessionCount:
+        threshold: 100
+        duration: 10m
+    additionalRules: []
+
+  # Grafana Dashboard
+  grafanaDashboard:
+    enabled: true
+    namespace: ""
+    labels:
+      grafana_dashboard: "1"
+
+## Session Defaults
+sessionDefaults:
+  # Default resources for new sessions
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 1000m
+    limits:
+      memory: 4Gi
+      cpu: 2000m
+
+  # Persistent home directory
+  persistentHome:
+    enabled: true
+    size: 50Gi
+    storageClass: ""
+
+  # Auto-hibernation
+  idleTimeout: 30m
+  maxSessionDuration: 8h
+
+  # State
+  defaultState: running
+
+## RBAC
+rbac:
+  create: true
+
+## Network Policies
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  # Ingress controller namespace
+  ingress:
+    namespace: kube-system
+  # Monitoring namespace
+  monitoring:
+    namespace: observability
+  # Controller network restrictions
+  controller:
+    restrictEgress: false
+
+## Common labels
+commonLabels: {}
+
+## Common annotations
+commonAnnotations: {}
