@@ -157,6 +157,27 @@ cd api && go build -o streamspace-api
 cd ui && npm install && npm run build
 ```
 
+### Access Services Locally
+
+After deploying to your local cluster:
+
+```bash
+# UI (Web Interface)
+kubectl port-forward -n streamspace svc/streamspace-ui 3000:80
+# Open: http://localhost:3000
+
+# API Backend
+kubectl port-forward -n streamspace svc/streamspace-api 8000:8000
+# Open: http://localhost:8000
+
+# Session Pod (VNC Access)
+kubectl get pods -n streamspace | grep <session-name>
+kubectl port-forward -n streamspace <pod-name> 3001:3000
+# Open: http://localhost:3001
+```
+
+**Tip**: Open separate terminal windows for each port-forward to access multiple services simultaneously.
+
 ### Run Tests
 
 ```bash

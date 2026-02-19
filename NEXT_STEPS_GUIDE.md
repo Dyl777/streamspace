@@ -109,6 +109,7 @@ kubectl get pods -n streamspace | grep firefox
 
 **Port forward to the session:**
 ```bash
+# Forward VNC port 3000 to localhost:3001
 kubectl port-forward -n streamspace <pod-name> 3001:3000
 ```
 
@@ -118,6 +119,28 @@ http://localhost:3001
 ```
 
 You should see Firefox running in a desktop environment!
+
+**Note**: Keep the terminal window open while using the session. Press `Ctrl+C` to stop the port-forward.
+
+**Access Multiple Sessions:**
+
+To access multiple sessions simultaneously, use different local ports:
+
+```bash
+# Terminal 1: Firefox session
+kubectl port-forward -n streamspace firefox-pod 3001:3000
+
+# Terminal 2: Chrome session  
+kubectl port-forward -n streamspace chrome-pod 3002:3000
+
+# Terminal 3: VS Code session
+kubectl port-forward -n streamspace vscode-pod 3003:3000
+```
+
+Then access:
+- Firefox: http://localhost:3001
+- Chrome: http://localhost:3002
+- VS Code: http://localhost:3003
 
 ---
 
@@ -341,11 +364,18 @@ kubectl get events -n streamspace --sort-by='.lastTimestamp'
 kubectl port-forward -n streamspace svc/streamspace-ui 3000:80
 
 # API
-kubectl port-forward -n streamspace svc/streamspace-api 8080:8080
+kubectl port-forward -n streamspace svc/streamspace-api 8000:8000
 
 # Session (replace pod-name)
 kubectl port-forward -n streamspace <session-pod-name> 3001:3000
 ```
+
+**Access URLs:**
+- UI: http://localhost:3000
+- API: http://localhost:8000  
+- Session: http://localhost:3001
+
+**Note**: Keep terminal windows open for each port-forward. Press `Ctrl+C` to stop.
 
 ### Logs
 ```bash

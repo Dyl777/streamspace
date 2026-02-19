@@ -1,0 +1,43 @@
+docs: add comprehensive shutdown procedures and port-forward instructions
+
+Added detailed shutdown/cleanup procedures and port-forwarding instructions
+to all major documentation files based on user testing on Windows with
+Docker Desktop.
+
+Changes:
+- Added "Stopping StreamSpace" sections with 7 shutdown methods
+- Enhanced port-forward instructions with multiple scenarios
+- Included platform-specific commands (Windows/Linux/macOS)
+- Added monitoring stack cleanup procedures
+- Cross-referenced documentation for easy navigation
+
+Files Modified:
+- TESTING.md: Complete shutdown guide (primary reference)
+- QUICKSTART.md: Quick reference with port-forward details
+- README.md: Developer access and shutdown sections
+- scripts/LOCAL_TESTING.md: Local development procedures
+- NEXT_STEPS_GUIDE.md: User-tested commands and examples
+
+Shutdown Methods Added:
+1. Quick Stop - Delete namespace (fastest)
+2. Graceful Stop - Scale to zero (preserves config)
+3. Individual Components - Stop specific services
+4. Complete Cleanup - Remove everything including CRDs
+5. Monitoring Stack - Stop Prometheus/Grafana
+6. Port Forwards - Kill kubectl processes
+7. Docker Desktop - Stop entire Kubernetes cluster
+
+Port-Forward Enhancements:
+- Clear instructions for UI, API, and session access
+- Multiple terminal window examples
+- Different local ports for multiple sessions
+- Access URLs clearly documented
+- Notes about keeping terminals open
+
+Verified on:
+- OS: Windows 10/11
+- Shell: Git Bash (MINGW64)
+- Kubernetes: Docker Desktop
+- Monitoring: Prometheus + Grafana
+
+Closes: #<issue-number-if-applicable>

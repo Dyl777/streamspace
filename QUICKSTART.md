@@ -73,10 +73,29 @@ helm install streamspace ./chart -n streamspace
 kubectl get svc -n streamspace streamspace-ui
 
 # Or use port-forward for testing
-kubectl port-forward -n streamspace svc/streamspace-ui 8080:80
+kubectl port-forward -n streamspace svc/streamspace-ui 3000:80
 ```
 
-Open your browser to: `http://localhost:8080`
+Open your browser to: `http://localhost:3000`
+
+**Note**: Keep the terminal window open while using the UI. Press `Ctrl+C` to stop the port-forward.
+
+**Access Other Services:**
+
+```bash
+# API Backend (for direct API testing)
+kubectl port-forward -n streamspace svc/streamspace-api 8000:8000
+# Then access: http://localhost:8000
+
+# Session Pod (for VNC access to a running session)
+kubectl get pods -n streamspace | grep <session-name>
+kubectl port-forward -n streamspace <pod-name> 3001:3000
+# Then access: http://localhost:3001
+```
+
+**Multiple Port Forwards:**
+
+Open separate terminal windows for each service you need to access simultaneously.
 
 ### 2. Log In with Admin Account
 

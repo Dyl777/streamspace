@@ -75,23 +75,75 @@ VERSION=v0.2.0 ./scripts/local-deploy.sh
 
 ### 3. Access the Application
 
-After deployment, access StreamSpace:
+After deployment, access StreamSpace using port-forwarding:
 
 **UI (Web Interface):**
 
 ```bash
+# Forward UI service to localhost:3000
 kubectl port-forward -n streamspace svc/streamspace-ui 3000:80
 ```
 
-Then open: http://localhost:3000
+Then open in your browser: **http://localhost:3000**
+
+**Note**: Keep this terminal window open while using the UI. Press `Ctrl+C` to stop.
 
 **API Backend:**
 
 ```bash
+# Forward API service to localhost:8000
 kubectl port-forward -n streamspace svc/streamspace-api 8000:8000
 ```
 
-Then access: http://localhost:8000
+Then access: **http://localhost:8000**
+
+**Session Pod (VNC Access):**
+
+```bash
+# First, find the session pod name
+kubectl get pods -n streamspace | grep <session-name>
+
+# Forward session VNC port to localhost:3001
+kubectl port-forward -n streamspace <pod-name> 3001:3000
+```
+
+Then open in your browser: **http://localhost:3001**
+
+**Multiple Port Forwards:**
+
+To access multiple services simultaneously, open separate terminal windows for each:
+
+```bash
+# Terminal 1: UI
+kubectl port-forward -n streamspace svc/streamspace-ui 3000:80
+
+# Terminal 2: API
+kubectl port-forward -n streamspace svc/streamspace-api 8000:8000
+
+# Terminal 3: Session
+kubectl port-forward -n streamspace <session-pod> 3001:3000
+```
+
+**Access URLs:**
+- UI: http://localhost:3000
+- API: http://localhost:8000
+- Session: http://localhost:3001
+
+**Multiple Sessions:**
+
+If you need to access multiple sessions, use different local ports:
+
+```bash
+# Session 1 (Firefox)
+kubectl port-forward -n streamspace firefox-pod 3001:3000
+
+# Session 2 (Chrome)
+kubectl port-forward -n streamspace chrome-pod 3002:3000
+```
+
+Then access:
+- Firefox: http://localhost:3001
+- Chrome: http://localhost:3002
 
 **View Logs:**
 
