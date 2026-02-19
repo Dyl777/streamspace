@@ -4,29 +4,29 @@
 
 ---
 
-## ✅ Completed Setup
+##  Completed Setup
 
 The following infrastructure is now ready:
 
 ### 1. API Build Fixes
-- ✅ Fixed `quota/enforcer.go` method name issues:
+-  Fixed `quota/enforcer.go` method name issues:
   - Changed `GetByUsername` → `GetUserByUsername`
   - Changed `GetByName` → `GetGroupByName`
 
 ### 2. UI Test Infrastructure
-- ✅ Created `vitest.config.ts` with coverage thresholds (80%)
-- ✅ Created `ui/src/test/setup.ts` with test environment configuration
-- ✅ Updated `package.json` with test dependencies and scripts
-- ✅ Created `ui/src/test/README.md` with testing guidelines
+-  Created `vitest.config.ts` with coverage thresholds (80%)
+-  Created `ui/src/test/setup.ts` with test environment configuration
+-  Updated `package.json` with test dependencies and scripts
+-  Created `ui/src/test/README.md` with testing guidelines
 
 ### 3. Test Coverage Analysis
-- ✅ Comprehensive analysis documented in `TEST_COVERAGE_REPORT.md`
-- ✅ Current coverage: ~15-20% overall
-- ✅ Target coverage: 85% overall
+-  Comprehensive analysis documented in `TEST_COVERAGE_REPORT.md`
+-  Current coverage: ~15-20% overall
+-  Target coverage: 85% overall
 
 ---
 
-## � Next Steps (Immediate Actions)
+##  Next Steps (Immediate Actions)
 
 ### Step 1: Install Dependencies (5 minutes)
 
@@ -73,7 +73,7 @@ Option B - Skip controller tests for now (focus on API/UI first)
 
 ---
 
-## � Priority 1: Critical Path Tests (Week 1)
+##  Priority 1: Critical Path Tests (Week 1)
 
 ### Controller Tests to Add
 
@@ -164,7 +164,7 @@ Create these files in `ui/src/`:
 
 ---
 
-## � Test Template Examples
+##  Test Template Examples
 
 ### Controller Test Template
 
@@ -323,42 +323,42 @@ describe('Layout Component', () => {
 
 ---
 
-## 🎯 Milestones and Estimates
+##  Milestones and Estimates
 
 ### Week 1: Foundation & Critical Path
-- ✅ Setup complete (done!)
-- 🎯 Controller: Session error handling tests (4 hours)
-- 🎯 API: Auth tests (JWT, OIDC) (6 hours)
-- 🎯 API: User DB tests (4 hours)
-- 🎯 UI: Layout and Dashboard tests (4 hours)
-- 🎯 UI: API hook tests (2 hours)
+-  Setup complete (done!)
+-  Controller: Session error handling tests (4 hours)
+-  API: Auth tests (JWT, OIDC) (6 hours)
+-  API: User DB tests (4 hours)
+-  UI: Layout and Dashboard tests (4 hours)
+-  UI: API hook tests (2 hours)
 - **Estimated Coverage**: 40%
 
 ### Week 2: Core Features
-- 🎯 Controller: Hibernation edge cases (3 hours)
-- 🎯 Controller: Metrics tests (2 hours)
-- 🎯 API: Session handlers (6 hours)
-- 🎯 API: Template handlers (4 hours)
-- 🎯 UI: Plugin components (6 hours)
-- 🎯 UI: Template components (4 hours)
+-  Controller: Hibernation edge cases (3 hours)
+-  Controller: Metrics tests (2 hours)
+-  API: Session handlers (6 hours)
+-  API: Template handlers (4 hours)
+-  UI: Plugin components (6 hours)
+-  UI: Template components (4 hours)
 - **Estimated Coverage**: 60%
 
 ### Week 3-4: Comprehensive Coverage
-- 🎯 API: All remaining handlers (60+ files) (20 hours)
-- 🎯 API: Database models (10 hours)
-- 🎯 UI: All components (40+ files) (24 hours)
-- 🎯 UI: All pages (20+ files) (16 hours)
+-  API: All remaining handlers (60+ files) (20 hours)
+-  API: Database models (10 hours)
+-  UI: All components (40+ files) (24 hours)
+-  UI: All pages (20+ files) (16 hours)
 - **Estimated Coverage**: 80%
 
 ### Week 5-6: Integration Tests
-- 🎯 API integration tests (8 hours)
-- 🎯 Controller integration tests (6 hours)
-- 🎯 E2E user workflows (10 hours)
+-  API integration tests (8 hours)
+-  Controller integration tests (6 hours)
+-  E2E user workflows (10 hours)
 - **Estimated Coverage**: 85%+
 
 ---
 
-## � Daily Progress Tracking
+##  Daily Progress Tracking
 
 Track your daily progress with this checklist:
 
@@ -395,23 +395,23 @@ Track your daily progress with this checklist:
 
 ---
 
-## � Quality Checklist
+##  Quality Checklist
 
 For each test file, ensure:
 
-- ✅ **Positive cases**: Test expected behavior with valid input
-- ✅ **Negative cases**: Test error handling with invalid input
-- ✅ **Edge cases**: Test boundary conditions (empty, max, zero)
-- ✅ **Async behavior**: Test loading states, race conditions
-- ✅ **Mocking**: Mock external dependencies (API, K8s, DB)
-- ✅ **Assertions**: Clear, specific assertions (not just "truthy")
-- ✅ **Test names**: Descriptive names explaining what's tested
-- ✅ **Comments**: Document complex test scenarios
-- ✅ **Coverage**: Each test increases coverage meaningfully
+-  **Positive cases**: Test expected behavior with valid input
+-  **Negative cases**: Test error handling with invalid input
+-  **Edge cases**: Test boundary conditions (empty, max, zero)
+-  **Async behavior**: Test loading states, race conditions
+-  **Mocking**: Mock external dependencies (API, K8s, DB)
+-  **Assertions**: Clear, specific assertions (not just "truthy")
+-  **Test names**: Descriptive names explaining what's tested
+-  **Comments**: Document complex test scenarios
+-  **Coverage**: Each test increases coverage meaningfully
 
 ---
 
-## � Troubleshooting Common Issues
+##  Troubleshooting Common Issues
 
 ### Issue: "Cannot find module '@testing-library/react'"
 **Solution**: Run `npm install` in the `ui/` directory
@@ -430,7 +430,7 @@ For each test file, ensure:
 
 ---
 
-## � Resources
+##  Resources
 
 ### Documentation
 - [Ginkgo Testing Framework](https://onsi.github.io/ginkgo/)
@@ -446,21 +446,21 @@ For each test file, ensure:
 
 ---
 
-## 🎉 Success Criteria
+##  Success Criteria
 
 Your test suite is successful when:
 
-1. ✅ All existing tests pass without errors
-2. ✅ Coverage is ≥80% for each component (Controller, API, UI)
-3. ✅ Coverage is ≥90% for critical paths (auth, session creation)
-4. ✅ All tests run in <5 minutes total
-5. ✅ Tests are stable (no flaky tests)
-6. ✅ CI/CD pipeline enforces coverage thresholds
-7. ✅ New PRs include tests for new code
+1.  All existing tests pass without errors
+2.  Coverage is ≥80% for each component (Controller, API, UI)
+3.  Coverage is ≥90% for critical paths (auth, session creation)
+4.  All tests run in <5 minutes total
+5.  Tests are stable (no flaky tests)
+6.  CI/CD pipeline enforces coverage thresholds
+7.  New PRs include tests for new code
 
 ---
 
-## � Need Help?
+##  Need Help?
 
 If you get stuck:
 
@@ -472,4 +472,4 @@ If you get stuck:
    - `ui/src/components/SessionCard.test.tsx`
 4. Refer to framework documentation (linked above)
 
-Good luck with implementing full test coverage! �
+Good luck with implementing full test coverage! 

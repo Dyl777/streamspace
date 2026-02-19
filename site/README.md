@@ -1,8 +1,8 @@
-# StreamSpace Website
+﻿# StreamSpace Website
 
 This directory contains the static website for StreamSpace, hosted on GitHub Pages.
 
-## 📁 Structure
+##  Structure
 
 ```
 website/
@@ -19,7 +19,7 @@ website/
 └── README.md              # This file
 ```
 
-## 🚀 Deployment
+##  Deployment
 
 ### GitHub Pages Setup
 
@@ -53,7 +53,7 @@ php -S localhost:8000
 
 Then open `http://localhost:8000` in your browser.
 
-## 🎨 Customization
+##  Customization
 
 ### Colors
 
@@ -82,7 +82,7 @@ Edit `css/style.css` to change the color scheme:
 
 Update navigation in all pages by editing the `<nav>` section in each HTML file.
 
-## 📱 Responsive Design
+## � Responsive Design
 
 The website is fully responsive and works on:
 - Desktop browsers
@@ -100,18 +100,18 @@ Mobile menu activates automatically on screens < 768px wide.
 - **Accessible**: ARIA labels and keyboard navigation
 - **Smooth Animations**: Fade-in effects and transitions
 
-## 🔧 Technologies
+##  Technologies
 
 - **HTML5**: Semantic markup
 - **CSS3**: Modern features (Grid, Flexbox, Custom Properties)
 - **JavaScript**: Vanilla JS (no frameworks)
 - **Fonts**: Google Fonts (Inter)
 
-## 📝 License
+##  License
 
 MIT License - same as StreamSpace project.
 
-## 🤝 Contributing
+## � Contributing
 
 To improve the website:
 
@@ -119,7 +119,7 @@ To improve the website:
 2. Test locally
 3. Submit a pull request
 
-## 📞 Support
+##  Support
 
 - [GitHub Issues](https://github.com/JoshuaAFerguson/streamspace/issues)
 - [Discussions](https://github.com/JoshuaAFerguson/streamspace/discussions)

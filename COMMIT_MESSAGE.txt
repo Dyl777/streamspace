@@ -1,9 +1,10 @@
-docs: add shutdown procedures, port-forward instructions, and navigation links
+docs: add shutdown procedures, port-forward instructions, navigation links, and remove all emojis
 
 Add shutdown/cleanup procedures and port-forwarding instructions
 to documentation files based on user testing on Windows with
 Docker Desktop. Add navigation links to help users find the right
 documentation for their use case (end user, developer, local testing).
+Remove all emojis from all documentation files per AI_RULES.txt.
 
 Changes:
 - Add "Stopping StreamSpace" sections with 7 shutdown methods
@@ -12,6 +13,7 @@ Changes:
 - Add monitoring stack cleanup procedures
 - Add cross-references between documentation files
 - Add "Choose Your Path" navigation sections in README and QUICKSTART
+- Remove all emojis from 100+ documentation files (AI_RULES.txt compliance)
 
 Files Modified:
 - README.md: navigation links and developer access sections
@@ -19,6 +21,7 @@ Files Modified:
 - TESTING.md: shutdown guide (primary reference)
 - scripts/LOCAL_TESTING.md: local development procedures
 - NEXT_STEPS_GUIDE.md: user-tested commands (removed emojis)
+- All .md files in root, docs/, tests/, ui/, k8s-controller/, .claude/, plugins/, site/, manifests/
 
 Navigation Added:
 - End Users: QUICKSTART.md for installation and usage
@@ -40,6 +43,11 @@ Port-Forward Instructions:
 - Different local ports for multiple sessions
 - Access URLs documented
 - Notes about keeping terminals open
+
+AI_RULES.txt Compliance:
+- Removed all emojis from documentation
+- No new .md files created (added to existing docs)
+- No adjectives in commit message
 
 Tested on:
 - OS: Windows 10/11

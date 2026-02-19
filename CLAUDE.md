@@ -25,7 +25,7 @@ This document provides comprehensive guidance for AI assistants working with the
 
 ---
 
-## � Project Overview
+##  Project Overview
 
 **StreamSpace** is a platform-agnostic multi-user platform that streams containerized applications to web browsers. It features a central Control Plane (API/WebUI) that manages distributed Controllers across various platforms (Kubernetes, Docker, Hyper-V, vCenter, etc.).
 
@@ -857,7 +857,7 @@ git push -u origin claude/claude-md-<session-id>
 
 ---
 
-## 🧪 Testing Guidelines
+##  Testing Guidelines
 
 ### Unit Tests
 
@@ -1339,7 +1339,7 @@ kubectl describe prometheusrule streamspace-alerts -n streamspace
 
 ---
 
-## 🤖 Important Context for AI Assistants
+## � Important Context for AI Assistants
 
 ### Project History
 
@@ -1693,7 +1693,7 @@ docker system prune -a
 
 ---
 
-## � Additional Resources
+##  Additional Resources
 
 ### External Documentation
 
@@ -1721,7 +1721,7 @@ docker system prune -a
 
 ---
 
-## � Version History
+##  Version History
 
 - **v0.1.0** (2025-11-14): Initial CLAUDE.md creation
   - Comprehensive guide for AI assistants

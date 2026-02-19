@@ -1,4 +1,4 @@
-# Helm Deployment Troubleshooting Guide
+﻿# Helm Deployment Troubleshooting Guide
 
 ## Issue: "Chart.yaml file is missing" Error
 
@@ -217,10 +217,10 @@ If you're still experiencing issues:
 
 ## Related Changes
 
-- ✅ Fixed `.helmignore` to remove confusing `!Chart.yaml` line
-- ✅ Updated Makefile to use `CHART_PATH` variable with absolute paths
-- ✅ Enhanced `local-deploy.sh` with comprehensive debugging
-- ✅ Created `local-deploy-alt.sh` as alternative package-based approach
+-  Fixed `.helmignore` to remove confusing `!Chart.yaml` line
+-  Updated Makefile to use `CHART_PATH` variable with absolute paths
+-  Enhanced `local-deploy.sh` with comprehensive debugging
+-  Created `local-deploy-alt.sh` as alternative package-based approach
 
 ## References
 

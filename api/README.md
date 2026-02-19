@@ -1,4 +1,4 @@
-# StreamSpace API Backend
+﻿# StreamSpace API Backend
 
 Go-based REST API backend for StreamSpace, providing session management, template catalog, cluster administration, and connection tracking.
 
@@ -28,7 +28,7 @@ The API backend serves as the central control plane for StreamSpace, interfacing
 
 ## Features
 
-### ✅ Phase 2.1 (Completed)
+###  Phase 2.1 (Completed)
 
 - **Database Layer** (`internal/db/`)
   - PostgreSQL connection management
@@ -60,7 +60,7 @@ The API backend serves as the central control plane for StreamSpace, interfacing
   - New Connection CRD: Track active user connections
   - New TemplateRepository CRD: Manage Git-based template repositories
 
-### ✅ Phase 2.2 - Repository Sync (Completed)
+###  Phase 2.2 - Repository Sync (Completed)
 
 - **Sync Service** (`internal/sync/`)
   - Git repository cloning and pulling
@@ -95,7 +95,7 @@ The API backend serves as the central control plane for StreamSpace, interfacing
   - Initial sync on startup
   - Repository status tracking (pending, syncing, synced, failed)
 
-### ✅ Phase 2.4 - WebSocket & Real-Time (Completed)
+###  Phase 2.4 - WebSocket & Real-Time (Completed)
 
 - **WebSocket Hub Infrastructure** (`internal/websocket/hub.go`)
   - Hub/Client pattern for managing WebSocket connections
@@ -153,7 +153,7 @@ The API backend serves as the central control plane for StreamSpace, interfacing
   - Connection status indicators in UI
   - Reconnection attempt tracking
 
-### ✅ Phase 2.5 - Plugin System (Completed)
+###  Phase 2.5 - Plugin System (Completed)
 
 - **Plugin Handler** (`internal/plugins/`)
   - Plugin installation and management
@@ -587,41 +587,41 @@ kubectl apply -f manifests/config/api-deployment.yaml
 
 ## Development Roadmap
 
-### ✅ Phase 2.1 - API Foundation (Completed)
+###  Phase 2.1 - API Foundation (Completed)
 - Database layer with complete schema
 - K8s client wrapper
 - Connection tracker with auto-start/hibernate
 - REST API handlers
 - Enhanced CRDs (webapp support, Connection, TemplateRepository)
 
-### ✅ Phase 2.2 - Repository Sync (Completed)
+###  Phase 2.2 - Repository Sync (Completed)
 - Git repository cloning and syncing
 - Template manifest parsing (YAML)
 - Catalog database population
 - Scheduled sync jobs
 - Webhook support for auto-sync
 
-### 📋 Phase 2.3 - Authentication & Authorization (Next)
+###  Phase 2.3 - Authentication & Authorization (Next)
 - JWT token validation
 - OIDC integration (Authentik/Keycloak)
 - Role-based access control (RBAC)
 - User quotas and limits
 - API key support
 
-### 📋 Phase 2.4 - WebSocket & Real-Time
+###  Phase 2.4 - WebSocket & Real-Time
 - Session status updates via WebSocket
 - Pod logs streaming
 - Terminal (exec) support
 - Metrics streaming
 
-### 📋 Phase 2.5 - Cluster Management
+###  Phase 2.5 - Cluster Management
 - Node management endpoints
 - Deployment management
 - Service management
 - PVC management
 - YAML editor support
 
-### 📋 Phase 2.6 - Advanced Features
+###  Phase 2.6 - Advanced Features
 - Session templates (user-defined configurations)
 - Scheduled sessions (auto-start at specific times)
 - Session sharing (multiple users, permissions)

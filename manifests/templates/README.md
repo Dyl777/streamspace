@@ -1,4 +1,4 @@
-# StreamSpace Templates - Minimal Defaults
+﻿# StreamSpace Templates - Minimal Defaults
 
 This directory contains **minimal bundled templates** for offline/air-gapped deployments or quick testing.
 
@@ -6,7 +6,7 @@ This directory contains **minimal bundled templates** for offline/air-gapped dep
 
 For the **complete template catalog** (200+ applications), see:
 
-🔗 **[streamspace-templates](https://github.com/JoshuaAFerguson/streamspace-templates)**
+� **[streamspace-templates](https://github.com/JoshuaAFerguson/streamspace-templates)**
 
 The external repository includes:
 - **Browsers** (4): Firefox, Chromium, Brave, LibreWolf

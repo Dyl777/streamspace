@@ -1,15 +1,15 @@
-# StreamSpace Slack Integration Plugin
+﻿# StreamSpace Slack Integration Plugin
 
 Send real-time notifications about StreamSpace events to your Slack channels.
 
 ## Features
 
-- 🚀 Session event notifications (created, hibernated, deleted)
-- 👤 User event notifications (created, login, logout)
-- ⚙️ Configurable notification preferences
-- 🚦 Rate limiting to prevent spam
-- 📊 Detailed or summary notifications
-- 🎨 Rich Slack attachments with colors and formatting
+-  Session event notifications (created, hibernated, deleted)
+- � User event notifications (created, login, logout)
+-  Configurable notification preferences
+- � Rate limiting to prevent spam
+-  Detailed or summary notifications
+-  Rich Slack attachments with colors and formatting
 
 ## Installation
 
@@ -75,7 +75,7 @@ EOF
 
 ### Session Created
 ```
-🚀 New Session Created
+ New Session Created
 
 User: john@example.com
 Template: firefox-browser
@@ -86,7 +86,7 @@ CPU: 1000m
 
 ### Session Hibernated
 ```
-💤 Session Hibernated
+� Session Hibernated
 
 User: john@example.com
 Session ID: john-firefox-abc123
@@ -96,7 +96,7 @@ Session hibernated due to inactivity.
 
 ### User Created
 ```
-👤 New User Created
+� New User Created
 
 Username: jane
 Full Name: Jane Smith
