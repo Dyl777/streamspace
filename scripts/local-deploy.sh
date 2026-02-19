@@ -23,7 +23,7 @@ RELEASE_NAME="${RELEASE_NAME:-streamspace}"
 VERSION="${VERSION:-local}"
 
 # Helm chart location - use absolute path
-CHART_PATH="$(cd "${PROJECT_ROOT}/chart" && pwd)"
+CHART_PATH="$(cd "${PROJECT_ROOT}/my-streamspace" && pwd)"
 
 # Helper functions
 log() {

@@ -23,7 +23,7 @@ RELEASE_NAME="${RELEASE_NAME:-streamspace}"
 VERSION="${VERSION:-local}"
 
 # Helm chart location
-CHART_DIR="${PROJECT_ROOT}/chart"
+CHART_DIR="${PROJECT_ROOT}/my-streamspace"
 PACKAGE_DIR="${PROJECT_ROOT}/.helm-packages"
 
 # Helper functions

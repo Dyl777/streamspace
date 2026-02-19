@@ -1,0 +1,18 @@
+apiVersion: stream.space/v1alpha1
+kind: Session
+metadata:
+  name: test-firefox
+  namespace: streamspace
+spec:
+  user: admin
+  template: firefox-browser
+  state: running
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  persistentHome: false
+  idleTimeout: 30m

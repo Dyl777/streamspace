@@ -1,0 +1,60 @@
+apiVersion: stream.space/v1alpha1
+kind: Template
+metadata:
+  name: firefox-browser
+  namespace: streamspace
+spec:
+  displayName: Firefox Web Browser
+  description: Modern, privacy-focused web browser with extensive extension support. Ideal for web browsing, development, and testing.
+  category: Web Browsers
+  icon: https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/firefox-logo.png
+  baseImage: lscr.io/linuxserver/firefox:latest
+  
+  # VNC configuration (corrected from kasmvnc to vnc)
+  vnc:
+    enabled: true
+    port: 3000
+    protocol: websocket
+    encryption: false
+  
+  # Default resource allocations
+  defaultResources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  
+  # Container ports
+  ports:
+    - name: vnc
+      containerPort: 3000
+      protocol: TCP
+  
+  # Environment variables
+  env:
+    - name: PUID
+      value: "1000"
+    - name: PGID
+      value: "1000"
+    - name: TZ
+      value: "America/New_York"
+  
+  # Volume mounts
+  volumeMounts:
+    - name: user-home
+      mountPath: /config
+  
+  # Capabilities
+  capabilities:
+    - Network
+    - Audio
+    - Clipboard
+  
+  # Tags for discovery
+  tags:
+    - browser
+    - web
+    - privacy
+    - mozilla
