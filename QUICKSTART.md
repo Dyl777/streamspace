@@ -496,6 +496,42 @@ kubectl get pods -n kube-system | grep nfs
 
 ---
 
+## Stopping StreamSpace
+
+### Quick Stop
+
+```bash
+# Delete the entire namespace
+kubectl delete namespace streamspace
+```
+
+### Graceful Stop
+
+```bash
+# Scale down all deployments
+kubectl scale deployment --all --replicas=0 -n streamspace
+
+# Delete all sessions
+kubectl delete sessions --all -n streamspace
+```
+
+### Complete Cleanup
+
+```bash
+# Delete namespace
+kubectl delete namespace streamspace
+
+# Delete CRDs
+kubectl delete crd templates.stream.space
+kubectl delete crd sessions.stream.space
+kubectl delete crd connections.stream.space
+kubectl delete crd templaterepositories.stream.space
+```
+
+See [TESTING.md](TESTING.md#stopping-streamspace) for detailed shutdown procedures.
+
+---
+
 ## Uninstall
 
 ```bash

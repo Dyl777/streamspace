@@ -230,6 +230,43 @@ kubectl describe session <session-name> -n streamspace
 kubectl get sessions -n streamspace -o jsonpath='{.items[*].status.lastActivity}'
 ```
 
+## Stopping StreamSpace
+
+### Quick Stop
+
+```bash
+# Delete the entire namespace
+kubectl delete namespace streamspace
+```
+
+### Graceful Stop
+
+```bash
+# Scale down all deployments
+kubectl scale deployment --all --replicas=0 -n streamspace
+
+# Delete all sessions
+kubectl delete sessions --all -n streamspace
+```
+
+### Complete Cleanup
+
+```bash
+# Delete namespace
+kubectl delete namespace streamspace
+
+# Delete CRDs
+kubectl delete crd templates.stream.space
+kubectl delete crd sessions.stream.space
+kubectl delete crd connections.stream.space
+kubectl delete crd templaterepositories.stream.space
+
+# Delete monitoring (if installed)
+kubectl delete namespace monitoring
+```
+
+For detailed shutdown procedures, see [TESTING.md](TESTING.md#stopping-streamspace).
+
 ## License
 
 StreamSpace is licensed under the MIT License. See [LICENSE](LICENSE) for details.

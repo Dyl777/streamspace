@@ -312,6 +312,43 @@ kubectl apply -f manifests/config/controller-deployment.yaml
 # ... etc
 ```
 
+## Stopping and Cleanup
+
+### Quick Stop
+
+```bash
+# Delete the entire namespace
+kubectl delete namespace streamspace
+```
+
+### Graceful Stop
+
+```bash
+# Scale down all deployments
+kubectl scale deployment --all --replicas=0 -n streamspace
+
+# Delete all sessions
+kubectl delete sessions --all -n streamspace
+```
+
+### Complete Cleanup
+
+```bash
+# Delete namespace
+kubectl delete namespace streamspace
+
+# Delete CRDs
+kubectl delete crd templates.stream.space
+kubectl delete crd sessions.stream.space
+
+# Delete monitoring (if installed)
+kubectl delete namespace monitoring
+```
+
+For detailed shutdown procedures, see [TESTING.md](../TESTING.md#stopping-streamspace).
+
+---
+
 ## Script Reference
 
 ### local-build.sh

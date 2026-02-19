@@ -1322,6 +1322,161 @@ Use this template to document your test results:
 
 ---
 
+## Stopping StreamSpace
+
+### Quick Stop (Delete Everything)
+
+The fastest way to stop StreamSpace completely:
+
+```bash
+# Delete the entire namespace (removes all pods, services, sessions, etc.)
+kubectl delete namespace streamspace
+```
+
+This removes everything instantly. When you're ready to start again, just redeploy.
+
+### Graceful Stop (Keep Configuration)
+
+If you want to stop StreamSpace but keep the ability to restart easily:
+
+```bash
+# Scale down all deployments to 0 replicas
+kubectl scale deployment --all --replicas=0 -n streamspace
+
+# Stop any running sessions
+kubectl delete sessions --all -n streamspace
+
+# Verify everything is stopped
+kubectl get pods -n streamspace
+# Should show: No resources found
+```
+
+To restart later:
+
+```bash
+# Scale deployments back up
+kubectl scale deployment streamspace-api --replicas=2 -n streamspace
+kubectl scale deployment streamspace-controller --replicas=1 -n streamspace
+kubectl scale deployment streamspace-ui --replicas=2 -n streamspace
+```
+
+### Stop Individual Components
+
+```bash
+# Stop just the UI
+kubectl scale deployment streamspace-ui --replicas=0 -n streamspace
+
+# Stop just the API
+kubectl scale deployment streamspace-api --replicas=0 -n streamspace
+
+# Stop just the controller
+kubectl scale deployment streamspace-controller --replicas=0 -n streamspace
+
+# Stop a specific session
+kubectl delete session test-firefox -n streamspace
+```
+
+### Complete Cleanup (Start Fresh)
+
+To completely remove StreamSpace and all related resources:
+
+```bash
+# 1. Delete the namespace
+kubectl delete namespace streamspace
+
+# 2. Wait for it to fully delete (may take 30-60 seconds)
+kubectl get namespaces | grep streamspace
+
+# 3. Delete CRDs (Custom Resource Definitions)
+kubectl delete crd templates.stream.space
+kubectl delete crd sessions.stream.space
+kubectl delete crd connections.stream.space
+kubectl delete crd templaterepositories.stream.space
+
+# 4. Verify everything is gone
+kubectl get all -n streamspace
+# Should show: No resources found
+```
+
+### Stop Monitoring Stack (If Installed)
+
+If you have Prometheus/Grafana monitoring installed:
+
+```bash
+# Find monitoring namespace
+kubectl get namespaces | grep -i monitoring
+
+# Delete monitoring namespace
+kubectl delete namespace monitoring
+
+# Or delete individual components
+kubectl delete all -l app.kubernetes.io/name=grafana --all-namespaces
+kubectl delete all -l app.kubernetes.io/name=prometheus --all-namespaces
+kubectl delete all -l app=kube-prometheus-stack --all-namespaces
+
+# Delete monitoring deployments
+kubectl delete deployment --all -n monitoring
+kubectl delete statefulset --all -n monitoring
+kubectl delete daemonset --all -n monitoring
+```
+
+### Stop Port Forwards
+
+If you have port-forward commands running:
+
+**On Linux/macOS:**
+```bash
+# Find and kill port-forward processes
+pkill -f "port-forward"
+
+# Or kill specific port
+pkill -f "port-forward.*3000"
+```
+
+**On Windows (Git Bash/PowerShell):**
+```bash
+# Find kubectl processes
+tasklist | findstr kubectl
+
+# Kill specific process
+taskkill /PID <process-id> /F
+
+# Or kill all kubectl processes
+taskkill /IM kubectl.exe /F
+```
+
+### Stop Docker Desktop Kubernetes (Nuclear Option)
+
+If you want to stop Kubernetes entirely:
+
+**Via Docker Desktop UI:**
+1. Open Docker Desktop
+2. Click the gear icon (Settings)
+3. Go to "Kubernetes"
+4. Uncheck "Enable Kubernetes"
+5. Click "Apply & Restart"
+
+**Via Command Line (Windows):**
+```bash
+# Stop Docker Desktop completely
+taskkill /IM "Docker Desktop.exe" /F
+```
+
+This stops the entire Kubernetes cluster and all containers.
+
+### Reset Kubernetes Cluster
+
+To wipe everything and start fresh:
+
+1. Open Docker Desktop
+2. Settings → Kubernetes
+3. Click **"Reset Kubernetes Cluster"**
+4. Confirm the reset
+
+⚠️ **WARNING**: This deletes ALL Kubernetes resources, not just StreamSpace.
+
+---
+
 ## Next Steps
 
 After completing testing:

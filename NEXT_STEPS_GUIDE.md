@@ -223,6 +223,76 @@ The repository sync feature needs:
 
 ---
 
+## How to Stop StreamSpace
+
+Based on your successful cleanup, here are the verified commands:
+
+### Method 1: Quick Stop (Recommended)
+
+```bash
+# Scale down all deployments to 0 replicas
+kubectl scale deployment --all --replicas=0 -n streamspace
+
+# Delete all sessions
+kubectl delete sessions --all -n streamspace
+
+# Delete the namespace
+kubectl delete namespace streamspace
+```
+
+### Method 2: Complete Cleanup (Nuclear)
+
+```bash
+# Delete namespace (removes everything)
+kubectl delete namespace streamspace
+
+# Delete CRDs
+kubectl delete crd templates.stream.space
+kubectl delete crd sessions.stream.space
+kubectl delete crd connections.stream.space
+kubectl delete crd templaterepositories.stream.space
+```
+
+### Stop Monitoring Stack
+
+If you have Prometheus/Grafana running:
+
+```bash
+# Find monitoring resources
+kubectl get all --all-namespaces | findstr grafana
+kubectl get all --all-namespaces | findstr prometheus
+
+# Delete by label
+kubectl delete all -l app.kubernetes.io/name=grafana --all-namespaces
+kubectl delete all -l app.kubernetes.io/name=prometheus --all-namespaces
+kubectl delete all -l app=kube-prometheus-stack --all-namespaces
+
+# Delete monitoring deployments and statefulsets
+kubectl delete deployment --all -n monitoring
+kubectl delete statefulset --all -n monitoring
+kubectl delete daemonset --all -n monitoring
+```
+
+### Stop Port Forwards
+
+**Windows (Git Bash):**
+```bash
+# Find kubectl processes
+tasklist | findstr kubectl
+
+# Kill specific process
+taskkill /PID <process-id> /F
+
+# Or kill all kubectl
+taskkill /IM kubectl.exe /F
+```
+
+### What Stays Running
+
+The `k8s_local-path-provisioner` container is part of Kubernetes infrastructure and is safe to leave running. It uses minimal resources (0.17% CPU) and is needed for persistent volumes.
+
+---
+
 ## Next Actions
 
 ### Immediate (Test Basic Functionality)
