@@ -57,6 +57,12 @@ StreamSpace is in active development with the core Kubernetes platform functiona
 
 ## Quick Start
 
+**Choose Your Path:**
+
+- **End Users**: Follow the installation steps below, then see [QUICKSTART.md](QUICKSTART.md) for usage
+- **Developers**: See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup
+- **Local Testing**: See [TESTING.md](TESTING.md) for Docker Desktop setup and [scripts/LOCAL_TESTING.md](scripts/LOCAL_TESTING.md) for local development
+
 ### Prerequisites
 
 - Kubernetes 1.19+ (k3s recommended)
@@ -197,6 +203,13 @@ cd tests && ./scripts/run-integration-tests.sh
 Current test coverage is approximately 15-20%. See `tests/reports/TEST_COVERAGE_REPORT.md` for details.
 
 ## Documentation
+
+### Getting Started
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Installation and first steps (for end users)
+- **[TESTING.md](TESTING.md)** - Docker Desktop setup and testing (for local development)
+- **[scripts/LOCAL_TESTING.md](scripts/LOCAL_TESTING.md)** - Build and deploy scripts (for developers)
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup and contribution guidelines
 
 ### Essential Docs
 

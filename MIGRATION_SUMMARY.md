@@ -1,8 +1,8 @@
-# StreamSpace - Migration Complete ✅
+# StreamSpace - Migration Complete
 
 The workspace streaming platform has been successfully migrated to its own repository with complete rebranding.
 
-## 🎯 What's Changed
+## What's Changed
 
 ### Repository Location
 - **Old**: `~/ai-infra-k3s/workspaces/`
@@ -37,7 +37,7 @@ streamspace/
 └── docs/             # Documentation
 ```
 
-## 📦 What's Included
+## What's Included
 
 ### Documentation (9 files)
 - ✅ README.md - Project overview with badges and quick start

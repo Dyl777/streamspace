@@ -7,6 +7,23 @@ Get StreamSpace up and running in under 10 minutes.
 
 ---
 
+## Choose Your Path
+
+**For End Users (Just Want to Use StreamSpace):**
+- Follow this guide for installation and basic usage
+- See [First Steps](#first-steps) to launch your first session
+
+**For Developers (Want to Contribute or Modify Code):**
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup
+- See [scripts/LOCAL_TESTING.md](scripts/LOCAL_TESTING.md) for local development workflow
+- See [TESTING.md](TESTING.md) for testing procedures
+
+**For Local Testing (Docker Desktop):**
+- See [TESTING.md](TESTING.md) for Docker Desktop setup
+- See [scripts/LOCAL_TESTING.md](scripts/LOCAL_TESTING.md) for build and deploy scripts
+
+---
+
 ## Prerequisites
 
 Before you begin, ensure you have:

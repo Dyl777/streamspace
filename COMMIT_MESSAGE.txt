@@ -1,8 +1,9 @@
-docs: add shutdown procedures and port-forward instructions
+docs: add shutdown procedures, port-forward instructions, and navigation links
 
 Add shutdown/cleanup procedures and port-forwarding instructions
 to documentation files based on user testing on Windows with
-Docker Desktop.
+Docker Desktop. Add navigation links to help users find the right
+documentation for their use case (end user, developer, local testing).
 
 Changes:
 - Add "Stopping StreamSpace" sections with 7 shutdown methods
@@ -10,13 +11,19 @@ Changes:
 - Add platform-specific commands (Windows/Linux/macOS)
 - Add monitoring stack cleanup procedures
 - Add cross-references between documentation files
+- Add "Choose Your Path" navigation sections in README and QUICKSTART
 
 Files Modified:
+- README.md: navigation links and developer access sections
+- QUICKSTART.md: navigation links and port-forward instructions
 - TESTING.md: shutdown guide (primary reference)
-- QUICKSTART.md: port-forward instructions
-- README.md: developer access and shutdown sections
 - scripts/LOCAL_TESTING.md: local development procedures
-- NEXT_STEPS_GUIDE.md: user-tested commands
+- NEXT_STEPS_GUIDE.md: user-tested commands (removed emojis)
+
+Navigation Added:
+- End Users: QUICKSTART.md for installation and usage
+- Developers: CONTRIBUTING.md for development setup
+- Local Testing: TESTING.md and scripts/LOCAL_TESTING.md
 
 Shutdown Methods:
 1. Quick Stop - Delete namespace
