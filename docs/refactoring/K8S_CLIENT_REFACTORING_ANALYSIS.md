@@ -1,4 +1,4 @@
-# k8sClient Usage Analysis for StreamSpace API
+﻿# k8sClient Usage Analysis for StreamSpace API
 
 ## Summary
 Found **12 files** using `k8sClient` across the StreamSpace API codebase performing **50+ K8s operations** on multiple resource types.
@@ -25,7 +25,7 @@ Found **12 files** using `k8sClient` across the StreamSpace API codebase perform
 - ApplicationInstalls (indirect - passed to handlers)
 - Nodes (indirect - passed to handlers)
 
-**Recommendation:** ✅ **STAY IN API** - Appropriate for initialization and dependency injection
+**Recommendation:**  **STAY IN API** - Appropriate for initialization and dependency injection
 
 **Details:**
 ```go
@@ -104,7 +104,7 @@ connTracker := tracker.NewConnectionTracker(database, k8sClient)
 - Templates (primary)
 - Pods (quota calculation)
 
-**Recommendation:** ⚠️ **CONSIDER MOVING TO CONTROLLER**
+**Recommendation:**  **CONSIDER MOVING TO CONTROLLER**
 - Session lifecycle management (create/update/delete) should be controller responsibility
 - Pod queries for quota checking could move to webhook admission controller
 - Template management could stay in API (static resources)
@@ -205,7 +205,7 @@ if err := h.k8sClient.DeleteTemplate(ctx, h.namespace, templateID)
 - ConfigMaps
 - Generic K8s resources (via dynamic client)
 
-**Recommendation:** ⚠️ **CONSIDER MOVING TO CONTROLLER**
+**Recommendation:**  **CONSIDER MOVING TO CONTROLLER**
 - Node management (cordon, drain, taint) - belongs in controller
 - Dynamic resource creation/update/delete - should be admission webhook or CRD validation
 - Pod log streaming could stay in API (read-only, real-time)
@@ -258,7 +258,7 @@ _, err = h.k8sClient.GetClientset().CoreV1().ConfigMaps(h.namespace).Update(...)
 **Resources:**
 - ApplicationInstall (CRD)
 
-**Recommendation:** ✅ **STAY IN API** - Application installation is an administrative operation
+**Recommendation:**  **STAY IN API** - Application installation is an administrative operation
 - API initiates installation request
 - Controller watches ApplicationInstall and creates Template
 - Proper separation of concerns
@@ -307,7 +307,7 @@ _, err = h.k8sClient.CreateApplicationInstall(ctx, appInstall)
 - Nodes (primary)
 - Pods (implicit - evicted during drain)
 
-**Recommendation:** ⚠️ **CONSIDER MOVING TO CONTROLLER**
+**Recommendation:**  **CONSIDER MOVING TO CONTROLLER**
 - Node operations are cluster infrastructure management
 - Should be handled by cluster operator controller
 - Could be triggered by custom CRD (NodeMaintenanceRequest)
@@ -348,7 +348,7 @@ if err := h.k8sClient.DrainNode(ctx, nodeName, req.GracePeriodSeconds)
 **Resources:**
 - Templates (for template count metric)
 
-**Recommendation:** ✅ **STAY IN API** - Read-only dashboard queries belong in API
+**Recommendation:**  **STAY IN API** - Read-only dashboard queries belong in API
 - No state changes
 - Real-time metric aggregation
 - Appropriate for API tier
@@ -372,7 +372,7 @@ if err := h.k8sClient.DrainNode(ctx, nodeName, req.GracePeriodSeconds)
 **Resources:**
 - Sessions (activity status)
 
-**Recommendation:** ✅ **STAY IN API** - Activity heartbeats must be low-latency responses
+**Recommendation:**  **STAY IN API** - Activity heartbeats must be low-latency responses
 - Real-time heartbeat updates
 - Cannot defer to controller (latency unacceptable)
 - API layer appropriate for this
@@ -399,7 +399,7 @@ if err := h.k8sClient.DrainNode(ctx, nodeName, req.GracePeriodSeconds)
 **Resources:**
 - Sessions (idle monitoring and hibernation)
 
-**Recommendation:** ⚠️ **MOVE TO CONTROLLER**
+**Recommendation:**  **MOVE TO CONTROLLER**
 - Idle detection is controller responsibility
 - Session state transitions belong in controller
 - Should implement custom controller with hibernation logic
@@ -424,7 +424,7 @@ if err := h.k8sClient.DrainNode(ctx, nodeName, req.GracePeriodSeconds)
 **Resources:**
 - Sessions (state management)
 
-**Recommendation:** ⚠️ **MOVE TO CONTROLLER**
+**Recommendation:**  **MOVE TO CONTROLLER**
 - Session state transitions must be in controller
 - Connection tracking could stay in API
 - Controller should implement auto-start/hibernate logic
@@ -450,7 +450,7 @@ if err := h.k8sClient.DrainNode(ctx, nodeName, req.GracePeriodSeconds)
 - Sessions (read-only broadcast)
 - Pods (log streaming)
 
-**Recommendation:** ✅ **STAY IN API** - Real-time WebSocket updates belong in API
+**Recommendation:**  **STAY IN API** - Real-time WebSocket updates belong in API
 - Read-only operations
 - Real-time response requirement
 - Low-latency streaming
@@ -468,7 +468,7 @@ if err := h.k8sClient.DrainNode(ctx, nodeName, req.GracePeriodSeconds)
 **K8s Operations:**
 - None (middleware just validates, handlers use k8sClient)
 
-**Recommendation:** ✅ **STAY IN API** - Quota enforcement is API responsibility
+**Recommendation:**  **STAY IN API** - Quota enforcement is API responsibility
 
 ---
 

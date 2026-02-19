@@ -1,4 +1,4 @@
-# Plugin-Based Features Checklist
+﻿# Plugin-Based Features Checklist
 
 This checklist helps identify which features are **intentionally plugin-based** and should NOT be marked as bugs when they appear stubbed in the core API.
 

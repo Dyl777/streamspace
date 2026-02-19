@@ -1,4 +1,4 @@
-# Enterprise WebSocket Integration
+﻿# Enterprise WebSocket Integration
 
 Real-time push notifications for StreamSpace enterprise features.
 

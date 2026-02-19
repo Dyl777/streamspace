@@ -1,4 +1,4 @@
-# Missing Architecture Decision Records (ADRs) Analysis
+﻿# Missing Architecture Decision Records (ADRs) Analysis
 
 **Date:** 2025-11-26
 **Analyst:** Agent 1 (Architect)
@@ -11,19 +11,19 @@
 After analyzing the StreamSpace v2.0-beta codebase and design documentation, I've identified **11 architectural decisions** that have been implemented or proposed but **lack formal ADR documentation**. These decisions represent significant architectural choices that should be documented for future reference.
 
 **Current ADR Status:**
-- ✅ **3 ADRs exist** (all marked "Proposed", need status updates)
-- ⚠️ **11 missing ADRs identified** (high-impact decisions undocumented)
-- 🔴 **Priority:** 6 high-priority ADRs for v2.0-beta.1
-- 🟡 **Priority:** 5 medium-priority ADRs for v2.1+
+-  **3 ADRs exist** (all marked "Proposed", need status updates)
+-  **11 missing ADRs identified** (high-impact decisions undocumented)
+- � **Priority:** 6 high-priority ADRs for v2.0-beta.1
+- � **Priority:** 5 medium-priority ADRs for v2.1+
 
 ---
 
 ## Current ADRs (Status Update Needed)
 
-### ADR-001: VNC Token Authentication ✅ Implemented
+### ADR-001: VNC Token Authentication  Implemented
 
 **Current Status:** Proposed
-**Actual Status:** ✅ **ACCEPTED** (implemented in v2.0-beta)
+**Actual Status:**  **ACCEPTED** (implemented in v2.0-beta)
 
 **Evidence:**
 - File: `api/internal/handlers/vnc_proxy.go`
@@ -38,10 +38,10 @@ After analyzing the StreamSpace v2.0-beta codebase and design documentation, I'v
 
 ---
 
-### ADR-002: Cache Layer for Control Plane ✅ Partially Implemented
+### ADR-002: Cache Layer for Control Plane  Partially Implemented
 
 **Current Status:** Proposed
-**Actual Status:** ✅ **ACCEPTED** (Redis cache infrastructure exists, needs strategy implementation)
+**Actual Status:**  **ACCEPTED** (Redis cache infrastructure exists, needs strategy implementation)
 
 **Evidence:**
 - File: `api/internal/cache/cache.go`
@@ -57,10 +57,10 @@ After analyzing the StreamSpace v2.0-beta codebase and design documentation, I'v
 
 ---
 
-### ADR-003: Agent Heartbeat Contract 🟡 In Progress
+### ADR-003: Agent Heartbeat Contract � In Progress
 
 **Current Status:** Proposed
-**Actual Status:** 🟡 **IN PROGRESS** (basic heartbeat exists, needs formalization)
+**Actual Status:** � **IN PROGRESS** (basic heartbeat exists, needs formalization)
 
 **Evidence:**
 - File: `api/internal/websocket/agent_hub.go`
@@ -78,9 +78,9 @@ After analyzing the StreamSpace v2.0-beta codebase and design documentation, I'v
 
 These decisions have been implemented or are critical for v2.0-beta.1 release but lack formal ADR documentation.
 
-### ADR-004: Multi-Tenancy via Org-Scoped RBAC 🚨 CRITICAL
+### ADR-004: Multi-Tenancy via Org-Scoped RBAC � CRITICAL
 
-**Status:** ⚠️ **URGENT - Being Implemented (Issue #212, #211)**
+**Status:**  **URGENT - Being Implemented (Issue #212, #211)**
 
 **Decision Required:** How to enforce organization-level isolation and access control
 
@@ -98,16 +98,16 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 5. **Namespace Mapping:** Org-specific K8s namespace (org-{org_id} or custom mapping)
 
 **Alternatives Considered:**
-- **Option A:** Single-tenant (current state) - ❌ Not scalable, no isolation
-- **Option B:** Org-scoped RBAC (proposed) - ✅ Recommended
-- **Option C:** Fine-grained resource-level ACLs - ❌ Too complex for v2.0
+- **Option A:** Single-tenant (current state) -  Not scalable, no isolation
+- **Option B:** Org-scoped RBAC (proposed) -  Recommended
+- **Option C:** Fine-grained resource-level ACLs -  Too complex for v2.0
 
 **Consequences:**
-- ✅ Pro: Enables true multi-tenancy
-- ✅ Pro: Prevents cross-org data leakage
-- ✅ Pro: Scales to enterprise deployments
-- ⚠️ Con: Breaking change (JWT format change)
-- ⚠️ Con: Migration required for existing users
+-  Pro: Enables true multi-tenancy
+-  Pro: Prevents cross-org data leakage
+-  Pro: Scales to enterprise deployments
+-  Con: Breaking change (JWT format change)
+-  Con: Migration required for existing users
 
 **Implementation:**
 - Issue #212 (P0): Org context & RBAC plumbing
@@ -120,7 +120,7 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Security risk: `09-risk-and-governance/code-observations.md`
 
 **Action Required:**
-- ✅ Create ADR-004 with above content
+-  Create ADR-004 with above content
 - Link to issues #211, #212
 - Status: **In Progress** (implementation underway)
 - Owner: Agent 2 (Builder)
@@ -128,9 +128,9 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 
 ---
 
-### ADR-005: WebSocket Command Dispatch vs NATS Event Bus 🔴 IMPLEMENTED
+### ADR-005: WebSocket Command Dispatch vs NATS Event Bus � IMPLEMENTED
 
-**Status:** ✅ **IMPLEMENTED** (needs formal ADR)
+**Status:**  **IMPLEMENTED** (needs formal ADR)
 
 **Decision:** Replace NATS message broker with direct WebSocket command dispatch
 
@@ -154,19 +154,19 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - File: `agents/docker-agent/main.go` - Outbound WebSocket connection
 
 **Alternatives Considered:**
-- **Option A:** Keep NATS (v1.x) - ❌ Added complexity, extra infrastructure
-- **Option B:** WebSocket + CommandDispatcher (v2.0) - ✅ Chosen
-- **Option C:** gRPC streaming - ❌ More complex than WebSocket
-- **Option D:** HTTP long-polling - ❌ Less efficient than WebSocket
+- **Option A:** Keep NATS (v1.x) -  Added complexity, extra infrastructure
+- **Option B:** WebSocket + CommandDispatcher (v2.0) -  Chosen
+- **Option C:** gRPC streaming -  More complex than WebSocket
+- **Option D:** HTTP long-polling -  Less efficient than WebSocket
 
 **Rationale:**
-- ✅ Simplicity: No external message broker to manage
-- ✅ Firewall-friendly: Outbound WebSocket from agent (agents behind NAT work)
-- ✅ Real-time: Persistent connection enables instant command delivery
-- ✅ Resilience: Database-backed command queue survives agent restarts
-- ✅ Observability: Centralized command tracking in agent_commands table
-- ⚠️ Con: Control Plane must track agent connections (AgentHub)
-- ⚠️ Con: Multi-pod API requires Redis for agent routing (Issue #211)
+-  Simplicity: No external message broker to manage
+-  Firewall-friendly: Outbound WebSocket from agent (agents behind NAT work)
+-  Real-time: Persistent connection enables instant command delivery
+-  Resilience: Database-backed command queue survives agent restarts
+-  Observability: Centralized command tracking in agent_commands table
+-  Con: Control Plane must track agent connections (AgentHub)
+-  Con: Multi-pod API requires Redis for agent routing (Issue #211)
 
 **Consequences:**
 - **Deployment:** No NATS cluster required (reduced ops complexity)
@@ -186,16 +186,16 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Design doc: `03-system-design/control-plane.md`
 
 **Action Required:**
-- ✅ Create ADR-005 documenting this decision
+-  Create ADR-005 documenting this decision
 - Status: **Accepted** (already implemented)
 - Date: 2025-11-20
 - Owner: Agent 2 (Builder)
 
 ---
 
-### ADR-006: Database as Source of Truth (No K8s CRD Reconciliation) 🔴 IMPLEMENTED
+### ADR-006: Database as Source of Truth (No K8s CRD Reconciliation) � IMPLEMENTED
 
-**Status:** ✅ **IMPLEMENTED** (needs formal ADR)
+**Status:**  **IMPLEMENTED** (needs formal ADR)
 
 **Decision:** Use PostgreSQL as source of truth; minimize K8s client usage in API
 
@@ -219,19 +219,19 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Database schema: `sessions`, `templates`, `agents` tables
 
 **Alternatives Considered:**
-- **Option A:** K8s as source of truth (v1.x) - ❌ Tight coupling, hard to multi-platform
-- **Option B:** Database as source of truth (v2.0) - ✅ Chosen
-- **Option C:** Dual source of truth (DB + K8s) - ❌ Eventual consistency issues
-- **Option D:** Event sourcing - ❌ Over-engineered for v2.0
+- **Option A:** K8s as source of truth (v1.x) -  Tight coupling, hard to multi-platform
+- **Option B:** Database as source of truth (v2.0) -  Chosen
+- **Option C:** Dual source of truth (DB + K8s) -  Eventual consistency issues
+- **Option D:** Event sourcing -  Over-engineered for v2.0
 
 **Rationale:**
-- ✅ Multi-Platform: Database works for K8s and Docker agents
-- ✅ Decoupling: API doesn't need K8s RBAC (simpler deployment)
-- ✅ Performance: Database reads faster than K8s API calls
-- ✅ Reliability: Database handles more concurrent reads than K8s API
-- ✅ Observability: Centralized audit log and query capabilities
-- ⚠️ Con: Agents must sync status back to DB (eventual consistency)
-- ⚠️ Con: K8s CRDs become "projections" of DB state (not canonical)
+-  Multi-Platform: Database works for K8s and Docker agents
+-  Decoupling: API doesn't need K8s RBAC (simpler deployment)
+-  Performance: Database reads faster than K8s API calls
+-  Reliability: Database handles more concurrent reads than K8s API
+-  Observability: Centralized audit log and query capabilities
+-  Con: Agents must sync status back to DB (eventual consistency)
+-  Con: K8s CRDs become "projections" of DB state (not canonical)
 
 **Consequences:**
 - **API Deployment:** Can run without K8s client (Docker, bare metal)
@@ -250,16 +250,16 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Code comments: "v2.0-beta: agentHub enables multi-agent routing, k8sClient is OPTIONAL"
 
 **Action Required:**
-- ✅ Create ADR-006 documenting this decision
+-  Create ADR-006 documenting this decision
 - Status: **Accepted** (already implemented)
 - Date: 2025-11-20
 - Owner: Agent 2 (Builder)
 
 ---
 
-### ADR-007: Agent Outbound WebSocket (Firewall-Friendly) 🔴 IMPLEMENTED
+### ADR-007: Agent Outbound WebSocket (Firewall-Friendly) � IMPLEMENTED
 
-**Status:** ✅ **IMPLEMENTED** (needs formal ADR)
+**Status:**  **IMPLEMENTED** (needs formal ADR)
 
 **Decision:** Agents initiate outbound WebSocket connections to Control Plane (not inbound)
 
@@ -282,18 +282,18 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Config: `CONTROL_PLANE_URL` env var (agents connect to API, not vice versa)
 
 **Alternatives Considered:**
-- **Option A:** Inbound to agents (v1.x) - ❌ NAT/firewall issues
-- **Option B:** Outbound from agents (v2.0) - ✅ Chosen
-- **Option C:** Bidirectional (mesh) - ❌ Complex topology
-- **Option D:** Polling (agents poll API) - ❌ High latency, inefficient
+- **Option A:** Inbound to agents (v1.x) -  NAT/firewall issues
+- **Option B:** Outbound from agents (v2.0) -  Chosen
+- **Option C:** Bidirectional (mesh) -  Complex topology
+- **Option D:** Polling (agents poll API) -  High latency, inefficient
 
 **Rationale:**
-- ✅ Firewall-Friendly: Outbound connections work through NAT/firewalls
-- ✅ Enterprise-Ready: Agents behind corporate firewall can connect
-- ✅ Edge Deployment: Agents in edge locations (VPC, on-prem) can connect
-- ✅ Security: Control Plane only exposes HTTPS/WSS (no agent-specific ports)
-- ✅ Simplicity: Single ingress point for all agents (no per-agent LoadBalancer)
-- ⚠️ Con: Control Plane must accept many WebSocket connections (scalability)
+-  Firewall-Friendly: Outbound connections work through NAT/firewalls
+-  Enterprise-Ready: Agents behind corporate firewall can connect
+-  Edge Deployment: Agents in edge locations (VPC, on-prem) can connect
+-  Security: Control Plane only exposes HTTPS/WSS (no agent-specific ports)
+-  Simplicity: Single ingress point for all agents (no per-agent LoadBalancer)
+-  Con: Control Plane must accept many WebSocket connections (scalability)
 
 **Consequences:**
 - **Deployment:** Agents only need outbound HTTPS/WSS (port 443) access
@@ -315,16 +315,16 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Design doc: `03-system-design/agents.md`
 
 **Action Required:**
-- ✅ Create ADR-007 documenting this decision
+-  Create ADR-007 documenting this decision
 - Status: **Accepted** (already implemented)
 - Date: 2025-11-18
 - Owner: Agent 2 (Builder)
 
 ---
 
-### ADR-008: VNC Proxy via Control Plane (No Direct Agent Access) 🔴 IMPLEMENTED
+### ADR-008: VNC Proxy via Control Plane (No Direct Agent Access) � IMPLEMENTED
 
-**Status:** ✅ **IMPLEMENTED** (needs formal ADR)
+**Status:**  **IMPLEMENTED** (needs formal ADR)
 
 **Decision:** VNC connections proxy through Control Plane, not directly to agents
 
@@ -347,19 +347,19 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Architecture: User → API VNC proxy → Agent VNC tunnel → Pod :5900
 
 **Alternatives Considered:**
-- **Option A:** Direct to agent (v1.x) - ❌ Security issues, network exposure
-- **Option B:** Proxy via Control Plane (v2.0) - ✅ Chosen
-- **Option C:** Dedicated VNC gateway - ❌ Additional infrastructure
-- **Option D:** Agent-to-agent mesh - ❌ Complex, hard to secure
+- **Option A:** Direct to agent (v1.x) -  Security issues, network exposure
+- **Option B:** Proxy via Control Plane (v2.0) -  Chosen
+- **Option C:** Dedicated VNC gateway -  Additional infrastructure
+- **Option D:** Agent-to-agent mesh -  Complex, hard to secure
 
 **Rationale:**
-- ✅ Security: Centralized auth/authz at Control Plane
-- ✅ Firewall-Friendly: Single ingress point for users (no agent exposure)
-- ✅ Auditability: All VNC connections logged at Control Plane
-- ✅ Multi-Platform: Works for K8s and Docker agents
-- ✅ Token Expiry: VNC tokens expire (limited session lifetime)
-- ⚠️ Con: Control Plane must proxy VNC bandwidth (scalability concern)
-- ⚠️ Con: Extra hop adds latency (~10-20ms)
+-  Security: Centralized auth/authz at Control Plane
+-  Firewall-Friendly: Single ingress point for users (no agent exposure)
+-  Auditability: All VNC connections logged at Control Plane
+-  Multi-Platform: Works for K8s and Docker agents
+-  Token Expiry: VNC tokens expire (limited session lifetime)
+-  Con: Control Plane must proxy VNC bandwidth (scalability concern)
+-  Con: Extra hop adds latency (~10-20ms)
 
 **Consequences:**
 - **Architecture:** 3-hop VNC path: User → Control Plane → Agent → Pod
@@ -381,16 +381,16 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - Design doc: `03-system-design/control-plane.md`
 
 **Action Required:**
-- ✅ Create ADR-008 documenting this decision
+-  Create ADR-008 documenting this decision
 - Status: **Accepted** (already implemented)
 - Date: 2025-11-18
 - Owner: Agent 2 (Builder)
 
 ---
 
-### ADR-009: Helm Chart Deployment (No Kubernetes Operator) 🟡 PROPOSED
+### ADR-009: Helm Chart Deployment (No Kubernetes Operator) � PROPOSED
 
-**Status:** 🟡 **PROPOSED** (needs formal ADR)
+**Status:** � **PROPOSED** (needs formal ADR)
 
 **Decision:** Deploy via Helm chart; no custom Kubernetes Operator (yet)
 
@@ -415,9 +415,9 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
   - Simpler deployment (fewer moving parts)
 
 **Alternatives Considered:**
-- **Option A:** Helm chart + Operator (v1.x approach) - ❌ Extra complexity
-- **Option B:** Helm chart only (v2.0) - ✅ Current (implicit)
-- **Option C:** Operator-only (no Helm) - ❌ Harder for users
+- **Option A:** Helm chart + Operator (v1.x approach) -  Extra complexity
+- **Option B:** Helm chart only (v2.0) -  Current (implicit)
+- **Option C:** Operator-only (no Helm) -  Harder for users
 
 **Open Questions:**
 - Should we formalize "no Operator" decision? (ADR needed)
@@ -425,14 +425,14 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 - CRD lifecycle: Who deletes orphaned CRDs?
 
 **Consequences:**
-- ✅ Simpler deployment (Helm chart only)
-- ✅ Fewer RBAC permissions needed
-- ✅ Easier to understand for users
-- ⚠️ Con: CRDs may become stale (no reconciliation)
-- ⚠️ Con: Manual cleanup required if agent crashes
+-  Simpler deployment (Helm chart only)
+-  Fewer RBAC permissions needed
+-  Easier to understand for users
+-  Con: CRDs may become stale (no reconciliation)
+-  Con: Manual cleanup required if agent crashes
 
 **Action Required:**
-- ✅ Create ADR-009 documenting decision (no Operator for v2.0)
+-  Create ADR-009 documenting decision (no Operator for v2.0)
 - Status: **Proposed** (needs review and acceptance)
 - Target: v2.0-beta.1 documentation
 - Owner: Agent 1 (Architect)
@@ -443,9 +443,9 @@ These decisions have been implemented or are critical for v2.0-beta.1 release bu
 
 These decisions can be documented post-v2.0-beta.1 release.
 
-### ADR-010: Plugin System Architecture (Runtime V2) 🟡 PROPOSED
+### ADR-010: Plugin System Architecture (Runtime V2) � PROPOSED
 
-**Status:** 🟡 **IMPLEMENTED** (needs formal ADR)
+**Status:** � **IMPLEMENTED** (needs formal ADR)
 
 **Decision:** Plugin system with auto-discovery, database-driven loading, and event bus
 
@@ -477,9 +477,9 @@ These decisions can be documented post-v2.0-beta.1 release.
 
 ---
 
-### ADR-011: API Pagination Strategy 🟡 PROPOSED
+### ADR-011: API Pagination Strategy � PROPOSED
 
-**Status:** 🟡 **PROPOSED** (Issue #213)
+**Status:** � **PROPOSED** (Issue #213)
 
 **Decision:** Standardize pagination across all list endpoints
 
@@ -502,9 +502,9 @@ These decisions can be documented post-v2.0-beta.1 release.
 
 ---
 
-### ADR-012: Webhook Delivery System 🟡 PROPOSED
+### ADR-012: Webhook Delivery System � PROPOSED
 
-**Status:** 🟡 **PROPOSED** (Issue #216)
+**Status:** � **PROPOSED** (Issue #216)
 
 **Decision:** Webhook delivery with HMAC signing, retries, and idempotency
 
@@ -529,9 +529,9 @@ These decisions can be documented post-v2.0-beta.1 release.
 
 ---
 
-### ADR-013: Error Handling & Standard Error Envelopes 🟡 PROPOSED
+### ADR-013: Error Handling & Standard Error Envelopes � PROPOSED
 
-**Status:** 🟡 **PROPOSED** (Issue #213)
+**Status:** � **PROPOSED** (Issue #213)
 
 **Decision:** Standardize error responses across all API endpoints
 
@@ -554,9 +554,9 @@ These decisions can be documented post-v2.0-beta.1 release.
 
 ---
 
-### ADR-014: Session State Machine 🟡 PROPOSED
+### ADR-014: Session State Machine � PROPOSED
 
-**Status:** 🟡 **PROPOSED** (needs formalization)
+**Status:** � **PROPOSED** (needs formalization)
 
 **Decision:** Formalize session state transitions and lifecycle
 
@@ -593,17 +593,17 @@ requested → scheduling → running ⇄ hibernated
 ### Immediate Actions (v2.0-beta.1)
 
 **Priority 1: Update Existing ADRs**
-1. ✅ ADR-001: Update status to **Accepted** (VNC token auth implemented)
-2. ✅ ADR-002: Update status to **Accepted** (cache infrastructure exists)
-3. ✅ ADR-003: Update status to **In Progress** (Issue #215)
+1.  ADR-001: Update status to **Accepted** (VNC token auth implemented)
+2.  ADR-002: Update status to **Accepted** (cache infrastructure exists)
+3.  ADR-003: Update status to **In Progress** (Issue #215)
 
 **Priority 2: Create Critical ADRs**
-4. 🚨 ADR-004: Multi-Tenancy via Org-Scoped RBAC (URGENT - Issue #211, #212)
-5. ✅ ADR-005: WebSocket Command Dispatch vs NATS (document v1→v2 change)
-6. ✅ ADR-006: Database as Source of Truth (document architecture decision)
-7. ✅ ADR-007: Agent Outbound WebSocket (firewall-friendly design)
-8. ✅ ADR-008: VNC Proxy via Control Plane (centralized access)
-9. 🟡 ADR-009: Helm Chart Deployment (no Operator)
+4. � ADR-004: Multi-Tenancy via Org-Scoped RBAC (URGENT - Issue #211, #212)
+5.  ADR-005: WebSocket Command Dispatch vs NATS (document v1→v2 change)
+6.  ADR-006: Database as Source of Truth (document architecture decision)
+7.  ADR-007: Agent Outbound WebSocket (firewall-friendly design)
+8.  ADR-008: VNC Proxy via Control Plane (centralized access)
+9. � ADR-009: Helm Chart Deployment (no Operator)
 
 **Estimated Effort:**
 - Update 3 existing ADRs: **1 hour** (Architect)
@@ -679,12 +679,12 @@ All ADRs should follow the template in `02-architecture/adr-template.md`:
 - **5 medium-priority** (v2.1+) - Can be documented post-release
 
 **Most Critical:**
-- 🚨 **ADR-004** (Multi-Tenancy) - Being implemented NOW (Issue #211, #212)
-- ✅ **ADR-005-008** - Already implemented, need documentation for historical record
+- � **ADR-004** (Multi-Tenancy) - Being implemented NOW (Issue #211, #212)
+-  **ADR-005-008** - Already implemented, need documentation for historical record
 
 **Recommendation:** Architect (Agent 1) should create these ADRs during Wave 27 (in parallel with Builder/Validator work) to ensure v2.0-beta.1 has comprehensive architectural documentation.
 
 ---
 
-**Status:** ✅ COMPLETE
+**Status:**  COMPLETE
 **Next Action:** Architect to create ADRs (8-hour effort, parallelizable)

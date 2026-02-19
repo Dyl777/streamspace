@@ -1,4 +1,4 @@
-# CLAUDE.md - AI Assistant Guide for StreamSpace
+﻿# CLAUDE.md - AI Assistant Guide for StreamSpace
 
 This document provides comprehensive guidance for AI assistants working with the StreamSpace codebase.
 
@@ -7,7 +7,7 @@ This document provides comprehensive guidance for AI assistants working with the
 
 ---
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [Project Overview](#project-overview)
 - [Strategic Vision: Independence from Proprietary Technologies](#strategic-vision-independence-from-proprietary-technologies)
@@ -25,7 +25,7 @@ This document provides comprehensive guidance for AI assistants working with the
 
 ---
 
-## 📖 Project Overview
+## � Project Overview
 
 **StreamSpace** is a platform-agnostic multi-user platform that streams containerized applications to web browsers. It features a central Control Plane (API/WebUI) that manages distributed Controllers across various platforms (Kubernetes, Docker, Hyper-V, vCenter, etc.).
 
@@ -46,7 +46,7 @@ This document provides comprehensive guidance for AI assistants working with the
 
 ### Project Status
 
-- **Current Phase**: Phase 5 (Production-Ready) - ✅ COMPLETE
+- **Current Phase**: Phase 5 (Production-Ready) -  COMPLETE
 - **Current Version**: v1.0.0
 - **Next Phase**: Phase 6 (VNC Independence) - Migration to TigerVNC + noVNC
 - **Migration**: Completed migration from `ai-infra-k3s/workspaces/` to standalone repository
@@ -69,7 +69,7 @@ This document provides comprehensive guidance for AI assistants working with the
 
 ---
 
-## 🎯 Strategic Vision: Independence from Proprietary Technologies
+##  Strategic Vision: Independence from Proprietary Technologies
 
 **CRITICAL**: StreamSpace is being built as a **100% open source, fully independent** container streaming platform. All proprietary dependencies must be eliminated by v1.0.
 
@@ -257,7 +257,7 @@ func (t *Template) GetVNCPort() int {
 **Bad Pattern** (Kasm-specific):
 
 ```go
-// ❌ DON'T DO THIS
+//  DON'T DO THIS
 type KasmVNCConfig struct {
     KasmPort int `json:"kasmPort"`
 }
@@ -282,7 +282,7 @@ spec:
 **Bad Template Definition**:
 
 ```yaml
-# ❌ DON'T DO THIS
+#  DON'T DO THIS
 spec:
   kasmvnc:  # Kasm-specific
     enabled: true
@@ -331,7 +331,7 @@ For technical architecture, see:
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```
 streamspace/
@@ -471,7 +471,7 @@ StreamSpace uses separate repositories for templates and plugins to enable:
 
 ---
 
-## 🛠 Key Technologies
+##  Key Technologies
 
 ### Core Stack
 
@@ -482,7 +482,7 @@ StreamSpace uses separate repositories for templates and plugins to enable:
 - **Authentication**: Authentik or Keycloak (OIDC/SSO)
 - **Database**: PostgreSQL (for user data, sessions, audit logs)
 
-### Controller (✅ Implemented)
+### Controller ( Implemented)
 
 - **Language**: Go 1.21+
 - **Framework**: Kubebuilder 3.x
@@ -490,7 +490,7 @@ StreamSpace uses separate repositories for templates and plugins to enable:
 - **Metrics**: Prometheus client_golang
 - **Status**: Production-ready with hibernation, session lifecycle, and user PVC management
 
-### API Backend (✅ Implemented)
+### API Backend ( Implemented)
 
 - **Framework**: Go with Gin framework
 - **Authentication**: Local, SAML 2.0, OIDC OAuth2, JWT, MFA (TOTP)
@@ -500,7 +500,7 @@ StreamSpace uses separate repositories for templates and plugins to enable:
 - **Middleware**: 15+ layers (CORS, auth, rate limiting, CSRF, audit logging, compression)
 - **Integrations**: Webhooks (16 events), Slack, Teams, Discord, PagerDuty, email (SMTP)
 
-### Web UI (✅ Implemented)
+### Web UI ( Implemented)
 
 - **Framework**: React 18+ with TypeScript
 - **UI Library**: Material-UI (MUI)
@@ -513,8 +513,8 @@ StreamSpace uses separate repositories for templates and plugins to enable:
 
 ### Application Streaming
 
-- **VNC Server**: Currently KasmVNC (⚠️ TEMPORARY - will be replaced with TigerVNC + noVNC in Phase 3)
-- **Base Images**: Currently LinuxServer.io containers (⚠️ TEMPORARY - will be replaced with StreamSpace-native images in Phase 3)
+- **VNC Server**: Currently KasmVNC ( TEMPORARY - will be replaced with TigerVNC + noVNC in Phase 3)
+- **Base Images**: Currently LinuxServer.io containers ( TEMPORARY - will be replaced with StreamSpace-native images in Phase 3)
 - **VNC Port**: 5900 (standard VNC) or 3000 (current LinuxServer.io convention)
 - **Target Stack**: TigerVNC server + noVNC client + WebSocket proxy (100% open source)
 
@@ -527,7 +527,7 @@ StreamSpace uses separate repositories for templates and plugins to enable:
 
 ---
 
-## 🎯 Custom Resource Definitions (CRDs)
+##  Custom Resource Definitions (CRDs)
 
 ### Session CRD (`stream.space/v1alpha1`)
 
@@ -656,7 +656,7 @@ These exist for migration compatibility but should not be used in new code.
 
 ---
 
-## 🔄 Development Workflows
+##  Development Workflows
 
 ### Phase 1: Controller Implementation (Current Phase)
 
@@ -761,7 +761,7 @@ make deploy IMG=your-registry/streamspace-controller:v0.1.0
 
 ---
 
-## 📝 Git Conventions
+##  Git Conventions
 
 ### Branch Strategy
 
@@ -948,7 +948,7 @@ kubectl delete session test-firefox -n streamspace-dev
 
 ---
 
-## 🚀 Deployment Instructions
+##  Deployment Instructions
 
 ### Deploy CRDs Only
 
@@ -1057,7 +1057,7 @@ networking:
 
 ---
 
-## 📐 Code Style & Conventions
+##  Code Style & Conventions
 
 ### Go (Controller)
 
@@ -1167,7 +1167,7 @@ metadata:
 
 ---
 
-## 🔧 Common Tasks & Commands
+##  Common Tasks & Commands
 
 ### Working with CRDs
 
@@ -1353,49 +1353,49 @@ kubectl describe prometheusrule streamspace-alerts -n streamspace
 
 **What Exists**:
 
-- ✅ Complete architecture documentation (`docs/ARCHITECTURE.md`)
-- ✅ Controller implementation guide (`docs/CONTROLLER_GUIDE.md`)
-- ✅ Plugin development guide (`PLUGIN_DEVELOPMENT.md`)
-- ✅ Plugin API reference (`docs/PLUGIN_API.md`)
-- ✅ CRD definitions (Session, Template)
-- ✅ 22 pre-built application templates
-- ✅ Kubernetes manifests for deployment
-- ✅ Helm chart structure with values
-- ✅ Monitoring configuration (Prometheus, Grafana)
-- ✅ Template generator script (for 200+ apps)
-- ✅ Comprehensive README and CONTRIBUTING guides
+-  Complete architecture documentation (`docs/ARCHITECTURE.md`)
+-  Controller implementation guide (`docs/CONTROLLER_GUIDE.md`)
+-  Plugin development guide (`PLUGIN_DEVELOPMENT.md`)
+-  Plugin API reference (`docs/PLUGIN_API.md`)
+-  CRD definitions (Session, Template)
+-  22 pre-built application templates
+-  Kubernetes manifests for deployment
+-  Helm chart structure with values
+-  Monitoring configuration (Prometheus, Grafana)
+-  Template generator script (for 200+ apps)
+-  Comprehensive README and CONTRIBUTING guides
 
 **Implementation Status**:
 
-- ✅ Go controller using Kubebuilder (Phase 1 - Complete)
-- ✅ API backend with REST/WebSocket (Phase 2 - Complete)
-- ✅ React web UI with admin panel (Phase 4 - Complete)
-- ✅ **Plugin system** (backend, UI, documentation - Complete)
-- ✅ Hibernation controller logic (Phase 1 - Complete)
-- ✅ User management and quotas (Phase 2/4 - Complete)
-- ✅ CI/CD pipelines (Phase 3 - Complete)
-- ✅ Container image builds and registry (Phase 3 - Complete)
-- ✅ Comprehensive testing suite (Phase 5 - Complete)
-- ✅ Helm chart for deployment (Phase 5 - Complete)
+-  Go controller using Kubebuilder (Phase 1 - Complete)
+-  API backend with REST/WebSocket (Phase 2 - Complete)
+-  React web UI with admin panel (Phase 4 - Complete)
+-  **Plugin system** (backend, UI, documentation - Complete)
+-  Hibernation controller logic (Phase 1 - Complete)
+-  User management and quotas (Phase 2/4 - Complete)
+-  CI/CD pipelines (Phase 3 - Complete)
+-  Container image builds and registry (Phase 3 - Complete)
+-  Comprehensive testing suite (Phase 5 - Complete)
+-  Helm chart for deployment (Phase 5 - Complete)
 
 **What's Complete** (Phases 1-5):
 
-- ✅ **Controller**: Session lifecycle, hibernation, user PVC management
-- ✅ **API Backend**: 70+ handlers, authentication (Local/SAML/OIDC), webhooks, integrations
-- ✅ **Web UI**: 50+ components, 14 user pages, 12 admin pages
-- ✅ **Database**: 82+ tables with full schema
-- ✅ **Authentication**: Local, SAML 2.0 (6 providers), OIDC OAuth2 (8 providers), MFA
-- ✅ **Security**: CSRF, rate limiting, SSRF protection, IP whitelisting, audit logging
-- ✅ **Compliance**: DLP policies, SOC2/HIPAA/GDPR frameworks, violation tracking
-- ✅ **Session Features**: CRUD, sharing, snapshots, recording, tags, scheduling
-- ✅ **Collaboration**: Real-time chat, annotations, presence
-- ✅ **Admin Features**: User/group management, quotas, plugins, compliance dashboard
-- ✅ **Integrations**: Webhooks (16 events), Slack, Teams, Discord, PagerDuty, email
-- ✅ **Monitoring**: 40+ Prometheus metrics, Grafana dashboards, alert rules
-- ✅ **Plugin System**: Catalog, install, configure, versioning, ratings
-- ✅ **Template System**: Versioning, sharing, favorites, repository sync
-- ✅ **Testing**: Unit tests, integration tests, E2E tests
-- ✅ **Documentation**: Complete user/admin/developer guides
+-  **Controller**: Session lifecycle, hibernation, user PVC management
+-  **API Backend**: 70+ handlers, authentication (Local/SAML/OIDC), webhooks, integrations
+-  **Web UI**: 50+ components, 14 user pages, 12 admin pages
+-  **Database**: 82+ tables with full schema
+-  **Authentication**: Local, SAML 2.0 (6 providers), OIDC OAuth2 (8 providers), MFA
+-  **Security**: CSRF, rate limiting, SSRF protection, IP whitelisting, audit logging
+-  **Compliance**: DLP policies, SOC2/HIPAA/GDPR frameworks, violation tracking
+-  **Session Features**: CRUD, sharing, snapshots, recording, tags, scheduling
+-  **Collaboration**: Real-time chat, annotations, presence
+-  **Admin Features**: User/group management, quotas, plugins, compliance dashboard
+-  **Integrations**: Webhooks (16 events), Slack, Teams, Discord, PagerDuty, email
+-  **Monitoring**: 40+ Prometheus metrics, Grafana dashboards, alert rules
+-  **Plugin System**: Catalog, install, configure, versioning, ratings
+-  **Template System**: Versioning, sharing, favorites, repository sync
+-  **Testing**: Unit tests, integration tests, E2E tests
+-  **Documentation**: Complete user/admin/developer guides
 
 **What Remains** (Future Enhancements - Phase 6+):
 
@@ -1407,7 +1407,7 @@ kubectl describe prometheusrule streamspace-alerts -n streamspace
 
 ### When Assisting with Code
 
-**⚠️ CRITICAL RULES** (See "Strategic Vision" section above for details):
+** CRITICAL RULES** (See "Strategic Vision" section above for details):
 
 1. **NEVER introduce new Kasm/KasmVNC dependencies** - Use generic VNC terminology
 2. **NEVER reference Kasm in new code or documentation** - StreamSpace is fully independent
@@ -1439,22 +1439,22 @@ kubectl describe prometheusrule streamspace-alerts -n streamspace
 
 ### Common Misconceptions to Avoid
 
-**⚠️ Critical - Independence Strategy**:
+** Critical - Independence Strategy**:
 
-- ❌ **Don't** introduce new KasmVNC references - use generic VNC
-- ❌ **Don't** hardcode Kasm-specific features - keep VNC-agnostic
-- ❌ **Don't** use `kasmvnc:` field name - use `vnc:` instead
-- ❌ **Don't** assume KasmVNC will remain - code for TigerVNC migration
+-  **Don't** introduce new KasmVNC references - use generic VNC
+-  **Don't** hardcode Kasm-specific features - keep VNC-agnostic
+-  **Don't** use `kasmvnc:` field name - use `vnc:` instead
+-  **Don't** assume KasmVNC will remain - code for TigerVNC migration
 
 **Architecture Patterns**:
 
-- ❌ **Don't** use StatefulSets - use Deployments with replicas field
-- ❌ **Don't** delete pods for hibernation - scale Deployment to 0
-- ❌ **Don't** create per-session PVCs - use shared user PVC
-- ❌ **Don't** use `workspaces.aiinfra.io` API group - use `stream.space`
-- ❌ **Don't** hardcode namespace - support configurable namespace
-- ❌ **Don't** implement WebSocket proxy in controller - that's for API backend (already implemented)
-- ✅ **Do** follow existing patterns - controller, API, and UI are all production-ready
+-  **Don't** use StatefulSets - use Deployments with replicas field
+-  **Don't** delete pods for hibernation - scale Deployment to 0
+-  **Don't** create per-session PVCs - use shared user PVC
+-  **Don't** use `workspaces.aiinfra.io` API group - use `stream.space`
+-  **Don't** hardcode namespace - support configurable namespace
+-  **Don't** implement WebSocket proxy in controller - that's for API backend (already implemented)
+-  **Do** follow existing patterns - controller, API, and UI are all production-ready
 
 ### Files to Reference
 
@@ -1483,7 +1483,7 @@ When helping with specific tasks, reference these files:
 
 ---
 
-## 🔍 Troubleshooting
+##  Troubleshooting
 
 ### CRD Issues
 
@@ -1693,7 +1693,7 @@ docker system prune -a
 
 ---
 
-## 📚 Additional Resources
+## � Additional Resources
 
 ### External Documentation
 
@@ -1721,7 +1721,7 @@ docker system prune -a
 
 ---
 
-## 📅 Version History
+## � Version History
 
 - **v0.1.0** (2025-11-14): Initial CLAUDE.md creation
   - Comprehensive guide for AI assistants

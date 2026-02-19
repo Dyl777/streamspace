@@ -1,4 +1,4 @@
-# Coding Standards & Style Guide
+﻿# Coding Standards & Style Guide
 
 **Version**: v1.0
 **Last Updated**: 2025-11-26
@@ -48,8 +48,8 @@ project/
 - Be consistent within a module/package
 
 **Examples**:
-- ✅ `getUserByID`, `sessionTimeout`, `maxRetryAttempts`
-- ❌ `gubi`, `st`, `mra`
+-  `getUserByID`, `sessionTimeout`, `maxRetryAttempts`
+-  `gubi`, `st`, `mra`
 
 ---
 
@@ -64,7 +64,7 @@ project/
 
 **Example**:
 ```go
-// ✅ Good: Standard Go formatting
+//  Good: Standard Go formatting
 func (h *Handler) CreateSession(c *gin.Context) {
     var req CreateSessionRequest
     if err := c.ShouldBindJSON(&req); err != nil {
@@ -81,7 +81,7 @@ func (h *Handler) CreateSession(c *gin.Context) {
     c.JSON(http.StatusCreated, session)
 }
 
-// ❌ Bad: Inconsistent formatting, missing error handling
+//  Bad: Inconsistent formatting, missing error handling
 func (h *Handler) CreateSession(c *gin.Context) {
   var req CreateSessionRequest
   c.ShouldBindJSON(&req)
@@ -94,16 +94,16 @@ func (h *Handler) CreateSession(c *gin.Context) {
 
 **Always Handle Errors**:
 ```go
-// ✅ Good: Explicit error handling
+//  Good: Explicit error handling
 result, err := fetchData()
 if err != nil {
     return fmt.Errorf("failed to fetch data: %w", err)
 }
 
-// ❌ Bad: Ignoring errors
+//  Bad: Ignoring errors
 result, _ := fetchData()
 
-// ❌ Bad: Silent error swallowing
+//  Bad: Silent error swallowing
 if err != nil {
     log.Println("Error:", err) // Logs but doesn't propagate
 }
@@ -154,14 +154,14 @@ type SessionCreator interface {               // Exported interface
 
 **Always Accept Context as First Parameter**:
 ```go
-// ✅ Good: Context-aware function
+//  Good: Context-aware function
 func (s *Service) CreateSession(ctx context.Context, req CreateSessionRequest) (*Session, error) {
     // Use ctx for cancellation, deadlines, values
     session, err := s.db.InsertSession(ctx, req)
     return session, err
 }
 
-// ❌ Bad: No context support
+//  Bad: No context support
 func (s *Service) CreateSession(req CreateSessionRequest) (*Session, error) {
     session, err := s.db.InsertSession(req) // Can't cancel
     return session, err
@@ -172,14 +172,14 @@ func (s *Service) CreateSession(req CreateSessionRequest) (*Session, error) {
 
 **Use Structured Logging**:
 ```go
-// ✅ Good: Structured logging with fields
+//  Good: Structured logging with fields
 log.Info("session created",
     "session_id", session.ID,
     "user_id", session.UserID,
     "org_id", session.OrgID,
 )
 
-// ❌ Bad: String concatenation
+//  Bad: String concatenation
 log.Info("Session created: " + session.ID + " for user " + session.UserID)
 ```
 
@@ -249,7 +249,7 @@ func (h *Handler) CreateSession(c *gin.Context) { ... }
 
 **Inline Comments** (use sparingly, explain "why" not "what"):
 ```go
-// ✅ Good: Explains business logic
+//  Good: Explains business logic
 // Skip quota check for admin role (Issue #187)
 if user.Role != "admin" {
     if err := h.quotaEnforcer.Check(user.OrgID); err != nil {
@@ -257,7 +257,7 @@ if user.Role != "admin" {
     }
 }
 
-// ❌ Bad: Repeats code
+//  Bad: Repeats code
 // Check if error is not nil
 if err != nil {
     return err
@@ -268,7 +268,7 @@ if err != nil {
 
 **Input Validation**:
 ```go
-// ✅ Good: Validate all inputs
+//  Good: Validate all inputs
 func (h *Handler) GetSession(c *gin.Context) {
     sessionID := c.Param("id")
     if !isValidUUID(sessionID) {
@@ -281,23 +281,23 @@ func (h *Handler) GetSession(c *gin.Context) {
 
 **SQL Injection Prevention**:
 ```go
-// ✅ Good: Parameterized queries
+//  Good: Parameterized queries
 query := "SELECT * FROM sessions WHERE org_id = $1 AND user_id = $2"
 rows, err := db.Query(ctx, query, orgID, userID)
 
-// ❌ Bad: String concatenation (SQL injection risk)
+//  Bad: String concatenation (SQL injection risk)
 query := "SELECT * FROM sessions WHERE org_id = '" + orgID + "'"
 ```
 
 **Secrets Management**:
 ```go
-// ✅ Good: Secrets from environment/vault
+//  Good: Secrets from environment/vault
 jwtSecret := os.Getenv("JWT_SECRET")
 if jwtSecret == "" {
     log.Fatal("JWT_SECRET not set")
 }
 
-// ❌ Bad: Hardcoded secrets
+//  Bad: Hardcoded secrets
 const jwtSecret = "my-secret-key-123"
 ```
 
@@ -314,7 +314,7 @@ const jwtSecret = "my-secret-key-123"
 
 **Example**:
 ```typescript
-// ✅ Good: Consistent formatting, TypeScript types
+//  Good: Consistent formatting, TypeScript types
 interface CreateSessionRequest {
   templateId: string;
   resources?: {
@@ -337,7 +337,7 @@ const createSession = async (req: CreateSessionRequest): Promise<Session> => {
   return response.json();
 };
 
-// ❌ Bad: Inconsistent formatting, no types
+//  Bad: Inconsistent formatting, no types
 const createSession=async(req)=>{
   const response=await fetch('/api/v1/sessions',{method:'POST',body:JSON.stringify(req)})
   return response.json()
@@ -348,7 +348,7 @@ const createSession=async(req)=>{
 
 **Always Use Explicit Types**:
 ```typescript
-// ✅ Good: Explicit types
+//  Good: Explicit types
 interface Session {
   id: string;
   userId: string;
@@ -362,7 +362,7 @@ const getSession = async (id: string): Promise<Session> => {
   // ...
 };
 
-// ❌ Bad: Using 'any'
+//  Bad: Using 'any'
 const getSession = async (id: any): Promise<any> => {
   // ...
 };
@@ -370,7 +370,7 @@ const getSession = async (id: any): Promise<any> => {
 
 **Props Interfaces**:
 ```typescript
-// ✅ Good: Explicit props interface
+//  Good: Explicit props interface
 interface SessionCardProps {
   session: Session;
   onConnect: (sessionId: string) => void;
@@ -381,7 +381,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, onConnect, onDelete 
   // ...
 };
 
-// ❌ Bad: No props type
+//  Bad: No props type
 const SessionCard = ({ session, onConnect, onDelete }) => {
   // ...
 };
@@ -391,7 +391,7 @@ const SessionCard = ({ session, onConnect, onDelete }) => {
 
 **Functional Components with Hooks**:
 ```typescript
-// ✅ Good: Functional component, hooks, TypeScript
+//  Good: Functional component, hooks, TypeScript
 import { useState, useEffect } from 'react';
 import { Box, Button } from '@mui/material';
 
@@ -479,7 +479,7 @@ src/
 
 **Zustand Stores** (preferred for global state):
 ```typescript
-// ✅ Good: Zustand store
+//  Good: Zustand store
 import create from 'zustand';
 
 interface UserState {
@@ -499,7 +499,7 @@ export const useUserStore = create<UserState>((set) => ({
 
 **Component State** (useState for local state):
 ```typescript
-// ✅ Good: Local component state
+//  Good: Local component state
 const [isOpen, setIsOpen] = useState(false);
 const [formData, setFormData] = useState<FormData>({ name: '', email: '' });
 ```
@@ -508,7 +508,7 @@ const [formData, setFormData] = useState<FormData>({ name: '', email: '' });
 
 **Always Handle Errors**:
 ```typescript
-// ✅ Good: Explicit error handling
+//  Good: Explicit error handling
 const fetchSessions = async () => {
   try {
     const data = await getSessions();
@@ -520,7 +520,7 @@ const fetchSessions = async () => {
   }
 };
 
-// ❌ Bad: Unhandled promise rejection
+//  Bad: Unhandled promise rejection
 const fetchSessions = async () => {
   const data = await getSessions(); // No error handling
   setSessions(data);
@@ -561,7 +561,7 @@ describe('SessionCard', () => {
 
 **Use Semantic HTML**:
 ```typescript
-// ✅ Good: Semantic elements with ARIA labels
+//  Good: Semantic elements with ARIA labels
 <Button
   variant="contained"
   onClick={handleConnect}
@@ -570,7 +570,7 @@ describe('SessionCard', () => {
   Connect
 </Button>
 
-// ❌ Bad: Generic div with onClick
+//  Bad: Generic div with onClick
 <div onClick={handleConnect}>Connect</div>
 ```
 
@@ -587,7 +587,7 @@ describe('SessionCard', () => {
 
 **Formatting**:
 ```sql
--- ✅ Good: Readable formatting, explicit joins
+--  Good: Readable formatting, explicit joins
 SELECT
     s.session_id,
     s.user_id,
@@ -601,7 +601,7 @@ WHERE s.org_id = $1
 ORDER BY s.created_at DESC
 LIMIT 50;
 
--- ❌ Bad: One-liner, hard to read
+--  Bad: One-liner, hard to read
 SELECT s.session_id,s.user_id,s.status FROM sessions s WHERE s.org_id=$1 AND s.status='running';
 ```
 
@@ -609,10 +609,10 @@ SELECT s.session_id,s.user_id,s.status FROM sessions s WHERE s.org_id=$1 AND s.s
 
 **Always Use Parameterized Queries**:
 ```sql
--- ✅ Good: Parameterized query
+--  Good: Parameterized query
 SELECT * FROM sessions WHERE org_id = $1 AND user_id = $2;
 
--- ❌ Bad: String concatenation (SQL injection risk)
+--  Bad: String concatenation (SQL injection risk)
 -- SELECT * FROM sessions WHERE org_id = '" + orgID + "';
 ```
 
@@ -758,21 +758,21 @@ Relates to #456
 
 **Be Constructive**:
 ```
-// ✅ Good: Specific, actionable feedback
+//  Good: Specific, actionable feedback
 "Consider extracting this validation logic into a separate function
 for reusability. Example: `validateSessionRequest(req)`"
 
-// ❌ Bad: Vague, dismissive
+//  Bad: Vague, dismissive
 "This is messy."
 ```
 
 **Ask Questions**:
 ```
-// ✅ Good: Open-ended question
+//  Good: Open-ended question
 "What's the reasoning behind using a channel here instead of a mutex?
 I'm curious about the trade-offs."
 
-// ❌ Bad: Accusatory
+//  Bad: Accusatory
 "Why did you do this wrong?"
 ```
 
@@ -841,7 +841,7 @@ cd api && golangci-lint run || exit 1
 # TypeScript
 cd ui && npm run lint || exit 1
 
-echo "✅ Pre-commit checks passed"
+echo " Pre-commit checks passed"
 ```
 
 ---

@@ -1,4 +1,4 @@
-# VNC Migration Guide
+﻿# VNC Migration Guide
 
 **Status**: Planning Document (Phase 3 - Not Yet Implemented)
 **Target Timeline**: Months 7-9 (Q3 2025)
@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 Overview
+##  Overview
 
 This document provides a comprehensive guide for migrating StreamSpace from KasmVNC to a fully open source VNC stack based on TigerVNC and noVNC.
 
@@ -14,7 +14,7 @@ This document provides a comprehensive guide for migrating StreamSpace from Kasm
 
 ---
 
-## 📊 Current State Analysis
+##  Current State Analysis
 
 ### Dependencies to Replace
 
@@ -44,7 +44,7 @@ ls manifests/templates/*/*.yaml
 
 ---
 
-## 🏗️ Target Architecture
+## � Target Architecture
 
 ### New VNC Stack
 
@@ -118,7 +118,7 @@ ls manifests/templates/*/*.yaml
 
 ---
 
-## 🔧 Component Implementation Details
+##  Component Implementation Details
 
 ### 1. TigerVNC Server
 
@@ -383,7 +383,7 @@ func (p *VNCProxy) getVNCAddress(ctx context.Context, sessionID string) (string,
 
 ---
 
-## 📦 Container Image Migration
+## � Container Image Migration
 
 ### Base Image Strategy
 
@@ -567,7 +567,7 @@ jobs:
 
 ---
 
-## 🔄 Migration Process
+##  Migration Process
 
 ### Phase 1: Preparation (Week 1-2)
 
@@ -672,11 +672,11 @@ jobs:
 - [ ] Load testing
 
 **Success Criteria**:
-- ✅ Zero KasmVNC references in codebase
-- ✅ All images build successfully
-- ✅ Performance ≥ KasmVNC baseline
-- ✅ 100% template coverage
-- ✅ Security scan passed
+-  Zero KasmVNC references in codebase
+-  All images build successfully
+-  Performance ≥ KasmVNC baseline
+-  100% template coverage
+-  Security scan passed
 
 ### Phase 8: Deployment (Week 15-16)
 
@@ -694,7 +694,7 @@ jobs:
 
 ---
 
-## 📊 Performance Targets
+##  Performance Targets
 
 ### Benchmarks (vs KasmVNC baseline)
 
@@ -720,7 +720,7 @@ jobs:
 
 ---
 
-## 🔒 Security Considerations
+##  Security Considerations
 
 ### Authentication Flow
 
@@ -762,14 +762,14 @@ spec:
 
 ### TLS Encryption
 
-- ✅ User → Ingress: TLS 1.3
-- ✅ Ingress → API: TLS (mutual TLS optional)
-- ⚠️ API → VNC Server: Plaintext (within cluster)
+-  User → Ingress: TLS 1.3
+-  Ingress → API: TLS (mutual TLS optional)
+-  API → VNC Server: Plaintext (within cluster)
 - Future: VNC-TLS support
 
 ---
 
-## 🧪 Testing Strategy
+##  Testing Strategy
 
 ### Unit Tests
 
@@ -874,7 +874,7 @@ export default function () {
 
 ---
 
-## 📋 Migration Checklist
+##  Migration Checklist
 
 ### Pre-Migration
 
@@ -907,7 +907,7 @@ export default function () {
 
 ---
 
-## 🚨 Rollback Plan
+## � Rollback Plan
 
 ### Trigger Conditions
 
@@ -942,7 +942,7 @@ export default function () {
 
 ---
 
-## 📚 Resources
+## � Resources
 
 ### TigerVNC Documentation
 - Official: https://tigervnc.org/
@@ -960,7 +960,7 @@ export default function () {
 
 ---
 
-## 📞 Support
+## � Support
 
 For migration questions or issues:
 - **GitHub Issues**: https://github.com/streamspace/streamspace/issues

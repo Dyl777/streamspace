@@ -1,4 +1,4 @@
-# Multi-Controller Architecture Design
+﻿# Multi-Controller Architecture Design
 
 **Version**: 1.0
 **Date**: 2025-11-17
@@ -702,7 +702,7 @@ API Server ──gRPC──> K8s Controller ──Deployments/Services──> Ku
 
 **Tasks**:
 
-1. ✅ **Design**: Create this document
+1.  **Design**: Create this document
 2. **Database**:
    - Add `controllers` and `controller_tokens` tables
    - Add `controller_id`, `controller_type`, `node_id` to `sessions` table

@@ -1,4 +1,4 @@
-# Load Balancing and Scaling Strategy
+﻿# Load Balancing and Scaling Strategy
 
 **Version**: v1.0
 **Last Updated**: 2025-11-26
@@ -542,9 +542,9 @@ spec:
 - **GET /sessions/:id/vnc**: < 50ms (token generation)
 
 **Actual** (v2.0-beta, 3 API pods):
-- **GET /sessions**: 45ms (p95) ✅
-- **POST /sessions**: 180ms (p95) ✅
-- **GET /sessions/:id/vnc**: 30ms (p95) ✅
+- **GET /sessions**: 45ms (p95) 
+- **POST /sessions**: 180ms (p95) 
+- **GET /sessions/:id/vnc**: 30ms (p95) 
 
 ### 8.2 Database Performance
 
@@ -566,7 +566,7 @@ SELECT usename, count(*) FROM pg_stat_activity GROUP BY usename;
 - Load Balancer → API Pod: 5ms
 - API Pod → Agent: 10ms
 - Agent → Session Pod: 10ms
-- **Total**: 30ms (p95) ✅
+- **Total**: 30ms (p95) 
 
 ---
 

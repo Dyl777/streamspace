@@ -1,4 +1,4 @@
-# C4 Model Architecture Diagrams
+﻿# C4 Model Architecture Diagrams
 
 **Version**: v2.0-beta
 **Last Updated**: 2025-11-26

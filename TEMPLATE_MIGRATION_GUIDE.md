@@ -1,4 +1,4 @@
-# StreamSpace Template Migration Guide
+﻿# StreamSpace Template Migration Guide
 
 ## Overview
 
@@ -248,11 +248,11 @@ streamspace-templates/
 
    if [ $ERRORS -gt 0 ]; then
        echo ""
-       echo "❌ Validation failed with $ERRORS errors"
+       echo " Validation failed with $ERRORS errors"
        exit 1
    else
        echo ""
-       echo "✅ All templates validated successfully"
+       echo " All templates validated successfully"
    fi
    EOF
 

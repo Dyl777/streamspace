@@ -1,4 +1,4 @@
-# Information Architecture
+﻿# Information Architecture
 
 **Version**: v2.0-beta
 **Last Updated**: 2025-11-26
@@ -85,14 +85,14 @@ Located in left sidebar (Material-UI Drawer):
 ┌─────────────────────────┐
 │ StreamSpace Logo        │
 ├─────────────────────────┤
-│ 🏠 Dashboard            │
-│ 💻 Sessions             │
-│ 📋 Templates            │
-│ 🧩 Plugins              │
+│ � Dashboard            │
+│ � Sessions             │
+│  Templates            │
+│ � Plugins              │
 ├─────────────────────────┤
-│ ⚙️ Settings             │ (User settings)
-│ 👤 Profile              │
-│ 🚪 Logout               │
+│  Settings             │ (User settings)
+│ � Profile              │
+│ � Logout               │
 └─────────────────────────┘
 ```
 
@@ -102,7 +102,7 @@ Additional section in sidebar:
 
 ```
 ┌─────────────────────────┐
-│ 📊 Admin                │ (Expandable section)
+│  Admin                │ (Expandable section)
 │   ├─ Dashboard          │
 │   ├─ Users              │
 │   ├─ Groups             │

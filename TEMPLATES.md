@@ -1,4 +1,4 @@
-StreamSpace Template Catalog
+﻿StreamSpace Template Catalog
 This document lists all available templates in the repository.
 
 Statistics

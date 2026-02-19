@@ -1,4 +1,4 @@
-# ADR-001: VNC Token Authentication Model
+﻿# ADR-001: VNC Token Authentication Model
 - **Status**: Accepted
 - **Date**: 2025-11-18
 - **Owners**: Agent 2 (Builder)
@@ -25,12 +25,12 @@ VNC proxy uses WebSocket to tunnel to session containers. Tokens must authentica
 - Replay within TTL still possible if stolen; mitigate with TLS, short TTL, and optional nonce cache if needed.
 
 ## Implementation Status
-- ✅ Implemented in v2.0-beta (2025-11-18)
-- ✅ JWT validation in VNC proxy handler
-- ✅ Token generation endpoint: GET /api/v1/sessions/{id}/vnc
-- ✅ Configurable via JWT_SECRET environment variable
-- ⚠️ TODO: Add org_id to JWT claims (Issue #212 - Wave 27)
-- ⚠️ TODO: Add tests for expired tokens, tampered signatures
+-  Implemented in v2.0-beta (2025-11-18)
+-  JWT validation in VNC proxy handler
+-  Token generation endpoint: GET /api/v1/sessions/{id}/vnc
+-  Configurable via JWT_SECRET environment variable
+-  TODO: Add org_id to JWT claims (Issue #212 - Wave 27)
+-  TODO: Add tests for expired tokens, tampered signatures
 
 ## References
 - Implementation: api/internal/handlers/vnc_proxy.go

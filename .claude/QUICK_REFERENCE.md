@@ -1,4 +1,4 @@
-# Multi-Agent Orchestration - Quick Reference
+﻿# Multi-Agent Orchestration - Quick Reference
 
 ## Setup (One Time)
 
@@ -133,11 +133,11 @@ git status
 
 ## Remember
 
-✅ Check plan every 30 minutes
-✅ Update status after completing tasks
-✅ Leave clear messages for other agents
-✅ Use descriptive commit messages
-✅ Let Architect coordinate merges
+ Check plan every 30 minutes
+ Update status after completing tasks
+ Leave clear messages for other agents
+ Use descriptive commit messages
+ Let Architect coordinate merges
 
 ## Current Priority: Implementation Gap Analysis
 

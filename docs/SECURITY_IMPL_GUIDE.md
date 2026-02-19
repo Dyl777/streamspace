@@ -1,4 +1,4 @@
-# Security Implementation Guide - Phase 4 Enhancements
+﻿# Security Implementation Guide - Phase 4 Enhancements
 
 This guide provides ready-to-deploy configurations for all Phase 4 security enhancements.
 

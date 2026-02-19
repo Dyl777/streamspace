@@ -1,4 +1,4 @@
-# Session Scheduling User Guide
+﻿# Session Scheduling User Guide
 
 **Difficulty**: Beginner
 **Time Required**: 10-15 minutes
@@ -363,7 +363,7 @@ Cron format: `minute hour day_of_month month day_of_week`
 
 ## Best Practices
 
-### ✅ Do
+###  Do
 
 - Use descriptive schedule names
 - Enable auto-termination to save resources
@@ -371,7 +371,7 @@ Cron format: `minute hour day_of_month month day_of_week`
 - Set realistic timezones
 - Test one-time schedules before creating recurring ones
 
-### ❌ Don't
+###  Don't
 
 - Create overlapping schedules for same template
 - Forget to disable unused schedules

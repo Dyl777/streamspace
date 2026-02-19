@@ -1,4 +1,4 @@
-# StreamSpace Controller Installation Guide
+﻿# StreamSpace Controller Installation Guide
 
 This guide covers installing and deploying the StreamSpace controller to a Kubernetes cluster.
 
@@ -23,11 +23,11 @@ kubectl get crds | grep streamspace
 ```
 
 This will install:
-- ✅ streamspace namespace
-- ✅ Session and Template CRDs
-- ✅ Controller deployment
-- ✅ RBAC (ServiceAccount, ClusterRole, ClusterRoleBinding)
-- ✅ Metrics service
+-  streamspace namespace
+-  Session and Template CRDs
+-  Controller deployment
+-  RBAC (ServiceAccount, ClusterRole, ClusterRoleBinding)
+-  Metrics service
 
 ## Manual Installation
 
@@ -168,7 +168,7 @@ StreamSpace includes helper scripts for common operations. See [scripts/README.m
 # Output shows:
 # ✓ Session created
 # ✓ Session is running
-# 🌐 Access your session at: https://alice-firefox.streamspace.local
+#  Access your session at: https://alice-firefox.streamspace.local
 ```
 
 ### List Sessions

@@ -1,4 +1,4 @@
-# ADR-007: Agent Outbound WebSocket (Firewall-Friendly Architecture)
+﻿# ADR-007: Agent Outbound WebSocket (Firewall-Friendly Architecture)
 - **Status**: Accepted
 - **Date**: 2025-11-18
 - **Owners**: Agent 2 (Builder)
@@ -99,22 +99,22 @@ func (h *AgentHub) HandleAgentConnection(w http.ResponseWriter, r *http.Request)
 
 ## Alternatives Considered
 
-### Alternative A: Inbound to Agents (v1.x) ❌
+### Alternative A: Inbound to Agents (v1.x) 
 - **Pros**: Direct connection, simple
 - **Cons**: NAT/firewall issues, requires per-agent ingress
 - **Verdict**: Rejected - Enterprise unfriendly
 
-### Alternative B: Outbound from Agents (v2.0) ✅
+### Alternative B: Outbound from Agents (v2.0) 
 - **Pros**: Works through NAT/firewalls, single ingress
 - **Cons**: Control Plane must track connections
 - **Verdict**: Accepted - Enterprise-ready
 
-### Alternative C: Bidirectional (Mesh) ❌
+### Alternative C: Bidirectional (Mesh) 
 - **Pros**: Flexible topology
 - **Cons**: Complex, hard to secure
 - **Verdict**: Rejected - Unnecessary complexity
 
-### Alternative D: Agent Polling ❌
+### Alternative D: Agent Polling 
 - **Pros**: Works everywhere
 - **Cons**: High latency, inefficient
 - **Verdict**: Rejected - Poor UX
@@ -136,14 +136,14 @@ func (h *AgentHub) HandleAgentConnection(w http.ResponseWriter, r *http.Request)
 
 ## Consequences
 
-### Positive ✅
+### Positive 
 1. **Enterprise Deployments**: Works behind corporate firewalls
 2. **Edge Computing**: Agents in edge locations can connect
 3. **Cost Reduction**: No LoadBalancer per agent
 4. **Simplified Networking**: Single ingress (Control Plane)
 5. **Security**: Centralized access control at Control Plane
 
-### Negative ⚠️
+### Negative 
 1. **Connection Tracking**: Control Plane must track all agent connections
 2. **Scalability**: Control Plane handles many WebSocket connections
 3. **Reconnection Logic**: Agents must handle reconnection (exponential backoff)

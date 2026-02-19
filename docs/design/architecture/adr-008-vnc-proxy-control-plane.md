@@ -1,4 +1,4 @@
-# ADR-008: VNC Proxy via Control Plane (Centralized Access)
+﻿# ADR-008: VNC Proxy via Control Plane (Centralized Access)
 - **Status**: Accepted
 - **Date**: 2025-11-18
 - **Owners**: Agent 2 (Builder)
@@ -61,22 +61,22 @@ User → Control Plane VNC Proxy → Agent VNC Tunnel → Session Pod VNC Server
 
 ## Alternatives Considered
 
-### Alternative A: Direct to Agent (v1.x) ❌
+### Alternative A: Direct to Agent (v1.x) 
 - **Pros**: Low latency (direct connection)
 - **Cons**: Security issues, network exposure, no audit trail
 - **Verdict**: Rejected - Enterprise unfriendly
 
-### Alternative B: Proxy via Control Plane (v2.0) ✅
+### Alternative B: Proxy via Control Plane (v2.0) 
 - **Pros**: Centralized auth/audit, single ingress, secure
 - **Cons**: Extra hop adds latency (~10-20ms)
 - **Verdict**: Accepted - Security > latency
 
-### Alternative C: Dedicated VNC Gateway ❌
+### Alternative C: Dedicated VNC Gateway 
 - **Pros**: Separation of concerns
 - **Cons**: Additional infrastructure, complexity
 - **Verdict**: Rejected - Control Plane sufficient
 
-### Alternative D: Agent-to-Agent Mesh ❌
+### Alternative D: Agent-to-Agent Mesh 
 - **Pros**: No Control Plane bottleneck
 - **Cons**: Complex topology, hard to secure
 - **Verdict**: Rejected - Unnecessary complexity
@@ -197,14 +197,14 @@ func handleCreateVNCTunnel(cmd Command) {
 
 ## Consequences
 
-### Positive ✅
+### Positive 
 1. **Centralized Auth**: VNC tokens validated at Control Plane
 2. **Audit Trail**: All VNC connections logged (session_id, user_id, timestamp)
 3. **Token Expiry**: VNC access automatically expires (1 hour default)
 4. **Network Security**: Agents not exposed to users
 5. **Multi-Platform**: Same architecture for K8s and Docker
 
-### Negative ⚠️
+### Negative 
 1. **Latency**: Extra hop adds ~10-20ms latency
 2. **Bandwidth**: Control Plane proxies VNC traffic (capacity planning)
 3. **Scalability**: Control Plane must handle VNC bandwidth

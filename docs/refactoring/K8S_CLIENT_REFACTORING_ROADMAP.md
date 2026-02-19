@@ -1,4 +1,4 @@
-# k8sClient Refactoring Roadmap
+﻿# k8sClient Refactoring Roadmap
 
 ## Executive Summary
 
@@ -183,7 +183,7 @@
 // BEFORE
 func (h *Handler) CreateSession(c *gin.Context) {
     session := &k8s.Session{...}
-    created, err := h.k8sClient.CreateSession(ctx, session)  // ❌ Removed
+    created, err := h.k8sClient.CreateSession(ctx, session)  //  Removed
 }
 
 // AFTER
@@ -240,7 +240,7 @@ func (h *Handler) CreateSession(c *gin.Context) {
 // BEFORE
 func (h *Handler) CreateSession(c *gin.Context) {
     // Check quota
-    err := h.quotaEnforcer.CheckSessionCreation(...)  // ❌ Removed
+    err := h.quotaEnforcer.CheckSessionCreation(...)  //  Removed
 
 // AFTER (in webhook)
 func (v *SessionValidator) ValidateCreate(session *k8s.Session) error {

@@ -1,4 +1,4 @@
-# StreamSpace Deployment Guide
+﻿# StreamSpace Deployment Guide
 
 Complete guide for deploying StreamSpace to a Kubernetes cluster.
 

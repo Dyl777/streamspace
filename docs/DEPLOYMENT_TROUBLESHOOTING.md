@@ -1,4 +1,4 @@
-# Deployment Troubleshooting Guide
+﻿# Deployment Troubleshooting Guide
 
 This guide covers common issues you might encounter when deploying StreamSpace and their solutions.
 
@@ -41,7 +41,7 @@ Helm v3.19.0 has a **critical regression** in the chart loader (`helm.sh/helm/v3
 
 **Solutions:**
 
-#### Option 1: Use kubectl-based Deployment ✅ RECOMMENDED for Helm v3.19.0
+#### Option 1: Use kubectl-based Deployment  RECOMMENDED for Helm v3.19.0
 We've created a Helm-free deployment script that uses raw Kubernetes manifests:
 
 ```bash
@@ -49,11 +49,11 @@ We've created a Helm-free deployment script that uses raw Kubernetes manifests:
 ```
 
 This script:
-- ✅ Works with any Helm version (doesn't use Helm)
-- ✅ Deploys all components (controller, API, UI, database)
-- ✅ Creates RBAC, secrets, and services
-- ✅ Uses the same local Docker images
-- ✅ Perfect for Docker Desktop users stuck on Helm v3.19.0
+-  Works with any Helm version (doesn't use Helm)
+-  Deploys all components (controller, API, UI, database)
+-  Creates RBAC, secrets, and services
+-  Uses the same local Docker images
+-  Perfect for Docker Desktop users stuck on Helm v3.19.0
 
 **This is the recommended approach if you can't downgrade Helm.**
 

@@ -1,4 +1,4 @@
-# Stub Endpoints Reference
+﻿# Stub Endpoints Reference
 
 Quick reference for all intentional stub endpoints in StreamSpace core API.
 

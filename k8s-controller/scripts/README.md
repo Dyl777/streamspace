@@ -1,4 +1,4 @@
-# StreamSpace Helper Scripts
+﻿# StreamSpace Helper Scripts
 
 This directory contains helper scripts for common StreamSpace operations.
 

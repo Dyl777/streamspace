@@ -1,4 +1,4 @@
-# StreamSpace Features
+﻿# StreamSpace Features
 
 **Version**: v1.0.0-beta
 **Last Updated**: 2025-11-19

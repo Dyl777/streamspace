@@ -1,4 +1,4 @@
-# Test Plan: Core Platform (Session & Application System)
+﻿# Test Plan: Core Platform (Session & Application System)
 
 **Test Plan ID**: TP-003
 **Author**: Agent 3 (Validator)

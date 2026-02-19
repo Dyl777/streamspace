@@ -1,4 +1,4 @@
-# StreamSpace Enterprise Features
+﻿# StreamSpace Enterprise Features
 
 **Version**: 1.0.0
 **Last Updated**: 2025-11-15

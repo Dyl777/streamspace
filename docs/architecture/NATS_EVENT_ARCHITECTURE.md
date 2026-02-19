@@ -1,4 +1,4 @@
-# NATS Event Architecture
+﻿# NATS Event Architecture
 
 ## Overview
 

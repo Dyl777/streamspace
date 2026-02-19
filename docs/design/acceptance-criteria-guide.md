@@ -1,4 +1,4 @@
-# Acceptance Criteria Guide
+﻿# Acceptance Criteria Guide
 
 **Version**: v1.0
 **Last Updated**: 2025-11-26
@@ -53,7 +53,7 @@ So that I can provision containerized applications programmatically
 **Acceptance Criteria**:
 
 ```
-✅ AC1: Successful Session Creation
+ AC1: Successful Session Creation
 
 Given I am authenticated with valid JWT token
   And my org has available quota (sessions < max_sessions)
@@ -76,7 +76,7 @@ Then I receive 201 Created response
 ```
 
 ```
-❌ AC2: Quota Exceeded
+ AC2: Quota Exceeded
 
 Given I am authenticated
   And my org quota is 10 sessions
@@ -94,7 +94,7 @@ Then I receive 429 Too Many Requests response
 ```
 
 ```
-❌ AC3: Invalid Template
+ AC3: Invalid Template
 
 Given I am authenticated
   And template "nonexistent-template" does not exist
@@ -106,7 +106,7 @@ Then I receive 404 Not Found response
 ```
 
 ```
-❌ AC4: Unauthorized Access
+ AC4: Unauthorized Access
 
 Given I am NOT authenticated (no JWT token)
 When I POST to /api/v1/sessions with valid payload
@@ -115,7 +115,7 @@ Then I receive 401 Unauthorized response
 ```
 
 ```
-❌ AC5: Org Scoping (Security)
+ AC5: Org Scoping (Security)
 
 Given I am authenticated as user in org "org-A"
   And template "restricted" exists in org "org-B" only
@@ -140,7 +140,7 @@ So that I can quickly identify and connect to my sessions
 **Acceptance Criteria**:
 
 ```
-✅ AC1: Display Session Information
+ AC1: Display Session Information
 
 Given a session object:
   {
@@ -161,7 +161,7 @@ Then the card displays:
 ```
 
 ```
-✅ AC2: Status Badge Colors
+ AC2: Status Badge Colors
 
 Given different session statuses
 When SessionCard is rendered
@@ -173,7 +173,7 @@ Then status badges use correct colors:
 ```
 
 ```
-✅ AC3: Connect Button Action
+ AC3: Connect Button Action
 
 Given session status is "running"
 When user clicks "Connect" button
@@ -182,7 +182,7 @@ Then onConnect callback is called with session.id
 ```
 
 ```
-❌ AC4: Connect Button Disabled
+ AC4: Connect Button Disabled
 
 Given session status is "pending" or "stopped" or "failed"
 When SessionCard is rendered
@@ -191,7 +191,7 @@ Then "Connect" button is disabled (grayed out)
 ```
 
 ```
-✅ AC5: Delete Confirmation
+ AC5: Delete Confirmation
 
 Given session is displayed
 When user clicks "Delete" button
@@ -219,7 +219,7 @@ So that I can reduce infrastructure costs
 **Acceptance Criteria**:
 
 ```
-✅ AC1: Detect Idle Session
+ AC1: Detect Idle Session
 
 Given a session has been running for 30 minutes
   And there has been no VNC activity (no mouse/keyboard input) for 15 minutes
@@ -230,7 +230,7 @@ Then the session is marked as "idle" in database
 ```
 
 ```
-✅ AC2: Hibernate Session
+ AC2: Hibernate Session
 
 Given a "hibernate_session" command is received by agent
   And session pod is running
@@ -243,7 +243,7 @@ Then agent pauses the session container (SIGSTOP)
 ```
 
 ```
-✅ AC3: Resume Hibernated Session
+ AC3: Resume Hibernated Session
 
 Given a session is in "hibernated" status
 When user requests to connect (GET /api/v1/sessions/:id/vnc)
@@ -255,7 +255,7 @@ Then API dispatches "resume_session" command to agent
 ```
 
 ```
-❌ AC4: Hibernation Disabled
+ AC4: Hibernation Disabled
 
 Given an org has hibernation disabled in settings
 When idle detection cron job runs
@@ -264,7 +264,7 @@ Then no sessions for that org are hibernated
 ```
 
 ```
-✅ AC5: Hibernation Timeout
+ AC5: Hibernation Timeout
 
 Given a session has been hibernated for 7 days
   And hibernation_max_duration is set to 7 days
@@ -290,7 +290,7 @@ So that users in org A cannot access sessions in org B
 **Acceptance Criteria**:
 
 ```
-✅ AC1: JWT Contains org_id
+ AC1: JWT Contains org_id
 
 Given a user authenticates via SSO
 When JWT token is generated
@@ -305,7 +305,7 @@ Then token claims include:
 ```
 
 ```
-✅ AC2: Session List Org-Scoped
+ AC2: Session List Org-Scoped
 
 Given I am authenticated as user in "org-A"
   And there are 5 sessions in "org-A"
@@ -317,7 +317,7 @@ Then I receive only the 5 sessions from "org-A"
 ```
 
 ```
-❌ AC3: Cross-Org Access Denied
+ AC3: Cross-Org Access Denied
 
 Given I am authenticated as user in "org-A"
   And session "sess-999" exists in "org-B"
@@ -327,7 +327,7 @@ Then I receive 404 Not Found response (not 403, to avoid enumeration)
 ```
 
 ```
-✅ AC4: WebSocket Broadcasts Org-Scoped
+ AC4: WebSocket Broadcasts Org-Scoped
 
 Given I am connected to WebSocket /ws/ui
   And I am in "org-A"
@@ -338,7 +338,7 @@ Then I do NOT receive the status update for org-B session
 ```
 
 ```
-✅ AC5: Admin Cross-Org Access
+ AC5: Admin Cross-Org Access
 
 Given I am authenticated as platform admin (role="admin")
   And admin_cross_org_access feature flag is enabled
@@ -359,29 +359,29 @@ Then I receive sessions from "org-B" (admin override)
 
 Use this checklist when writing acceptance criteria:
 
-### ✅ Clarity
+###  Clarity
 - [ ] Uses Given-When-Then format
 - [ ] Unambiguous language (no "maybe", "should", "probably")
 - [ ] Specific values/examples provided
 - [ ] No technical jargon (or explained if necessary)
 
-### ✅ Testability
+###  Testability
 - [ ] Can be verified with automated test
 - [ ] Measurable outcomes (response code, field values, state changes)
 - [ ] Edge cases covered (happy path + error cases)
 
-### ✅ Completeness
+###  Completeness
 - [ ] Covers happy path (successful operation)
 - [ ] Covers error cases (validation, auth, quota)
 - [ ] Covers edge cases (empty input, max limits, timeouts)
 - [ ] Defines both positive and negative tests
 
-### ✅ Independence
+###  Independence
 - [ ] AC can be verified independently
 - [ ] No dependencies on other unrelated features
 - [ ] Self-contained preconditions
 
-### ✅ Security
+###  Security
 - [ ] Authentication/authorization verified
 - [ ] Org scoping enforced (multi-tenancy)
 - [ ] Input validation covered
@@ -391,7 +391,7 @@ Use this checklist when writing acceptance criteria:
 
 ## Anti-Patterns
 
-### ❌ Vague Criteria
+###  Vague Criteria
 
 **Bad**:
 ```
@@ -410,7 +410,7 @@ Then API returns 201 Created with session object
 
 ---
 
-### ❌ Implementation Details
+###  Implementation Details
 
 **Bad**:
 ```
@@ -429,7 +429,7 @@ Then session is persisted with status "pending"
 
 ---
 
-### ❌ Missing Error Cases
+###  Missing Error Cases
 
 **Bad** (only happy path):
 ```
@@ -439,15 +439,15 @@ Then session is created
 
 **Good** (happy + error cases):
 ```
-✅ When user creates session with valid data → 201 Created
-❌ When user creates session with invalid template → 404 Not Found
-❌ When user exceeds quota → 429 Quota Exceeded
-❌ When unauthenticated user creates session → 401 Unauthorized
+ When user creates session with valid data → 201 Created
+ When user creates session with invalid template → 404 Not Found
+ When user exceeds quota → 429 Quota Exceeded
+ When unauthenticated user creates session → 401 Unauthorized
 ```
 
 ---
 
-### ❌ Non-Testable Criteria
+###  Non-Testable Criteria
 
 **Bad**:
 ```
@@ -540,17 +540,17 @@ So that [benefit]
 
 **Acceptance Criteria**:
 
-✅ AC1: Successful [Operation]
+ AC1: Successful [Operation]
 Given [preconditions]
 When [action]
 Then [expected outcome]
 
-❌ AC2: [Error Case 1]
+ AC2: [Error Case 1]
 Given [preconditions]
 When [action]
 Then [expected error response]
 
-❌ AC3: [Error Case 2]
+ AC3: [Error Case 2]
 ...
 ```
 
@@ -566,17 +566,17 @@ So that [benefit]
 
 **Acceptance Criteria**:
 
-✅ AC1: Display [Data/State]
+ AC1: Display [Data/State]
 Given [props/state]
 When component is rendered
 Then [visible elements]
 
-✅ AC2: [User Interaction]
+ AC2: [User Interaction]
 Given [initial state]
 When user [action]
 Then [expected behavior]
 
-❌ AC3: [Error/Edge Case]
+ AC3: [Error/Edge Case]
 ...
 ```
 

@@ -1,4 +1,4 @@
-# Template CRD: Current vs. Target VNC Field Structure
+﻿# Template CRD: Current vs. Target VNC Field Structure
 
 ## Side-by-Side Comparison
 

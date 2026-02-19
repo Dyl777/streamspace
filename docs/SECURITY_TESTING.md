@@ -1,4 +1,4 @@
-# Security Testing Guide
+﻿# Security Testing Guide
 
 This document provides comprehensive guidance for security testing of the StreamSpace platform.
 
@@ -738,11 +738,11 @@ Security testing is automated in GitHub Actions (`.github/workflows/security-sca
 
 Pull requests must pass all security checks before merging:
 
-- ✅ No CRITICAL vulnerabilities
-- ✅ No secrets detected
-- ✅ No high-severity SAST findings
-- ✅ All security tests pass
-- ✅ Code review by security team (for sensitive changes)
+-  No CRITICAL vulnerabilities
+-  No secrets detected
+-  No high-severity SAST findings
+-  All security tests pass
+-  Code review by security team (for sensitive changes)
 
 ---
 

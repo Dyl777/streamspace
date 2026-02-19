@@ -1,4 +1,4 @@
-# Plugin Runtime Loading Guide
+﻿# Plugin Runtime Loading Guide
 
 > **Status**: Implementation Complete
 > **Version**: 1.1.0

@@ -1,4 +1,4 @@
-# ADR-002: Cache Layer for Control Plane Reads
+﻿# ADR-002: Cache Layer for Control Plane Reads
 - **Status**: Accepted
 - **Date**: 2025-11-20
 - **Owners**: Agent 2 (Builder)
@@ -25,16 +25,16 @@ Hot read paths (session lists, templates, org metadata) hit PostgreSQL. A Redis 
 - Need observability to avoid silent cache poisoning.
 
 ## Implementation Status
-- ✅ Infrastructure implemented (api/internal/cache/cache.go) - v2.0-beta
-- ✅ Redis client with fail-open behavior
-- ✅ Cache enabled via CACHE_ENABLED environment variable
-- ✅ Graceful degradation when Redis unavailable
-- ⚠️ TODO: Standardize keys/TTLs across services (Issue #214 - v2.0-beta.2)
-- ⚠️ TODO: Implement invalidation hooks on writes
-- ⚠️ TODO: Add cache metrics (hit/miss/error rates)
+-  Infrastructure implemented (api/internal/cache/cache.go) - v2.0-beta
+-  Redis client with fail-open behavior
+-  Cache enabled via CACHE_ENABLED environment variable
+-  Graceful degradation when Redis unavailable
+-  TODO: Standardize keys/TTLs across services (Issue #214 - v2.0-beta.2)
+-  TODO: Implement invalidation hooks on writes
+-  TODO: Add cache metrics (hit/miss/error rates)
 
 ## Rollout Plan
-- Phase 1 (v2.0-beta): ✅ Cache infrastructure and fail-open behavior
+- Phase 1 (v2.0-beta):  Cache infrastructure and fail-open behavior
 - Phase 2 (v2.0-beta.2): Issue #214 - Standardized keys, TTLs, invalidation
 - Phase 3 (v2.1): Cache metrics and alerting
 

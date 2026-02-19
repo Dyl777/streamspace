@@ -1,18 +1,18 @@
-# Security Policy
+﻿# Security Policy
 
-## 🛡️ Security Status
+##  Security Status
 
-**Current Status**: ✅ **PRODUCTION-READY** - All critical, high, and medium severity security issues have been addressed!
+**Current Status**:  **PRODUCTION-READY** - All critical, high, and medium severity security issues have been addressed!
 
 StreamSpace has completed comprehensive security hardening (Phases 1-5). All 10 critical severity and all 10 high severity security issues have been resolved. The platform now implements enterprise-grade defense-in-depth security controls including authentication, authorization, multi-layer rate limiting, nonce-based CSP, input validation, CSRF protection, audit logging, pod security standards, network policies, service mesh (Istio), WAF (ModSecurity), container image signing, automated compliance scanning, and comprehensive security monitoring.
 
 **Last Security Review**: 2025-11-14
 **Security Hardening Completed**: 2025-11-14 (Phases 1-5)
-**Production Readiness**: ✅ READY - All Phase 5 security controls deployed
+**Production Readiness**:  READY - All Phase 5 security controls deployed
 
 ---
 
-## 📋 Supported Versions
+##  Supported Versions
 
 | Version | Supported          | Status |
 | ------- | ------------------ | ------ |
@@ -23,7 +23,7 @@ StreamSpace has completed comprehensive security hardening (Phases 1-5). All 10 
 
 ---
 
-## 🔒 Reporting a Vulnerability
+##  Reporting a Vulnerability
 
 We take security seriously. If you discover a security vulnerability in StreamSpace, please follow these steps:
 
@@ -68,37 +68,37 @@ Please give us a reasonable amount of time to fix the issue before public disclo
 
 ---
 
-## ⚠️ Known Security Issues
+##  Known Security Issues
 
-**Status Update (2025-11-14)**: All 10 critical security issues have been addressed! 🎉
+**Status Update (2025-11-14)**: All 10 critical security issues have been addressed! 
 
-### ✅ Critical Severity Issues - RESOLVED (10/10)
+###  Critical Severity Issues - RESOLVED (10/10)
 
-1. **✅ Secrets in ConfigMaps** - FIXED: Improved secret management with clear warnings and documentation
-2. **✅ Unauthenticated API Routes** - FIXED: Authentication middleware applied to all protected endpoints
-3. **✅ Wide Open CORS** - FIXED: CORS restricted to environment-configured whitelisted origins
-4. **✅ Weak Default JWT Secret** - FIXED: Application fails to start if JWT_SECRET not provided (minimum 32 chars)
-5. **✅ SQL Injection Risk** - FIXED: Comprehensive validation on all database connection parameters
-6. **✅ No Rate Limiting** - FIXED: Token bucket rate limiting (100 req/sec per IP, burst 200)
-7. **✅ Elevated Pod Privileges** - FIXED: Pod Security Standards enforced, secure pod template created
-8. **✅ No CRD Input Validation** - FIXED: Comprehensive validation rules added (patterns, min/max, enums)
-9. **✅ Webhook Authentication Missing** - FIXED: HMAC-SHA256 signature validation for all webhooks
-10. **✅ RBAC Over-Permissions** - FIXED: Namespace-scoped roles, least-privilege access
+1. ** Secrets in ConfigMaps** - FIXED: Improved secret management with clear warnings and documentation
+2. ** Unauthenticated API Routes** - FIXED: Authentication middleware applied to all protected endpoints
+3. ** Wide Open CORS** - FIXED: CORS restricted to environment-configured whitelisted origins
+4. ** Weak Default JWT Secret** - FIXED: Application fails to start if JWT_SECRET not provided (minimum 32 chars)
+5. ** SQL Injection Risk** - FIXED: Comprehensive validation on all database connection parameters
+6. ** No Rate Limiting** - FIXED: Token bucket rate limiting (100 req/sec per IP, burst 200)
+7. ** Elevated Pod Privileges** - FIXED: Pod Security Standards enforced, secure pod template created
+8. ** No CRD Input Validation** - FIXED: Comprehensive validation rules added (patterns, min/max, enums)
+9. ** Webhook Authentication Missing** - FIXED: HMAC-SHA256 signature validation for all webhooks
+10. ** RBAC Over-Permissions** - FIXED: Namespace-scoped roles, least-privilege access
 
-### ✅ High Severity Issues - RESOLVED (10/10)
+###  High Severity Issues - RESOLVED (10/10)
 
-**Status Update (2025-11-14)**: All high severity issues have been addressed! Phase 2 & Phase 3 improvements complete! 🎉
+**Status Update (2025-11-14)**: All high severity issues have been addressed! Phase 2 & Phase 3 improvements complete! 
 
-1. **✅ TLS Enforced** - FIXED: Ingress enforces HTTPS with HTTP→HTTPS redirect + HSTS headers
-2. **✅ CSRF Protection** - FIXED: Token-based CSRF protection for all state-changing operations
-3. **✅ Audit Logging** - FIXED: Structured audit logging with sensitive data redaction
-4. **✅ ReadOnlyRootFilesystem** - FIXED: Session pods run with read-only root, writable tmpfs volumes
-5. **✅ Request Size Limits** - FIXED: 10MB max request body size to prevent payload attacks
-6. **✅ Brute Force Protection** - FIXED: Strict rate limiting (5 req/sec) on auth endpoints
-7. **✅ Security Headers** - FIXED: HSTS, CSP, X-Frame-Options, X-Content-Type-Options + more
-8. **✅ Session Tokens Now Hashed** - FIXED: Token hashing utility with bcrypt/SHA256 (api/internal/auth/tokenhash.go)
-9. **✅ Database TLS Warnings** - FIXED: SSL/TLS warnings added, DB_SSL_MODE environment variable supported
-10. **✅ Container Image Scanning** - FIXED: Comprehensive CI/CD security scanning workflow (.github/workflows/security-scan.yml)
+1. ** TLS Enforced** - FIXED: Ingress enforces HTTPS with HTTP→HTTPS redirect + HSTS headers
+2. ** CSRF Protection** - FIXED: Token-based CSRF protection for all state-changing operations
+3. ** Audit Logging** - FIXED: Structured audit logging with sensitive data redaction
+4. ** ReadOnlyRootFilesystem** - FIXED: Session pods run with read-only root, writable tmpfs volumes
+5. ** Request Size Limits** - FIXED: 10MB max request body size to prevent payload attacks
+6. ** Brute Force Protection** - FIXED: Strict rate limiting (5 req/sec) on auth endpoints
+7. ** Security Headers** - FIXED: HSTS, CSP, X-Frame-Options, X-Content-Type-Options + more
+8. ** Session Tokens Now Hashed** - FIXED: Token hashing utility with bcrypt/SHA256 (api/internal/auth/tokenhash.go)
+9. ** Database TLS Warnings** - FIXED: SSL/TLS warnings added, DB_SSL_MODE environment variable supported
+10. ** Container Image Scanning** - FIXED: Comprehensive CI/CD security scanning workflow (.github/workflows/security-scan.yml)
 
 ### Tracking
 
@@ -107,9 +107,9 @@ Active security issues are tracked in GitHub Issues with the `security` label:
 
 ---
 
-## 🎯 Security Roadmap
+##  Security Roadmap
 
-### ✅ Phase 1: Critical Fixes (COMPLETED - 2025-11-14)
+###  Phase 1: Critical Fixes (COMPLETED - 2025-11-14)
 - [x] Implement authentication middleware on all protected routes
 - [x] Fix CORS policy to whitelist specific origins
 - [x] Remove all default/hardcoded secrets (JWT_SECRET required, postgres password documented)
@@ -132,7 +132,7 @@ Active security issues are tracked in GitHub Issues with the `security` label:
 - `manifests/config/streamspace-postgres.yaml` - Secret warnings
 - `manifests/crds/session.yaml` - Comprehensive validation rules
 
-### ✅ Phase 2: High Priority (COMPLETED - 2025-11-14)
+###  Phase 2: High Priority (COMPLETED - 2025-11-14)
 - [x] Enable TLS on all ingress by default
 - [x] Implement CSRF protection for state-changing operations
 - [x] Add comprehensive audit logging with structured events
@@ -150,7 +150,7 @@ Active security issues are tracked in GitHub Issues with the `security` label:
 - `manifests/config/ingress.yaml` - TLS enforcement, HTTP→HTTPS redirect, HSTS
 - `manifests/config/secure-session-pod-template.yaml` - ReadOnlyRootFilesystem enabled
 
-### ✅ Phase 3: Additional Security Hardening (COMPLETED - 2025-11-14)
+###  Phase 3: Additional Security Hardening (COMPLETED - 2025-11-14)
 - [x] Hash session tokens before database storage
 - [x] Add database TLS/SSL warnings and enforcement
 - [x] Container image vulnerability scanning in CI/CD
@@ -176,7 +176,7 @@ Active security issues are tracked in GitHub Issues with the `security` label:
 - `api/cmd/main.go` - Input validation middleware, DB_SSL_MODE support
 - `api/internal/db/database.go` - SSL/TLS warnings when encryption disabled
 
-### ✅ Phase 4: Advanced Application Security (COMPLETED - 2025-11-14)
+###  Phase 4: Advanced Application Security (COMPLETED - 2025-11-14)
 - [x] Improve CSP to use nonces instead of unsafe-inline/unsafe-eval
 - [x] Implement per-user rate limiting (1000 req/hour per user)
 - [x] Add endpoint-specific rate limiting for sensitive operations
@@ -199,7 +199,7 @@ Active security issues are tracked in GitHub Issues with the `security` label:
 - `api/internal/middleware/ratelimit.go` - Per-user and endpoint rate limiting
 - `api/cmd/main.go` - HTTP method restrictions, enhanced rate limiting
 
-### ✅ Phase 5: Production Hardening & External Validation (COMPLETED - 2025-11-14)
+###  Phase 5: Production Hardening & External Validation (COMPLETED - 2025-11-14)
 - [x] Deploy service mesh for automatic mTLS (Istio)
 - [x] Deploy Web Application Firewall (ModSecurity with OWASP CRS)
 - [x] Implement container image signing with Cosign
@@ -234,7 +234,7 @@ Active security issues are tracked in GitHub Issues with the `security` label:
 
 ---
 
-## 🏗️ Security Architecture
+## � Security Architecture
 
 ### Defense in Depth
 
@@ -277,7 +277,7 @@ StreamSpace implements multiple layers of security:
 
 ### Security Controls Implemented (2025-11-14)
 
-✅ **COMPLETE - Enterprise-Grade Production Security:**
+ **COMPLETE - Enterprise-Grade Production Security:**
 
 **Phases 1-3: Core Security Foundation**
 - Authentication middleware enforced on all protected routes (JWT + RBAC)
@@ -319,7 +319,7 @@ StreamSpace implements multiple layers of security:
 - Third-party security audit preparation guide
 - Bug bounty program ($50-$10,000 rewards)
 
-⏭️ **Future Enhancements (Phase 6):**
+⏭ **Future Enhancements (Phase 6):**
 - Database encryption at rest (PostgreSQL native)
 - Multi-factor authentication (MFA)
 - WebAuthn passwordless authentication
@@ -329,7 +329,7 @@ StreamSpace implements multiple layers of security:
 
 ---
 
-## 🔧 Required Security Configuration
+##  Required Security Configuration
 
 ### Environment Variables
 
@@ -376,7 +376,7 @@ Rate limiting is automatically enabled with sensible defaults (100 req/sec per I
 
 ---
 
-## 🔐 Security Best Practices for Deployment
+##  Security Best Practices for Deployment
 
 ### 1. Secrets Management
 
@@ -531,7 +531,7 @@ resourceQuotas:
 
 ---
 
-## 🧪 Security Testing
+##  Security Testing
 
 ### Pre-Deployment Checklist
 
@@ -595,7 +595,7 @@ npm audit --production
 
 ---
 
-## 📚 Security Resources
+## � Security Resources
 
 ### Standards & Frameworks
 
@@ -621,7 +621,7 @@ npm audit --production
 
 ---
 
-## 🔄 Security Update Policy
+##  Security Update Policy
 
 ### Release Cycle
 
@@ -644,7 +644,7 @@ We provide security updates for:
 
 ---
 
-## 🙏 Acknowledgments
+## � Acknowledgments
 
 We would like to thank the following for their contributions to StreamSpace security:
 
@@ -656,7 +656,7 @@ We would like to thank the following for their contributions to StreamSpace secu
 
 ---
 
-## 📞 Contact
+##  Contact
 
 - **Security Issues**: security@streamspace.io
 - **General Questions**: GitHub Discussions

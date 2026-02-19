@@ -1,4 +1,4 @@
-# StreamSpace Design Documentation
+﻿# StreamSpace Design Documentation
 
 **Version:** v2.0-beta
 **Last Updated:** 2025-11-26
@@ -6,7 +6,7 @@
 
 ---
 
-## 📋 Quick Start
+##  Quick Start
 
 ### For New Contributors
 
@@ -21,7 +21,7 @@ Start here to understand the system and coding practices:
 Understand the key architectural decisions that shape the system:
 
 - **[ADR Log](architecture/adr-log.md)** - All architecture decision records
-- **[ADR-004: Multi-Tenancy](architecture/adr-004-multi-tenancy-org-scoping.md)** - ⚠️ **CRITICAL** - Org-scoped RBAC (Issues #211, #212)
+- **[ADR-004: Multi-Tenancy](architecture/adr-004-multi-tenancy-org-scoping.md)** -  **CRITICAL** - Org-scoped RBAC (Issues #211, #212)
 - **[ADR-005: WebSocket Dispatch](architecture/adr-005-websocket-command-dispatch.md)** - Command dispatch architecture
 - **[ADR-006: Database Source of Truth](architecture/adr-006-database-source-of-truth.md)** - Database-first design pattern
 - **[ADR-007: Agent Outbound WebSocket](architecture/adr-007-agent-outbound-websocket.md)** - Firewall-friendly agent connections
@@ -62,7 +62,7 @@ Testing standards and acceptance criteria:
 
 ---
 
-## 📂 Directory Structure
+## � Directory Structure
 
 ```
 docs/design/
@@ -103,31 +103,31 @@ docs/design/
 
 ---
 
-## 🔄 ADR Quick Reference
+##  ADR Quick Reference
 
 Architecture Decision Records (ADRs) document significant architectural choices:
 
 | ADR | Status | Priority | Description |
 |-----|--------|----------|-------------|
-| [ADR-001](architecture/adr-001-vnc-token-auth.md) | ✅ Accepted | High | VNC token authentication mechanism |
-| [ADR-002](architecture/adr-002-cache-layer.md) | ✅ Accepted | Medium | Redis cache layer for session metadata |
-| [ADR-003](architecture/adr-003-agent-heartbeat-contract.md) | 🔄 In Progress | High | Agent heartbeat & health check protocol |
-| [ADR-004](architecture/adr-004-multi-tenancy-org-scoping.md) | ✅ Accepted | ⚠️ **CRITICAL** | Multi-tenancy via org-scoped RBAC |
-| [ADR-005](architecture/adr-005-websocket-command-dispatch.md) | ✅ Accepted | High | WebSocket command dispatch (vs NATS) |
-| [ADR-006](architecture/adr-006-database-source-of-truth.md) | ✅ Accepted | High | Database as source of truth |
-| [ADR-007](architecture/adr-007-agent-outbound-websocket.md) | ✅ Accepted | High | Agent outbound WebSocket connections |
-| [ADR-008](architecture/adr-008-vnc-proxy-control-plane.md) | ✅ Accepted | High | VNC proxy via Control Plane |
-| [ADR-009](architecture/adr-009-helm-deployment-no-operator.md) | ✅ Accepted | Medium | Helm chart deployment (no Operator) |
+| [ADR-001](architecture/adr-001-vnc-token-auth.md) |  Accepted | High | VNC token authentication mechanism |
+| [ADR-002](architecture/adr-002-cache-layer.md) |  Accepted | Medium | Redis cache layer for session metadata |
+| [ADR-003](architecture/adr-003-agent-heartbeat-contract.md) |  In Progress | High | Agent heartbeat & health check protocol |
+| [ADR-004](architecture/adr-004-multi-tenancy-org-scoping.md) |  Accepted |  **CRITICAL** | Multi-tenancy via org-scoped RBAC |
+| [ADR-005](architecture/adr-005-websocket-command-dispatch.md) |  Accepted | High | WebSocket command dispatch (vs NATS) |
+| [ADR-006](architecture/adr-006-database-source-of-truth.md) |  Accepted | High | Database as source of truth |
+| [ADR-007](architecture/adr-007-agent-outbound-websocket.md) |  Accepted | High | Agent outbound WebSocket connections |
+| [ADR-008](architecture/adr-008-vnc-proxy-control-plane.md) |  Accepted | High | VNC proxy via Control Plane |
+| [ADR-009](architecture/adr-009-helm-deployment-no-operator.md) |  Accepted | Medium | Helm chart deployment (no Operator) |
 
 **Legend:**
-- ✅ **Accepted** - Decision implemented and in production
-- 🔄 **In Progress** - Decision made, implementation underway
-- 📝 **Proposed** - Under review, not yet implemented
-- ⚠️ **CRITICAL** - P0 priority, security or system-critical
+-  **Accepted** - Decision implemented and in production
+-  **In Progress** - Decision made, implementation underway
+-  **Proposed** - Under review, not yet implemented
+-  **CRITICAL** - P0 priority, security or system-critical
 
 ---
 
-## 📚 Document Types
+## � Document Types
 
 ### Architecture Decision Records (ADRs)
 
@@ -169,7 +169,7 @@ Architecture Decision Records (ADRs) document significant architectural choices:
 
 ---
 
-## 🔗 External Resources
+## � External Resources
 
 ### Full Design & Governance Documentation
 
@@ -195,7 +195,7 @@ Contains comprehensive design documentation including:
 
 ---
 
-## 📝 Contributing to Documentation
+##  Contributing to Documentation
 
 ### When to Create an ADR
 
@@ -235,7 +235,7 @@ Create an ADR when making decisions that:
 
 ---
 
-## 🎯 Documentation Quality Standards
+##  Documentation Quality Standards
 
 ### Good Documentation Is:
 
@@ -258,7 +258,7 @@ Create an ADR when making decisions that:
 
 ---
 
-## 🔍 Finding Documentation
+##  Finding Documentation
 
 ### By Role
 
@@ -290,7 +290,7 @@ ADRs are linked to relevant GitHub issues:
 
 ---
 
-## 📅 Documentation Maintenance
+## � Documentation Maintenance
 
 ### Review Schedule
 
@@ -315,7 +315,7 @@ When architectural decisions change:
 
 ---
 
-## 🏆 Documentation Stats
+## � Documentation Stats
 
 **Current Status (v2.0-beta):**
 - **Total ADRs:** 9 (9 Accepted, 0 Proposed)
@@ -324,15 +324,15 @@ When architectural decisions change:
 - **Last Major Update:** 2025-11-26 (Documentation Sprint)
 
 **Coverage:**
-- ✅ Architecture: Comprehensive (9 ADRs)
-- ✅ Operations: Complete (scaling, compliance)
-- ✅ Development: Complete (coding standards, components)
-- ✅ Product: Complete (lifecycle, acceptance criteria)
+-  Architecture: Comprehensive (9 ADRs)
+-  Operations: Complete (scaling, compliance)
+-  Development: Complete (coding standards, components)
+-  Product: Complete (lifecycle, acceptance criteria)
 - ⏳ UX: Good (IA, components) - wireframes in private repo
 
 ---
 
-## 📞 Contact & Support
+## � Contact & Support
 
 **Documentation Questions:**
 - GitHub Issues: Tag with `documentation` label

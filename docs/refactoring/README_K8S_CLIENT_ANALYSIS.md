@@ -1,4 +1,4 @@
-# K8sClient Refactoring Analysis - README
+﻿# K8sClient Refactoring Analysis - README
 
 This directory contains three comprehensive documents analyzing k8sClient usage in the StreamSpace API and planning the migration to a controller-based architecture.
 

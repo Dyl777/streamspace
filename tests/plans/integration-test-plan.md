@@ -1,4 +1,4 @@
-# Test Plan: Integration (Batch Operations & Workflows)
+﻿# Test Plan: Integration (Batch Operations & Workflows)
 
 **Test Plan ID**: TP-004
 **Author**: Agent 3 (Validator)

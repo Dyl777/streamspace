@@ -1,4 +1,4 @@
-# StreamSpace Plugin Integration Guide
+﻿# StreamSpace Plugin Integration Guide
 
 **Automatic Plugin System - Zero Code Changes Required**
 
@@ -10,11 +10,11 @@ This guide explains how StreamSpace's fully automatic plugin system works, requi
 
 StreamSpace's plugin system is designed to be **completely automatic**:
 
-1. ✅ **Auto-discovery** - Plugins are discovered from filesystem and marketplace
-2. ✅ **Database-driven** - Enable/disable via UI or API, not code
-3. ✅ **Automatic loading** - Enabled plugins load on startup
-4. ✅ **Hot reload** - Install/uninstall without restart
-5. ✅ **Marketplace integration** - Download and activate from GitHub
+1.  **Auto-discovery** - Plugins are discovered from filesystem and marketplace
+2.  **Database-driven** - Enable/disable via UI or API, not code
+3.  **Automatic loading** - Enabled plugins load on startup
+4.  **Hot reload** - Install/uninstall without restart
+5.  **Marketplace integration** - Download and activate from GitHub
 
 **Users never need to modify code or restart the server.**
 
@@ -564,8 +564,8 @@ POST /api/plugins/marketplace/sync
 
 StreamSpace's plugin system is **fully automatic**:
 
-✅ **For users**: Install plugins via UI, no code changes
-✅ **For developers**: Add 10 lines to `main.go`, done
-✅ **For plugin authors**: Write plugin, commit to repo, available in marketplace
+ **For users**: Install plugins via UI, no code changes
+ **For developers**: Add 10 lines to `main.go`, done
+ **For plugin authors**: Write plugin, commit to repo, available in marketplace
 
 **Zero manual intervention, maximum flexibility.**

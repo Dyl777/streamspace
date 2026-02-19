@@ -1,4 +1,4 @@
-# StreamSpace Multi-Agent Orchestration
+﻿# StreamSpace Multi-Agent Orchestration
 
 Complete setup for multi-agent development with Claude Code.
 

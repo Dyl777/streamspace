@@ -1,4 +1,4 @@
-# Vendor Assessment Template
+﻿# Vendor Assessment Template
 
 **Version**: v1.0
 **Last Updated**: 2025-11-26
@@ -334,7 +334,7 @@ This template provides a standardized framework for assessing third-party vendor
 | **Incident Response** | 20/20 | < 24h breach notification, no breaches (3 years), bug bounty |
 | **TOTAL** | **315/330** | **95/100 (Normalized)** |
 
-**Risk Level**: ✅ **Low**
+**Risk Level**:  **Low**
 **Recommendation**: **Approved**
 
 ---
@@ -343,7 +343,7 @@ This template provides a standardized framework for assessing third-party vendor
 
 | Section | Score | Notes |
 |---------|-------|-------|
-| **Certifications** | 0/50 | No SOC 2, no ISO 27001 ❌ |
+| **Certifications** | 0/50 | No SOC 2, no ISO 27001  |
 | **Data Security** | 45/70 | AES-256, TLS 1.2, MFA optional, no audit logs |
 | **Availability** | 25/60 | 99.5% SLA, single region, 4h P0 response |
 | **Vendor Stability** | 10/50 | 1 year old, funded (Series A), 50 customers |
@@ -352,7 +352,7 @@ This template provides a standardized framework for assessing third-party vendor
 | **Incident Response** | 5/20 | 72h breach notification, no public incident plan |
 | **TOTAL** | **125/330** | **38/100 (Normalized)** |
 
-**Risk Level**: ⚠️ **High**
+**Risk Level**:  **High**
 **Recommendation**: **Approve with Conditions**
 
 **Conditions**:

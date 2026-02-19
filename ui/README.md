@@ -1,10 +1,10 @@
-# StreamSpace Web UI
+﻿# StreamSpace Web UI
 
 React TypeScript frontend for StreamSpace - Stream any containerized application to your browser.
 
 ## Features
 
-### ✅ Implemented
+###  Implemented
 
 - **User Authentication**
   - JWT-based authentication
@@ -327,24 +327,24 @@ createSession.mutate(sessionData);
 ## Roadmap
 
 ### Phase 2 UI (Complete)
-- ✅ Login page (demo mode)
-- ✅ Dashboard with stats
-- ✅ Session management
-- ✅ Template catalog browser
-- ✅ Repository management
-- ✅ Responsive layout
-- ✅ Dark theme
+-  Login page (demo mode)
+-  Dashboard with stats
+-  Session management
+-  Template catalog browser
+-  Repository management
+-  Responsive layout
+-  Dark theme
 
 ### Phase 3 (Complete)
-- ✅ JWT authentication
-- ✅ SAML/OIDC integration support
-- ✅ User management (create, edit, delete)
-- ✅ User quota management
-- ✅ Group management (create, edit, delete)
-- ✅ Group member management
-- ✅ Group quota management
-- ✅ Admin panel with protected routes
-- ✅ Role-based access control
+-  JWT authentication
+-  SAML/OIDC integration support
+-  User management (create, edit, delete)
+-  User quota management
+-  Group management (create, edit, delete)
+-  Group member management
+-  Group quota management
+-  Admin panel with protected routes
+-  Role-based access control
 
 ### Phase 4 (Future)
 - [ ] User profile and settings page

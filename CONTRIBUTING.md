@@ -1,4 +1,4 @@
-# Contributing to StreamSpace
+﻿# Contributing to StreamSpace
 
 Thank you for your interest in contributing to StreamSpace! This document provides guidelines and instructions for contributing.
 

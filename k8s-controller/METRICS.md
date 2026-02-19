@@ -1,4 +1,4 @@
-# StreamSpace Metrics Guide
+﻿# StreamSpace Metrics Guide
 
 This document describes the Prometheus metrics exposed by the StreamSpace controller.
 

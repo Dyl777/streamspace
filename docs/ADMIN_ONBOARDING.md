@@ -1,4 +1,4 @@
-# Admin User Onboarding Guide
+﻿# Admin User Onboarding Guide
 
 Complete guide for configuring the initial admin user in StreamSpace.
 
@@ -148,11 +148,11 @@ auth:
 
 ### Security Features
 
-✅ **Random 32-character password** (high entropy)
-✅ **Stored in Kubernetes Secret** (encrypted at rest if configured)
-✅ **helm.sh/resource-policy: keep** (survives uninstall)
-✅ **Injected at runtime** (not in plain text in manifests)
-✅ **One-time retrieval command** (displayed once in Helm output)
+ **Random 32-character password** (high entropy)
+ **Stored in Kubernetes Secret** (encrypted at rest if configured)
+ **helm.sh/resource-policy: keep** (survives uninstall)
+ **Injected at runtime** (not in plain text in manifests)
+ **One-time retrieval command** (displayed once in Helm output)
 
 ---
 
@@ -246,11 +246,11 @@ ExecStart=/usr/local/bin/streamspace-api
 
 ### Security Features
 
-✅ **Password strength validation** (minimum 8 characters)
-✅ **Bcrypt hashing** (industry standard)
-✅ **One-time read** (only on first startup when password is NULL)
-✅ **Environment variable isolation** (not visible in `ps` on modern systems)
-⚠️ **Manual secret management required** (use external secret stores in production)
+ **Password strength validation** (minimum 8 characters)
+ **Bcrypt hashing** (industry standard)
+ **One-time read** (only on first startup when password is NULL)
+ **Environment variable isolation** (not visible in `ps` on modern systems)
+ **Manual secret management required** (use external secret stores in production)
 
 ---
 
@@ -345,13 +345,13 @@ Content-Type: application/json
 
 ### Security Features
 
-✅ **Only enabled when admin has no password** (can't override existing password)
-✅ **Password strength validation** (12+ characters for admin accounts)
-✅ **Password confirmation** (prevents typos)
-✅ **Email validation** (RFC 5322 compliance)
-✅ **Atomic database transaction** (prevents race conditions)
-✅ **Single-use wizard** (auto-disables after success)
-✅ **Input sanitization** (prevents SQL injection)
+ **Only enabled when admin has no password** (can't override existing password)
+ **Password strength validation** (12+ characters for admin accounts)
+ **Password confirmation** (prevents typos)
+ **Email validation** (RFC 5322 compliance)
+ **Atomic database transaction** (prevents race conditions)
+ **Single-use wizard** (auto-disables after success)
+ **Input sanitization** (prevents SQL injection)
 
 ---
 
@@ -421,7 +421,7 @@ docker-compose restart api
 
 ### Security Warning
 
-⚠️ **Remove `ADMIN_PASSWORD_RESET` after use!**
+ **Remove `ADMIN_PASSWORD_RESET` after use!**
 
 - Leaving it set will reset password on every restart
 - Could be exploited if environment is compromised
@@ -453,18 +453,18 @@ For **admin accounts**, enforce stronger requirements:
 ### Secret Management
 
 **Good Practices**:
-- ✅ Store passwords in Kubernetes Secrets
-- ✅ Use `helm.sh/resource-policy: keep` for admin credentials
-- ✅ Mount secrets as environment variables (not files in pod filesystem)
-- ✅ Use RBAC to restrict secret access
-- ✅ Enable secret encryption at rest in etcd
+-  Store passwords in Kubernetes Secrets
+-  Use `helm.sh/resource-policy: keep` for admin credentials
+-  Mount secrets as environment variables (not files in pod filesystem)
+-  Use RBAC to restrict secret access
+-  Enable secret encryption at rest in etcd
 
 **Bad Practices**:
-- ❌ Hardcoding passwords in Helm values.yaml
-- ❌ Committing passwords to Git
-- ❌ Sharing admin password via email/Slack
-- ❌ Using weak passwords for convenience
-- ❌ Leaving `ADMIN_PASSWORD_RESET` set permanently
+-  Hardcoding passwords in Helm values.yaml
+-  Committing passwords to Git
+-  Sharing admin password via email/Slack
+-  Using weak passwords for convenience
+-  Leaving `ADMIN_PASSWORD_RESET` set permanently
 
 ---
 

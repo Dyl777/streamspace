@@ -1,4 +1,4 @@
-# Security Hardening Guide
+﻿# Security Hardening Guide
 
 > **Status**: Implementation Complete
 > **Version**: 1.1.0

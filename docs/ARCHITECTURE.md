@@ -1,4 +1,4 @@
-# StreamSpace Architecture
+﻿# StreamSpace Architecture
 
 Complete architecture documentation for the StreamSpace container streaming platform.
 

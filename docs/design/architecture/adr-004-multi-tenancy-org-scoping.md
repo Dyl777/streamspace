@@ -1,4 +1,4 @@
-# ADR-004: Multi-Tenancy via Organization-Scoped RBAC
+﻿# ADR-004: Multi-Tenancy via Organization-Scoped RBAC
 - **Status**: In Progress
 - **Date**: 2025-11-26
 - **Owners**: Agent 2 (Builder)
@@ -148,22 +148,22 @@ SELECT namespace FROM organizations WHERE org_id = $1
 
 ## Alternatives Considered
 
-### Alternative A: Single-Tenant (Current State) ❌
+### Alternative A: Single-Tenant (Current State) 
 - **Pros**: Simple, no multi-tenancy complexity
 - **Cons**: Not scalable, no isolation, security risk in shared deployments
 - **Verdict**: Rejected - Blocks enterprise adoption
 
-### Alternative B: Org-Scoped RBAC (Chosen) ✅
+### Alternative B: Org-Scoped RBAC (Chosen) 
 - **Pros**: True multi-tenancy, strong isolation, scalable
 - **Cons**: Breaking change (JWT format), requires migration
 - **Verdict**: Accepted - Essential for production readiness
 
-### Alternative C: Fine-Grained Resource ACLs ❌
+### Alternative C: Fine-Grained Resource ACLs 
 - **Pros**: Maximum flexibility (per-resource permissions)
 - **Cons**: Too complex for v2.0, performance overhead, hard to audit
 - **Verdict**: Deferred - Consider for v2.1+ if needed
 
-### Alternative D: Separate Deployments per Org ❌
+### Alternative D: Separate Deployments per Org 
 - **Pros**: Complete isolation (infrastructure-level)
 - **Cons**: High operational cost, resource waste, complex management
 - **Verdict**: Rejected - SaaS model requires multi-tenancy
@@ -191,7 +191,7 @@ SELECT namespace FROM organizations WHERE org_id = $1
 
 ## Consequences
 
-### Positive Consequences ✅
+### Positive Consequences 
 1. **True Multi-Tenancy**: Multiple organizations can use same deployment
 2. **Data Isolation**: Cross-org access impossible (by design)
 3. **Scalability**: Horizontal scaling without per-org infrastructure
@@ -199,7 +199,7 @@ SELECT namespace FROM organizations WHERE org_id = $1
 5. **Cost Reduction**: Shared infrastructure reduces operational costs
 6. **Future-Proof**: Enables org-level features (quotas, billing, etc.)
 
-### Negative Consequences ⚠️
+### Negative Consequences 
 1. **Breaking Change**: JWT format changes (migration required)
 2. **Migration Complexity**: Existing users need org assignment
 3. **Query Complexity**: Every query needs org_id filter

@@ -1,4 +1,4 @@
-# StreamSpace Quick Start Guide
+﻿# StreamSpace Quick Start Guide
 
 Get StreamSpace up and running in under 10 minutes.
 
@@ -253,10 +253,10 @@ postgresql:
 ```yaml
 postgresql:
   enabled: true
-  postgresPassword: CHANGE_ME  # ⚠️ Change this!
+  postgresPassword: CHANGE_ME  #  Change this!
 ```
 
-⚠️ **PRODUCTION WARNING**: Always use a secure password and proper secret management (Sealed Secrets, External Secrets Operator, or SOPS).
+ **PRODUCTION WARNING**: Always use a secure password and proper secret management (Sealed Secrets, External Secrets Operator, or SOPS).
 
 ### Authentication Configuration
 
@@ -574,7 +574,7 @@ See [TESTING.md](TESTING.md#stopping-streamspace) for detailed shutdown procedur
 # Uninstall Helm release
 helm uninstall streamspace -n streamspace
 
-# Delete CRDs (⚠️ this will delete all sessions and templates)
+# Delete CRDs ( this will delete all sessions and templates)
 kubectl delete crd sessions.stream.space
 kubectl delete crd templates.stream.space
 
@@ -582,10 +582,10 @@ kubectl delete crd templates.stream.space
 kubectl delete namespace streamspace
 ```
 
-⚠️ **WARNING**: This will delete all user data and sessions. Back up important data first.
+ **WARNING**: This will delete all user data and sessions. Back up important data first.
 
 ---
 
-**Welcome to StreamSpace!** 🚀
+**Welcome to StreamSpace!** 
 
 For questions or feedback, visit our [GitHub repository](https://github.com/yourusername/streamspace).

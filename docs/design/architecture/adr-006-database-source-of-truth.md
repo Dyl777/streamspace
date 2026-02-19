@@ -1,4 +1,4 @@
-# ADR-006: Database as Source of Truth (Decouple from Kubernetes)
+﻿# ADR-006: Database as Source of Truth (Decouple from Kubernetes)
 - **Status**: Accepted
 - **Date**: 2025-11-20
 - **Owners**: Agent 2 (Builder)
@@ -105,7 +105,7 @@ commandDispatcher.Dispatch("start_session", session)
 
 ## Alternatives Considered
 
-### Alternative A: K8s as Source of Truth (v1.x) ❌
+### Alternative A: K8s as Source of Truth (v1.x) 
 
 **Pros:**
 - K8s provides strong consistency
@@ -119,7 +119,7 @@ commandDispatcher.Dispatch("start_session", session)
 
 **Verdict:** Rejected - Blocks multi-platform support
 
-### Alternative B: Database as Source of Truth (v2.0) ✅
+### Alternative B: Database as Source of Truth (v2.0) 
 
 **Pros:**
 - Multi-platform (K8s, Docker, future platforms)
@@ -133,7 +133,7 @@ commandDispatcher.Dispatch("start_session", session)
 
 **Verdict:** Accepted - Enables v2.0 architecture
 
-### Alternative C: Dual Source of Truth (DB + K8s) ❌
+### Alternative C: Dual Source of Truth (DB + K8s) 
 
 **Pros:**
 - Best of both worlds?
@@ -145,7 +145,7 @@ commandDispatcher.Dispatch("start_session", session)
 
 **Verdict:** Rejected - Too complex
 
-### Alternative D: Event Sourcing ❌
+### Alternative D: Event Sourcing 
 
 **Pros:**
 - Complete audit trail
@@ -180,7 +180,7 @@ commandDispatcher.Dispatch("start_session", session)
 
 ## Consequences
 
-### Positive Consequences ✅
+### Positive Consequences 
 
 1. **Multi-Platform Support**
    - K8s agent creates K8s resources
@@ -207,7 +207,7 @@ commandDispatcher.Dispatch("start_session", session)
    - Clear responsibility: DB canonical, K8s projection
    - Easier troubleshooting (SQL queries)
 
-### Negative Consequences ⚠️
+### Negative Consequences 
 
 1. **Eventual Consistency**
    - Agent creates session → DB updated later
@@ -281,11 +281,11 @@ func HandleStatusUpdate(update StatusUpdate) {
 3. Activity tracker (optional metrics)
 
 **Where K8s client NOT used** (v2.0 change):
-1. ❌ Session list (use database)
-2. ❌ Session get (use database)
-3. ❌ Session create (use CommandDispatcher)
-4. ❌ Template list (use database)
-5. ❌ Agent list (use database)
+1.  Session list (use database)
+2.  Session get (use database)
+3.  Session create (use CommandDispatcher)
+4.  Template list (use database)
+5.  Agent list (use database)
 
 ## Migration Strategy
 
@@ -306,7 +306,7 @@ func HandleStatusUpdate(update StatusUpdate) {
    - Agents create K8s resources
    - Remove K8s client from hot paths
 
-**Status**: ✅ Complete (v2.0-beta)
+**Status**:  Complete (v2.0-beta)
 
 ## Performance Comparison
 

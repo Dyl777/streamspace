@@ -1,4 +1,4 @@
-# StreamSpace Testing Guide
+﻿# StreamSpace Testing Guide
 
 Complete testing guide for StreamSpace using Docker Desktop with Kubernetes enabled.
 
@@ -693,7 +693,7 @@ pkill -f "port-forward.*8000:8000"
 
 ## Complete Testing Checklist
 
-### ✅ Infrastructure
+###  Infrastructure
 
 - [ ] Docker Desktop installed and running
 - [ ] Kubernetes enabled in Docker Desktop
@@ -703,7 +703,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Storage provisioner installed (local-path)
 - [ ] Default storage class set
 
-### ✅ Installation
+###  Installation
 
 - [ ] Repository cloned
 - [ ] Namespace created (streamspace)
@@ -716,7 +716,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Services created
 - [ ] ConfigMaps created
 
-### ✅ Controller Component
+###  Controller Component
 
 - [ ] Controller pod running
 - [ ] Controller logs show no errors
@@ -729,7 +729,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] CRD watch loops active
 - [ ] Reconciliation working
 
-### ✅ API Backend Component
+###  API Backend Component
 
 - [ ] API pod running
 - [ ] API logs show "Server started"
@@ -744,7 +744,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] WebSocket endpoint accessible
 - [ ] JWT authentication working (if enabled)
 
-### ✅ Web UI Component
+###  Web UI Component
 
 - [ ] UI pod running
 - [ ] UI accessible via port-forward
@@ -762,7 +762,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] No browser console errors
 - [ ] Responsive on mobile (test with DevTools)
 
-### ✅ Template System
+###  Template System
 
 - [ ] Can list templates with kubectl
 - [ ] Can view template details
@@ -775,7 +775,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Can search templates
 - [ ] Template details modal works
 
-### ✅ Session Lifecycle
+###  Session Lifecycle
 
 - [ ] Can create session via kubectl
 - [ ] Session CRD is created
@@ -789,7 +789,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Can view session in UI
 - [ ] Can connect to session (if ingress enabled)
 
-### ✅ Hibernation System
+###  Hibernation System
 
 - [ ] Can hibernate session (set state: hibernated)
 - [ ] Deployment scales to 0 replicas
@@ -803,7 +803,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Session status updates to Running
 - [ ] Data persists after wake
 
-### ✅ Session Management
+###  Session Management
 
 - [ ] Can update session resources
 - [ ] Can update session labels
@@ -817,7 +817,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Can create multiple sessions per user
 - [ ] Can create sessions for different users
 
-### ✅ Plugin System Backend
+###  Plugin System Backend
 
 - [ ] Plugin database tables created
 - [ ] repositories table exists
@@ -834,7 +834,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Plugin config JSON storage works
 - [ ] Plugin manifest validation works
 
-### ✅ Plugin System UI
+###  Plugin System UI
 
 - [ ] Plugin catalog page loads
 - [ ] Can browse plugins
@@ -859,7 +859,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Empty states show correctly
 - [ ] Admin plugin page works
 
-### ✅ User Management
+###  User Management
 
 - [ ] Can create user via UI
 - [ ] Can create user via API
@@ -873,7 +873,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] User authentication works (if enabled)
 - [ ] User roles enforced (user vs admin)
 
-### ✅ Group Management
+###  Group Management
 
 - [ ] Can create group via UI
 - [ ] Group list displays in admin panel
@@ -884,7 +884,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Can delete group
 - [ ] Group members inherit quotas
 
-### ✅ Repository Sync
+###  Repository Sync
 
 - [ ] Can create repository CRD
 - [ ] Repository shows in UI
@@ -897,7 +897,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Git authentication works (if configured)
 - [ ] Webhook sync works (if configured)
 
-### ✅ Real-Time Updates (WebSocket)
+###  Real-Time Updates (WebSocket)
 
 #### Basic WebSocket Functionality
 - [ ] WebSocket connection established
@@ -975,7 +975,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Graceful degradation when WebSocket unavailable
 - [ ] Error notifications for connection failures
 
-### ✅ Monitoring & Observability
+###  Monitoring & Observability
 
 - [ ] ServiceMonitor created
 - [ ] PrometheusRule created
@@ -988,7 +988,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Alert rules defined
 - [ ] Audit logs generated (if enabled)
 
-### ✅ Storage & Persistence
+###  Storage & Persistence
 
 - [ ] StorageClass available
 - [ ] Can create PVC
@@ -1000,7 +1000,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Storage quotas enforced
 - [ ] Can backup/restore PVCs
 
-### ✅ Networking
+###  Networking
 
 - [ ] Services have ClusterIP
 - [ ] Can access services from pods
@@ -1011,7 +1011,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Network policies work (if enabled)
 - [ ] Cross-namespace communication (if needed)
 
-### ✅ Security
+###  Security
 
 - [ ] RBAC roles configured
 - [ ] ServiceAccounts created
@@ -1024,7 +1024,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] User permissions enforced
 - [ ] Audit logging (if enabled)
 
-### ✅ API Endpoints
+###  API Endpoints
 
 **Session Endpoints:**
 - [ ] GET /api/v1/sessions
@@ -1074,7 +1074,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] WS /api/v1/ws/cluster
 - [ ] WS /api/v1/ws/logs/:namespace/:pod
 
-### ✅ Error Handling
+###  Error Handling
 
 - [ ] Invalid session creation rejected
 - [ ] Invalid template creation rejected
@@ -1087,7 +1087,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Failed pods restart correctly
 - [ ] Database connection retries work
 
-### ✅ Performance
+###  Performance
 
 - [ ] UI loads in < 3 seconds
 - [ ] API responds in < 500ms
@@ -1098,7 +1098,7 @@ pkill -f "port-forward.*8000:8000"
 - [ ] Multiple concurrent sessions work
 - [ ] Resource usage acceptable
 
-### ✅ Documentation
+###  Documentation
 
 - [ ] README is accurate
 - [ ] CLAUDE.md is helpful
@@ -1284,23 +1284,23 @@ Use this template to document your test results:
 ## Component Results
 
 ### Controller
-- Status: ✅ PASS / ❌ FAIL
+- Status:  PASS /  FAIL
 - Notes:
 
 ### API Backend
-- Status: ✅ PASS / ❌ FAIL
+- Status:  PASS /  FAIL
 - Notes:
 
 ### Web UI
-- Status: ✅ PASS / ❌ FAIL
+- Status:  PASS /  FAIL
 - Notes:
 
 ### Session Lifecycle
-- Status: ✅ PASS / ❌ FAIL
+- Status:  PASS /  FAIL
 - Notes:
 
 ### Plugin System
-- Status: ✅ PASS / ❌ FAIL
+- Status:  PASS /  FAIL
 - Notes:
 
 ## Issues Found
@@ -1473,7 +1473,7 @@ To wipe everything and start fresh:
 3. Click **"Reset Kubernetes Cluster"**
 4. Confirm the reset
 
-⚠️ **WARNING**: This deletes ALL Kubernetes resources, not just StreamSpace.
+ **WARNING**: This deletes ALL Kubernetes resources, not just StreamSpace.
 
 ---
 
@@ -1499,7 +1499,7 @@ After completing testing:
 
 ---
 
-**Happy Testing!** 🧪
+**Happy Testing!** 
 
 If you encounter any issues not covered in this guide, please:
 1. Check the logs for detailed error messages

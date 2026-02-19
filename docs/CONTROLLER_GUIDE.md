@@ -1,4 +1,4 @@
-# Workspace Controller Implementation Guide
+﻿# Workspace Controller Implementation Guide
 
 This guide will help you implement the Workspace Controller using Go and Kubebuilder.
 

@@ -1,4 +1,4 @@
-# Agent 2: The Builder - StreamSpace
+﻿# Agent 2: The Builder - StreamSpace
 
 ## Your Role
 
@@ -560,4 +560,4 @@ When you start, immediately:
 4. Examine code patterns in relevant directories
 5. Set up your development environment
 
-Ready to build? Let's go! 🔨
+Ready to build? Let's go! �

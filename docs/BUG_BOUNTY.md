@@ -1,4 +1,4 @@
-# StreamSpace Bug Bounty Program
+﻿# StreamSpace Bug Bounty Program
 
 **Program Status**: Active
 **Last Updated**: 2025-11-14
@@ -92,30 +92,30 @@ The following assets are **in scope** for the bug bounty program:
 
 The following are **explicitly out of scope**:
 
-❌ **Third-Party Services**:
+ **Third-Party Services**:
 - GitHub.com infrastructure
 - Authentik/Keycloak identity providers
 - Cloud provider infrastructure (AWS, GCP, Azure)
 - DNS providers, CDN services
 - Email service providers
 
-❌ **Physical Security**:
+ **Physical Security**:
 - Physical access to offices or data centers
 - Social engineering of employees
 - Physical theft or destruction
 
-❌ **Denial of Service**:
+ **Denial of Service**:
 - Network-level DoS attacks
 - Application-level DoS (unless demonstrating a unique technique with minimal impact)
 - Resource exhaustion attacks exceeding testing limits
 
-❌ **Non-Security Issues**:
+ **Non-Security Issues**:
 - Functional bugs without security impact
 - UI/UX issues
 - Feature requests
 - Performance issues
 
-❌ **Known Issues**:
+ **Known Issues**:
 - Issues already documented in our public issue tracker
 - Vulnerabilities in outdated versions (must test against latest release)
 - Third-party dependencies (report directly to the upstream project)
@@ -180,10 +180,10 @@ We use the **CVSS v3.1** scoring system to determine severity:
 
 We support the following payment methods:
 
-- ✅ Bank transfer (ACH, wire transfer)
-- ✅ PayPal
-- ✅ Cryptocurrency (Bitcoin, Ethereum via Coinbase Commerce)
-- ✅ Donation to charity of your choice (we match 100%)
+-  Bank transfer (ACH, wire transfer)
+-  PayPal
+-  Cryptocurrency (Bitcoin, Ethereum via Coinbase Commerce)
+-  Donation to charity of your choice (we match 100%)
 
 **Payment Timeline**:
 - Payment processed within **30 days** of vulnerability fix being deployed to production
@@ -197,7 +197,7 @@ We support the following payment methods:
 
 To ensure safe and responsible testing, please follow these rules:
 
-#### ✅ DO:
+####  DO:
 
 1. **Test on staging environment first** (https://staging.streamspace.io)
 2. **Use the provided test accounts** (see Submission Guidelines)
@@ -208,7 +208,7 @@ To ensure safe and responsible testing, please follow these rules:
 7. **Use automation responsibly** - stay within rate limits
 8. **Stop testing** if you encounter PII or sensitive data
 
-#### ❌ DON'T:
+####  DON'T:
 
 1. **Don't test on production** without explicit permission
 2. **Don't perform attacks** that degrade service (DoS, spam)
@@ -335,21 +335,21 @@ Please use this template for all submissions:
 
 **Excellent reports include**:
 
-✅ **Clear title** that immediately conveys the issue
-✅ **Detailed steps** that anyone can follow to reproduce
-✅ **Screenshots/videos** showing the vulnerability in action
-✅ **Impact analysis** explaining why this matters
-✅ **PoC exploit** demonstrating the vulnerability (if applicable)
-✅ **Suggested fix** or code patch
-✅ **Professional tone** and clear writing
+ **Clear title** that immediately conveys the issue
+ **Detailed steps** that anyone can follow to reproduce
+ **Screenshots/videos** showing the vulnerability in action
+ **Impact analysis** explaining why this matters
+ **PoC exploit** demonstrating the vulnerability (if applicable)
+ **Suggested fix** or code patch
+ **Professional tone** and clear writing
 
 **Poor reports lack**:
 
-❌ Vague descriptions like "Your site has XSS"
-❌ Missing reproduction steps
-❌ No proof of concept or evidence
-❌ Unclear impact assessment
-❌ Duplicate of known issues
+ Vague descriptions like "Your site has XSS"
+ Missing reproduction steps
+ No proof of concept or evidence
+ Unclear impact assessment
+ Duplicate of known issues
 
 ### Example Excellent Report
 
@@ -529,12 +529,12 @@ We will work with you constructively. **Communication is key**.
 
 To maintain Safe Harbor protections:
 
-✅ **Act in good faith** at all times
-✅ **Follow the rules** of this policy
-✅ **Report vulnerabilities** promptly
-✅ **Respect user privacy** and data
-✅ **Avoid service disruptions**
-✅ **Communicate** with our security team
+ **Act in good faith** at all times
+ **Follow the rules** of this policy
+ **Report vulnerabilities** promptly
+ **Respect user privacy** and data
+ **Avoid service disruptions**
+ **Communicate** with our security team
 
 ---
 
@@ -550,9 +550,9 @@ We recognize and thank the following security researchers who have helped make S
 
 ### Recognition Tiers
 
-- 🥇 **Gold**: 3+ Critical vulnerabilities
-- 🥈 **Silver**: 5+ High vulnerabilities
-- 🥉 **Bronze**: 10+ Medium vulnerabilities
+- � **Gold**: 3+ Critical vulnerabilities
+- � **Silver**: 5+ High vulnerabilities
+- � **Bronze**: 10+ Medium vulnerabilities
 - ⭐ **Star**: First bounty recipient
 
 ### Anonymity Option
@@ -643,7 +643,7 @@ This bug bounty program is governed by the laws of [Your Jurisdiction]. By parti
 
 StreamSpace reserves the right to modify or cancel this program at any time. We reserve the right to determine bounty eligibility and amounts at our sole discretion.
 
-**Thank you for helping us keep StreamSpace secure!** 🔒
+**Thank you for helping us keep StreamSpace secure!** 
 
 ---
 

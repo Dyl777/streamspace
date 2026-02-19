@@ -1,4 +1,4 @@
-# StreamSpace Plugin Architecture Analysis
+﻿# StreamSpace Plugin Architecture Analysis
 
 ## Overview
 

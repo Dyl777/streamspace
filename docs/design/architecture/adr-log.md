@@ -1,4 +1,4 @@
-# ADR Log
+﻿# ADR Log
 
 | ADR | Title | Status | Date | Notes |
 | --- | --- | --- | --- | --- |

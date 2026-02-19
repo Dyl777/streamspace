@@ -1,4 +1,4 @@
-# StreamSpace Code Commenting Guide
+﻿# StreamSpace Code Commenting Guide
 
 **Version:** 1.0
 **Last Updated:** 2025-11-16
@@ -939,4 +939,4 @@ When in doubt, err on the side of over-commenting. It's easier to remove verbose
 
 **Remember:** You're not writing comments for yourself today. You're writing them for the developer (maybe future you!) who will maintain this code at 2 AM during a production incident.
 
-Happy commenting! 🎉
+Happy commenting! 

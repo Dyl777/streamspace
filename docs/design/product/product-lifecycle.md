@@ -1,4 +1,4 @@
-# Product Lifecycle Management
+﻿# Product Lifecycle Management
 
 **Version**: v1.0
 **Last Updated**: 2025-11-26
@@ -27,14 +27,14 @@ This document defines the lifecycle management policies for StreamSpace features
 **Purpose**: Early-stage feature testing, rapid iteration
 
 **Characteristics**:
-- ⚠️ **No stability guarantees**
+-  **No stability guarantees**
 - May change or be removed without notice
 - Not covered by SLAs
 - Opt-in only (feature flags)
 - May have bugs, incomplete functionality
 
 **Labeling**:
-- UI: "⚠️ Experimental" badge
+- UI: " Experimental" badge
 - API: `/api/v1alpha1/...` or `?experimental=true`
 - Docs: "Experimental Feature" warning
 
@@ -42,7 +42,7 @@ This document defines the lifecycle management policies for StreamSpace features
 ```markdown
 ## Session Recording (Experimental)
 
-⚠️ **This feature is experimental and may change without notice.**
+ **This feature is experimental and may change without notice.**
 
 Session recording allows you to record VNC streams for audit/compliance.
 This feature is under active development and may have performance issues.
@@ -66,14 +66,14 @@ This feature is under active development and may have performance issues.
 **Purpose**: Feature hardening, broader testing, refinement
 
 **Characteristics**:
-- 🔄 **Limited stability guarantees**
+-  **Limited stability guarantees**
 - Breaking changes possible (with advance notice)
 - Covered by SLA (best effort)
 - Opt-in or default-on (configurable)
 - Production-ready for early adopters
 
 **Labeling**:
-- UI: "🔄 Beta" badge
+- UI: " Beta" badge
 - API: `/api/v1beta1/...`
 - Docs: "Beta Feature" notice
 
@@ -81,7 +81,7 @@ This feature is under active development and may have performance issues.
 ```markdown
 ## Multi-Cluster Support (Beta)
 
-🔄 **This feature is in beta and may have breaking changes.**
+ **This feature is in beta and may have breaking changes.**
 
 Multi-cluster support allows agents to span multiple Kubernetes clusters.
 We're gathering feedback and may adjust the API in future releases.
@@ -106,7 +106,7 @@ We're gathering feedback and may adjust the API in future releases.
 **Purpose**: Production-ready, fully supported
 
 **Characteristics**:
-- ✅ **Full stability guarantees**
+-  **Full stability guarantees**
 - Backwards compatible (within major version)
 - Covered by full SLA
 - Default-on
@@ -142,13 +142,13 @@ Fully supported for production use.
 **Purpose**: Notify users of planned removal, provide migration path
 
 **Characteristics**:
-- ⚠️ **Will be removed in future release**
+-  **Will be removed in future release**
 - Still functional (for migration period)
 - Covered by SLA (during deprecation period)
 - Warnings in UI, API responses, logs
 
 **Labeling**:
-- UI: "⚠️ Deprecated (will be removed in v3.0)" banner
+- UI: " Deprecated (will be removed in v3.0)" banner
 - API: `Deprecation` HTTP header
   ```
   Deprecation: Sun, 01 Jun 2026 00:00:00 GMT
@@ -166,7 +166,7 @@ Fully supported for production use.
 ```markdown
 ## Legacy Template Format (Deprecated)
 
-⚠️ **Deprecated: This format will be removed in v3.0 (December 2026)**
+ **Deprecated: This format will be removed in v3.0 (December 2026)**
 
 The v1 template format is deprecated in favor of the v2 format.
 Please migrate your templates using the conversion tool:
@@ -190,7 +190,7 @@ Migration guide: https://docs.streamspace.io/migration/templates-v2
 **Purpose**: Feature/API removed from product
 
 **Characteristics**:
-- ❌ **No longer available**
+-  **No longer available**
 - Not functional
 - No support
 - Removed from documentation
@@ -233,9 +233,9 @@ StreamSpace uses **URL-based API versioning**:
 
 | Version | Support Duration | Security Patches | Bug Fixes |
 |---------|------------------|------------------|-----------|
-| **Current** (v2) | Indefinite (until v3) | ✅ Yes | ✅ Yes |
-| **Previous** (v1) | 12 months after v2 GA | ✅ Yes | ✅ Yes |
-| **Older** (v0) | EOL (6 months after v1 GA) | ❌ No | ❌ No |
+| **Current** (v2) | Indefinite (until v3) |  Yes |  Yes |
+| **Previous** (v1) | 12 months after v2 GA |  Yes |  Yes |
+| **Older** (v0) | EOL (6 months after v1 GA) |  No |  No |
 
 **Example Timeline**:
 - **v1 GA**: 2024-01-01
@@ -305,10 +305,10 @@ deprecation:
 ```
 
 **Plugin Catalog Display**:
-- **Experimental**: ⚠️ badge, warning in description
-- **Beta**: 🔄 badge, "In beta" label
+- **Experimental**:  badge, warning in description
+- **Beta**:  badge, "In beta" label
 - **Stable**: No badge
-- **Deprecated**: ⚠️ "Deprecated" banner, sunset date, migration link
+- **Deprecated**:  "Deprecated" banner, sunset date, migration link
 
 ### Templates
 

@@ -1,4 +1,4 @@
-# ADR Title
+﻿# ADR Title
 - **Status**: Proposed | Accepted | Rejected | Superseded by ADR-XXX
 - **Date**: YYYY-MM-DD
 - **Owners**: names/handles

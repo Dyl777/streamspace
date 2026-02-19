@@ -1,4 +1,4 @@
-# StreamSpace
+﻿# StreamSpace
 
 > **Stream any app to your browser** - An open source platform-agnostic container streaming platform
 

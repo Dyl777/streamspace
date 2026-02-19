@@ -1,4 +1,4 @@
-# K8sClient Operations Migration Checklist
+﻿# K8sClient Operations Migration Checklist
 
 ## Operations to Move to Controller
 
@@ -40,34 +40,34 @@
 ### Read-Only Monitoring
 | Operation | Current File | Method | Reason | Keep |
 |-----------|--------------|--------|--------|------|
-| List Sessions | handlers.go:259-261 | `ListSessions()` | Read-only query | ✅ |
-| Get Session | handlers.go:284 | `GetSession()` | Read-only query | ✅ |
-| List Templates | handlers.go:762-764 | `ListTemplates()` | Catalog lookup | ✅ |
-| Get Template | handlers.go:884 | `GetTemplate()` | Template validation | ✅ |
-| List Nodes | nodes.go:156 | `GetNodes()` | Monitoring | ✅ |
-| Get Node | nodes.go:187 | `GetNode()` | Node status | ✅ |
-| List Pods | stubs.go:239 | `GetPods()` | Monitoring | ✅ |
-| List Deployments | stubs.go:254 | Clientset.Deployments() | Monitoring | ✅ |
-| List Services | stubs.go:269 | `GetServices()` | Monitoring | ✅ |
-| List Namespaces | stubs.go:279 | `GetNamespaces()` | Monitoring | ✅ |
-| Get cluster stats | nodes.go:214 | `calculateClusterStats()` | Dashboard | ✅ |
+| List Sessions | handlers.go:259-261 | `ListSessions()` | Read-only query |  |
+| Get Session | handlers.go:284 | `GetSession()` | Read-only query |  |
+| List Templates | handlers.go:762-764 | `ListTemplates()` | Catalog lookup |  |
+| Get Template | handlers.go:884 | `GetTemplate()` | Template validation |  |
+| List Nodes | nodes.go:156 | `GetNodes()` | Monitoring |  |
+| Get Node | nodes.go:187 | `GetNode()` | Node status |  |
+| List Pods | stubs.go:239 | `GetPods()` | Monitoring |  |
+| List Deployments | stubs.go:254 | Clientset.Deployments() | Monitoring |  |
+| List Services | stubs.go:269 | `GetServices()` | Monitoring |  |
+| List Namespaces | stubs.go:279 | `GetNamespaces()` | Monitoring |  |
+| Get cluster stats | nodes.go:214 | `calculateClusterStats()` | Dashboard |  |
 
 ### Real-Time Operations
 | Operation | Current File | Method | Reason | Keep |
 |-----------|--------------|--------|--------|------|
-| Heartbeat update | activity.go:121 | `UpdateSessionActivity()` | Low-latency | ✅ |
-| Activity status | handlers.go (implied) | `GetActivityStatus()` | Real-time | ✅ |
-| Broadcast sessions | websocket.go:227 | `ListSessions()` | WebSocket stream | ✅ |
-| Stream pod logs | websocket.go:181 | `GetLogs()` | Real-time logs | ✅ |
+| Heartbeat update | activity.go:121 | `UpdateSessionActivity()` | Low-latency |  |
+| Activity status | handlers.go (implied) | `GetActivityStatus()` | Real-time |  |
+| Broadcast sessions | websocket.go:227 | `ListSessions()` | WebSocket stream |  |
+| Stream pod logs | websocket.go:181 | `GetLogs()` | Real-time logs |  |
 
 ### Administrative Triggers
 | Operation | Current File | Method | Reason | Keep |
 |-----------|--------------|--------|--------|------|
-| Install application | applications.go:221 | `CreateApplicationInstall()` | Request trigger | ✅ |
-| Create Template | handlers.go:906 | `CreateTemplate()` | One-time setup | ✅ |
-| Delete Template | handlers.go:921 | `DeleteTemplate()` | Admin operation | ✅ |
-| Get ConfigMap | stubs.go:573,608 | `ConfigMaps().Get()` | Read config | ✅ |
-| Get template config | applications.go | N/A | Admin query | ✅ |
+| Install application | applications.go:221 | `CreateApplicationInstall()` | Request trigger |  |
+| Create Template | handlers.go:906 | `CreateTemplate()` | One-time setup |  |
+| Delete Template | handlers.go:921 | `DeleteTemplate()` | Admin operation |  |
+| Get ConfigMap | stubs.go:573,608 | `ConfigMaps().Get()` | Read config |  |
+| Get template config | applications.go | N/A | Admin query |  |
 
 ---
 
@@ -271,12 +271,12 @@ controller/internal/webhooks/session_validator.go
 
 ## Success Indicators
 
-✅ Session creation moves from 200ms (API) to 50ms (webhook) + async controller
-✅ Idle detection moves from memory-based to CRD-based (persistent)
-✅ Auto-start moves from in-process to event-driven (scalable)
-✅ Node operations move from API to controller (proper separation)
-✅ All tests passing (100+ integration, 500+ unit)
-✅ Code duplication reduced (tracker.go deleted)
-✅ Controller responsibility clear (state machine)
-✅ API responsibility clear (query + trigger)
+ Session creation moves from 200ms (API) to 50ms (webhook) + async controller
+ Idle detection moves from memory-based to CRD-based (persistent)
+ Auto-start moves from in-process to event-driven (scalable)
+ Node operations move from API to controller (proper separation)
+ All tests passing (100+ integration, 500+ unit)
+ Code duplication reduced (tracker.go deleted)
+ Controller responsibility clear (state machine)
+ API responsibility clear (query + trigger)
 

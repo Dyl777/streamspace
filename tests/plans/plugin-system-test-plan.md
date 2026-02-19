@@ -1,4 +1,4 @@
-# Test Plan: Plugin System
+﻿# Test Plan: Plugin System
 
 **Test Plan ID**: TP-001
 **Author**: Agent 3 (Validator)

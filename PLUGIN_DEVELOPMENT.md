@@ -1,4 +1,4 @@
-# Plugin Development Guide
+﻿# Plugin Development Guide
 
 A comprehensive guide to building plugins for StreamSpace.
 
@@ -582,7 +582,7 @@ module.exports = {
     // Post to Slack
     if (this.config.slackEnabled) {
       await axios.post(this.config.slackWebhookUrl, {
-        text: `🚀 New session created`,
+        text: ` New session created`,
         blocks: [
           {
             type: 'section',
@@ -1508,13 +1508,13 @@ module.exports = {
 Never hardcode credentials:
 
 ```javascript
-// ❌ BAD - Hardcoded credentials
+//  BAD - Hardcoded credentials
 const apiKey = 'sk-1234567890';
 
-// ✅ GOOD - Use configuration
+//  GOOD - Use configuration
 const apiKey = this.config.apiKey;
 
-// ✅ BETTER - Use environment variables for sensitive data
+//  BETTER - Use environment variables for sensitive data
 const apiKey = process.env.API_KEY || this.config.apiKey;
 ```
 
@@ -1537,10 +1537,10 @@ Request only necessary permissions:
 ```json
 {
   "permissions": [
-    "read:sessions",    // ✅ Only what you need
+    "read:sessions",    //  Only what you need
     "notifications"
   ]
-  // ❌ Don't request "admin" unless absolutely necessary
+  //  Don't request "admin" unless absolutely necessary
 }
 ```
 
@@ -1977,4 +1977,4 @@ export default function AnalyticsDashboard() {
 
 ---
 
-**Happy Plugin Development!** 🚀
+**Happy Plugin Development!** 

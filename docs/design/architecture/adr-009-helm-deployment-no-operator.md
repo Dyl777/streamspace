@@ -1,4 +1,4 @@
-# ADR-009: Helm Chart Deployment (No Kubernetes Operator for v2.0)
+﻿# ADR-009: Helm Chart Deployment (No Kubernetes Operator for v2.0)
 - **Status**: Accepted
 - **Date**: 2025-11-26
 - **Owners**: Agent 1 (Architect)
@@ -64,7 +64,7 @@ v2.0 architecture uses **Database as Source of Truth** (ADR-006):
 
 ## Alternatives Considered
 
-### Alternative A: Helm + Operator (Typical K8s Pattern) ❌
+### Alternative A: Helm + Operator (Typical K8s Pattern) 
 
 **Pros:**
 - Standard K8s pattern (CRDs + Operator)
@@ -78,7 +78,7 @@ v2.0 architecture uses **Database as Source of Truth** (ADR-006):
 
 **Verdict:** Rejected - Unnecessary for v2.0 architecture
 
-### Alternative B: Helm Only (v2.0 Choice) ✅
+### Alternative B: Helm Only (v2.0 Choice) 
 
 **Pros:**
 - Simpler (no Operator code)
@@ -92,7 +92,7 @@ v2.0 architecture uses **Database as Source of Truth** (ADR-006):
 
 **Verdict:** Accepted - Sufficient for v2.0
 
-### Alternative C: Operator-Only (No Helm) ❌
+### Alternative C: Operator-Only (No Helm) 
 
 **Pros:**
 - Fully K8s-native
@@ -167,7 +167,7 @@ helm install streamspace ./chart \
 
 ## Consequences
 
-### Positive ✅
+### Positive 
 
 1. **Simpler Deployment**
    - Fewer components (no Operator)
@@ -186,7 +186,7 @@ helm install streamspace ./chart \
    - Helm chart works for K8s
    - Docker deployment doesn't need K8s (no Operator dependency)
 
-### Negative ⚠️
+### Negative 
 
 1. **No Reconciliation**
    - If agent crashes, orphaned CRDs not cleaned up

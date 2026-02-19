@@ -1,4 +1,4 @@
-# Template CRD Structure Analysis: VNC Configuration in StreamSpace
+﻿# Template CRD Structure Analysis: VNC Configuration in StreamSpace
 
 **Analysis Date**: November 19, 2025  
 **Status**: Complete - Shows current state with legacy "kasmvnc" field and modern "VNC" struct

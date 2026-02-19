@@ -1,4 +1,4 @@
-# StreamSpace Controller Testing Guide
+﻿# StreamSpace Controller Testing Guide
 
 This document describes how to test the StreamSpace Kubernetes controller.
 

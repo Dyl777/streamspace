@@ -1,4 +1,4 @@
-# Retrospective Template
+﻿# Retrospective Template
 
 **Version**: v1.0
 **Last Updated**: 2025-11-26
@@ -62,7 +62,7 @@ This template guides team retrospectives for continuous improvement. Retrospecti
 **Purpose**: Refresh memory on wave scope and outcomes
 
 **Wave Goals**:
-- [ ] Goal 1: [Description] - [Status: ✅ Done / 🔄 In Progress / ❌ Blocked]
+- [ ] Goal 1: [Description] - [Status:  Done /  In Progress /  Blocked]
 - [ ] Goal 2: [Description] - [Status]
 - [ ] Goal 3: [Description] - [Status]
 
@@ -109,12 +109,12 @@ Ideas for new practices, tools, or processes to adopt.
 3. [Idea with 3rd most votes]
 
 **Commitments** (actionable items):
-- ✅ **[Action Item 1]**
+-  **[Action Item 1]**
   - Owner: [Name]
   - Deadline: [Date / Next wave]
   - Success Criteria: [How we'll know it's done]
 
-- ✅ **[Action Item 2]**
+-  **[Action Item 2]**
   - Owner: [Name]
   - Deadline: [Date]
   - Success Criteria: [...]
@@ -145,12 +145,12 @@ Things that are wasteful, frustrating, or no longer valuable.
 3. [Item with 3rd most votes]
 
 **Commitments**:
-- ❌ **STOP [Practice/Process]**
+-  **STOP [Practice/Process]**
   - Reason: [Why we're stopping]
   - Effective: [Immediately / Next wave]
   - Owner (if transition needed): [Name]
 
-- ❌ **STOP [Practice/Process]**
+-  **STOP [Practice/Process]**
   - ...
 
 ---
@@ -179,11 +179,11 @@ Practices that are working well and should be maintained.
 3. [Practice with 3rd most votes]
 
 **Commitments** (reinforcement):
-- ✅ **CONTINUE [Practice]**
+-  **CONTINUE [Practice]**
   - Why: [Value it provides]
   - Reinforce: [How to ensure it continues]
 
-- ✅ **CONTINUE [Practice]**
+-  **CONTINUE [Practice]**
   - ...
 
 ---
@@ -196,17 +196,17 @@ Practices that are working well and should be maintained.
 
 | Action | Owner | Deadline | Success Criteria | Status |
 |--------|-------|----------|------------------|--------|
-| START: [Action 1] | [Name] | [Date] | [Criteria] | 🔄 In Progress |
-| START: [Action 2] | [Name] | [Date] | [Criteria] | 🔄 In Progress |
-| STOP: [Action 3] | [Name] | [Date] | [Criteria] | 🔄 In Progress |
-| CONTINUE: [Action 4] | [Name] | [Date] | [Criteria] | 🔄 In Progress |
+| START: [Action 1] | [Name] | [Date] | [Criteria] |  In Progress |
+| START: [Action 2] | [Name] | [Date] | [Criteria] |  In Progress |
+| STOP: [Action 3] | [Name] | [Date] | [Criteria] |  In Progress |
+| CONTINUE: [Action 4] | [Name] | [Date] | [Criteria] |  In Progress |
 
 ### Action Items from Previous Retro (Review)
 
 | Action | Owner | Status | Notes |
 |--------|-------|--------|-------|
-| [Action from last retro] | [Name] | ✅ Done | [What happened] |
-| [Action from last retro] | [Name] | ❌ Not Done | [Why not, next steps] |
+| [Action from last retro] | [Name] |  Done | [What happened] |
+| [Action from last retro] | [Name] |  Not Done | [Why not, next steps] |
 
 ---
 
@@ -301,15 +301,15 @@ Practices that are working well and should be maintained.
 ### 2. Wave Review
 
 **Wave Goals**:
-- ✅ Close Issue #164: API validation gaps (P0)
-- ✅ Close Issue #201: Docker agent stubs (P0)
-- 🔄 Increase test coverage to 80% (achieved 65%)
+-  Close Issue #164: API validation gaps (P0)
+-  Close Issue #201: Docker agent stubs (P0)
+-  Increase test coverage to 80% (achieved 65%)
 
 **Metrics**:
 - Issues closed: 2 P0 issues
 - Pull requests merged: 8
 - Test coverage: 32% → 65% (API), 0% → 78% (Docker agent)
-- Wave duration: 5 days (target: 5 days) ✅
+- Wave duration: 5 days (target: 5 days) 
 
 **Major Achievements**:
 - Comprehensive API input validation (all 50+ endpoints)
@@ -342,12 +342,12 @@ Practices that are working well and should be maintained.
 **Top 3 Votes**: #2 (6 votes), #3 (4 votes), #1 (2 votes)
 
 **Commitments**:
-- ✅ **START: Pre-commit hooks (lint + format)**
+-  **START: Pre-commit hooks (lint + format)**
   - Owner: Agent 2 (Builder)
   - Deadline: Wave 27
   - Success Criteria: .git/hooks/pre-commit installed, documented in CONTRIBUTING.md
 
-- ✅ **START: Weekly async team sync**
+-  **START: Weekly async team sync**
   - Owner: Agent 1 (Architect)
   - Deadline: Immediate (starting next week)
   - Success Criteria: Weekly update posted in team channel
@@ -368,7 +368,7 @@ Practices that are working well and should be maintained.
 **Top 2 Votes**: #1 (8 votes), #2 (4 votes)
 
 **Commitments**:
-- ❌ **STOP: Manual test tracking**
+-  **STOP: Manual test tracking**
   - Reason: Replaced with GitHub test reports (automated)
   - Effective: Immediate
   - Owner: Agent 3 (transition to GitHub Actions test reports)
@@ -393,15 +393,15 @@ Practices that are working well and should be maintained.
 **Top 3 Votes**: All 3 tied (unanimous support)
 
 **Commitments**:
-- ✅ **CONTINUE: Table-driven tests**
+-  **CONTINUE: Table-driven tests**
   - Why: Best practice for Go, great coverage
   - Reinforce: Add to coding standards doc
 
-- ✅ **CONTINUE: Wave-based integration**
+-  **CONTINUE: Wave-based integration**
   - Why: Works well for multi-agent coordination
   - Reinforce: Keep MULTI_AGENT_PLAN.md updated
 
-- ✅ **CONTINUE: Detailed commit messages**
+-  **CONTINUE: Detailed commit messages**
   - Why: Excellent changelog generation
   - Reinforce: Mention in PR review checklist
 
@@ -411,10 +411,10 @@ Practices that are working well and should be maintained.
 
 | Action | Owner | Deadline | Success Criteria | Status |
 |--------|-------|----------|------------------|--------|
-| START: Pre-commit hooks | Agent 2 | Wave 27 | Hooks installed, documented | 🔄 In Progress |
-| START: Weekly async sync | Agent 1 | Immediate | Weekly updates posted | 🔄 In Progress |
-| STOP: Manual test tracking | Agent 3 | Immediate | GitHub Actions reports live | ✅ Done |
-| CONTINUE: Table-driven tests | Agent 2 | Ongoing | In coding standards | 🔄 In Progress |
+| START: Pre-commit hooks | Agent 2 | Wave 27 | Hooks installed, documented |  In Progress |
+| START: Weekly async sync | Agent 1 | Immediate | Weekly updates posted |  In Progress |
+| STOP: Manual test tracking | Agent 3 | Immediate | GitHub Actions reports live |  Done |
+| CONTINUE: Table-driven tests | Agent 2 | Ongoing | In coding standards |  In Progress |
 
 ---
 

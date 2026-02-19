@@ -1,4 +1,4 @@
-# StreamSpace AWS Deployment Guide
+﻿# StreamSpace AWS Deployment Guide
 
 This guide walks you through deploying StreamSpace on Amazon Web Services (AWS) using Amazon EKS (Elastic Kubernetes Service).
 

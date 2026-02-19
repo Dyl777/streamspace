@@ -1,4 +1,4 @@
-# Multi-Factor Authentication Setup Guide
+﻿# Multi-Factor Authentication Setup Guide
 
 **Difficulty**: Beginner
 **Time Required**: 5-10 minutes
@@ -11,9 +11,9 @@ Enhance your account security with multi-factor authentication (MFA).
 
 Multi-factor authentication adds an extra layer of security by requiring a second form of verification beyond your password. StreamSpace supports three MFA methods:
 
-- **📱 Authenticator App** (Recommended): Use Google Authenticator, Authy, or 1Password
-- **💬 SMS**: Receive codes via text message
-- **📧 Email**: Receive codes via email
+- **� Authenticator App** (Recommended): Use Google Authenticator, Authy, or 1Password
+- **� SMS**: Receive codes via text message
+- **� Email**: Receive codes via email
 
 ---
 
@@ -52,7 +52,7 @@ Multi-factor authentication adds an extra layer of security by requiring a secon
 
 ### Step 5: Save Backup Codes
 
-**⚠️ IMPORTANT**: Save these backup codes in a safe place!
+** IMPORTANT**: Save these backup codes in a safe place!
 
 1. Copy all 10 backup codes shown
 2. Store them in a password manager or secure location
@@ -136,7 +136,7 @@ If you lose access to your MFA device:
 1. At the MFA prompt, click **Use backup code**
 2. Enter one of your saved backup codes
 3. Click **Verify**
-4. ⚠️ That code is now invalid - you have 9 remaining
+4.  That code is now invalid - you have 9 remaining
 
 **Lost all backup codes?** Contact your administrator for account recovery.
 
@@ -156,7 +156,7 @@ Navigate to **Security** → **Active MFA Methods** to see:
 1. Go to **Security** → **Active MFA Methods**
 2. Click the trash icon next to the method
 3. Confirm removal
-4. ⚠️ You must have at least one MFA method active
+4.  You must have at least one MFA method active
 
 ### Change Primary Method
 
@@ -212,7 +212,7 @@ Navigate to **Security** → **Active MFA Methods** to see:
 
 ## Security Best Practices
 
-### ✅ Do
+###  Do
 
 - Use an authenticator app (most secure)
 - Save backup codes in a password manager
@@ -220,7 +220,7 @@ Navigate to **Security** → **Active MFA Methods** to see:
 - Update your phone number if it changes
 - Keep your recovery methods current
 
-### ❌ Don't
+###  Don't
 
 - Share MFA codes with anyone (including staff)
 - Save backup codes in plain text files

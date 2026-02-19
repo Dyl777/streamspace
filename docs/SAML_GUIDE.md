@@ -1,4 +1,4 @@
-# SAML SSO Integration Guide
+﻿# SAML SSO Integration Guide
 
 This guide explains how to configure SAML-based Single Sign-On (SSO) for StreamSpace.
 

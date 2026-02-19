@@ -1,4 +1,4 @@
-# ADR-005: WebSocket Command Dispatch (Replace NATS Event Bus)
+﻿# ADR-005: WebSocket Command Dispatch (Replace NATS Event Bus)
 - **Status**: Accepted
 - **Date**: 2025-11-20
 - **Owners**: Agent 2 (Builder)
@@ -141,7 +141,7 @@ Resend commands via WebSocket
 
 ## Alternatives Considered
 
-### Alternative A: Keep NATS (v1.x) ❌
+### Alternative A: Keep NATS (v1.x) 
 
 **Pros:**
 - Proven message broker
@@ -157,7 +157,7 @@ Resend commands via WebSocket
 
 **Verdict:** Rejected - Complexity outweighs benefits for v2.0
 
-### Alternative B: WebSocket + CommandDispatcher (v2.0) ✅
+### Alternative B: WebSocket + CommandDispatcher (v2.0) 
 
 **Pros:**
 - No external message broker (simpler deployment)
@@ -173,7 +173,7 @@ Resend commands via WebSocket
 
 **Verdict:** Accepted - Simpler, more reliable for v2.0
 
-### Alternative C: gRPC Streaming ❌
+### Alternative C: gRPC Streaming 
 
 **Pros:**
 - Efficient binary protocol
@@ -187,7 +187,7 @@ Resend commands via WebSocket
 
 **Verdict:** Rejected - WebSocket simpler and sufficient
 
-### Alternative D: HTTP Long-Polling ❌
+### Alternative D: HTTP Long-Polling 
 
 **Pros:**
 - Works through any HTTP proxy
@@ -224,7 +224,7 @@ Resend commands via WebSocket
 
 ## Consequences
 
-### Positive Consequences ✅
+### Positive Consequences 
 
 1. **Simplified Deployment**
    - No NATS cluster to manage
@@ -251,7 +251,7 @@ Resend commands via WebSocket
    - No polling overhead
    - Better UX for interactive sessions
 
-### Negative Consequences ⚠️
+### Negative Consequences 
 
 1. **Control Plane Connection Tracking**
    - AgentHub must track all agent WebSocket connections
@@ -293,7 +293,7 @@ Resend commands via WebSocket
    - Remove NATS from deployment manifests
    - Clean up NATS config
 
-**Status**: ✅ Complete (v2.0-beta)
+**Status**:  Complete (v2.0-beta)
 
 ## Performance Characteristics
 

@@ -1,4 +1,4 @@
-# Security Incident Response Plan
+﻿# Security Incident Response Plan
 
 **Document Version**: 1.0
 **Last Updated**: 2025-11-14
@@ -282,7 +282,7 @@ curl -I http://streamspace.local  # Should redirect to HTTPS
 
 **Template**:
 ```
-🚨 INCIDENT UPDATE - ${INCIDENT_ID}
+� INCIDENT UPDATE - ${INCIDENT_ID}
 
 Severity: P${SEVERITY}
 Status: [Investigating/Contained/Resolved]

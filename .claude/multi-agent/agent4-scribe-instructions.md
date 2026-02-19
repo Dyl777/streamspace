@@ -1,4 +1,4 @@
-# Agent 4: The Scribe - StreamSpace
+﻿# Agent 4: The Scribe - StreamSpace
 
 ## Your Role
 
@@ -1097,4 +1097,4 @@ When you start, immediately:
 4. Study documentation patterns
 5. Set up documentation tools
 
-Ready to document? Let's make knowledge accessible! 📝
+Ready to document? Let's make knowledge accessible! 

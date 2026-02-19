@@ -1,4 +1,4 @@
-# StreamSpace Controller
+﻿# StreamSpace Controller
 
 This is the Kubernetes controller for StreamSpace, built using the controller-runtime framework.
 
@@ -141,7 +141,7 @@ See [INSTALL.md](INSTALL.md) for complete installation guide.
 The controller uses generic VNC configuration, NOT Kasm-specific:
 
 ```go
-// ✅ GOOD - Generic VNC config
+//  GOOD - Generic VNC config
 type VNCConfig struct {
     Port     int    `json:"port"`      // 5900 or 3000
     Protocol string `json:"protocol"`  // "rfb", "websocket"
@@ -165,21 +165,21 @@ Sessions use a state machine:
 
 ## Features Complete
 
-✅ **Core functionality implemented**:
-- ✅ Session and Template CRDs
-- ✅ State-driven session lifecycle management
-- ✅ Deployment creation and scaling
-- ✅ Service creation for VNC access
-- ✅ **Ingress creation** for browser access
-- ✅ PVC provisioning for persistent user homes
-- ✅ VNC-agnostic architecture
-- ✅ RBAC configuration
-- ✅ Kustomize deployment
-- ✅ Dockerfile for containerization
-- ✅ **Custom Prometheus metrics** (sessions, reconciliations, templates)
-- ✅ Health and readiness probes
-- ✅ Leader election support
-- ✅ Configurable ingress domain and class
+ **Core functionality implemented**:
+-  Session and Template CRDs
+-  State-driven session lifecycle management
+-  Deployment creation and scaling
+-  Service creation for VNC access
+-  **Ingress creation** for browser access
+-  PVC provisioning for persistent user homes
+-  VNC-agnostic architecture
+-  RBAC configuration
+-  Kustomize deployment
+-  Dockerfile for containerization
+-  **Custom Prometheus metrics** (sessions, reconciliations, templates)
+-  Health and readiness probes
+-  Leader election support
+-  Configurable ingress domain and class
 
 ## Next Enhancements
 

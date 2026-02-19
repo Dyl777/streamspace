@@ -1,4 +1,4 @@
-# Plugin API Reference
+﻿# Plugin API Reference
 
 Complete API reference for StreamSpace plugin development.
 
@@ -33,9 +33,9 @@ The StreamSpace Plugin API provides a comprehensive set of methods and hooks for
 
 ### API Stability
 
-- **Stable APIs**: Marked with ✅ - Safe to use in production
-- **Beta APIs**: Marked with ⚠️ - May change in future versions
-- **Experimental APIs**: Marked with 🧪 - Use with caution
+- **Stable APIs**: Marked with  - Safe to use in production
+- **Beta APIs**: Marked with  - May change in future versions
+- **Experimental APIs**: Marked with  - Use with caution
 
 ---
 
@@ -84,7 +84,7 @@ console.log(config.hibernationEnabled); // true
 
 ## Session API
 
-### ✅ getSessions()
+###  getSessions()
 
 Get all sessions in the system.
 
@@ -144,7 +144,7 @@ const page2 = await streamspace.api.getSessions({
 });
 ```
 
-### ✅ getSession()
+###  getSession()
 
 Get a single session by ID.
 
@@ -165,7 +165,7 @@ console.log(session.lastActivity); // "2025-11-14T10:30:00Z"
 **Errors**:
 - `SessionNotFoundError`: Session ID does not exist
 
-### ✅ createSession()
+###  createSession()
 
 Create a new session.
 
@@ -225,7 +225,7 @@ const session = await streamspace.api.createSession({
 - `QuotaExceededError`: User has reached session limit
 - `InsufficientResourcesError`: Cluster lacks resources
 
-### ✅ updateSession()
+###  updateSession()
 
 Update an existing session.
 
@@ -273,7 +273,7 @@ await streamspace.api.updateSession('user1-firefox', {
 - `SessionNotFoundError`: Session ID does not exist
 - `InvalidStateTransitionError`: Cannot transition to requested state
 
-### ✅ deleteSession()
+###  deleteSession()
 
 Delete a session permanently.
 
@@ -290,7 +290,7 @@ await streamspace.api.deleteSession('user1-firefox');
 **Errors**:
 - `SessionNotFoundError`: Session ID does not exist
 
-### ✅ getUserSessions()
+###  getUserSessions()
 
 Get all sessions for a specific user.
 
@@ -313,7 +313,7 @@ console.log(`${sessions.length} sessions for john`);
 
 ## User API
 
-### ✅ getUsers()
+###  getUsers()
 
 Get all users in the system.
 
@@ -355,7 +355,7 @@ const proUsers = await streamspace.api.getUsers({
 });
 ```
 
-### ✅ getUser()
+###  getUser()
 
 Get a single user by username.
 
@@ -376,7 +376,7 @@ console.log(user.quotas);    // { memory: "16Gi", maxSessions: 5, ... }
 **Errors**:
 - `UserNotFoundError`: Username does not exist
 
-### ✅ createUser()
+###  createUser()
 
 Create a new user.
 
@@ -418,7 +418,7 @@ const user = await streamspace.api.createUser({
 - `UserAlreadyExistsError`: Username already taken
 - `InvalidEmailError`: Invalid email format
 
-### ✅ updateUser()
+###  updateUser()
 
 Update an existing user.
 
@@ -459,7 +459,7 @@ await streamspace.api.updateUser('john', {
 **Errors**:
 - `UserNotFoundError`: Username does not exist
 
-### ✅ deleteUser()
+###  deleteUser()
 
 Delete a user and all their sessions.
 
@@ -492,7 +492,7 @@ await streamspace.api.deleteUser('john', {
 
 ## Template API
 
-### ✅ getTemplates()
+###  getTemplates()
 
 Get all available templates.
 
@@ -550,7 +550,7 @@ const devTools = await streamspace.api.getTemplates({
 });
 ```
 
-### ✅ getTemplate()
+###  getTemplate()
 
 Get a single template by name.
 
@@ -571,7 +571,7 @@ console.log(template.capabilities);     // ["Network", "Audio", "Clipboard"]
 **Errors**:
 - `TemplateNotFoundError`: Template name does not exist
 
-### ⚠️ createTemplate()
+###  createTemplate()
 
 Create a new template (admin only).
 
@@ -636,7 +636,7 @@ const template = await streamspace.api.createTemplate({
 
 ## Notification API
 
-### ✅ notify()
+###  notify()
 
 Send a notification to a specific user.
 
@@ -710,7 +710,7 @@ await streamspace.notify('john', {
 });
 ```
 
-### ✅ notifyAll()
+###  notifyAll()
 
 Send a notification to all users.
 
@@ -730,7 +730,7 @@ await streamspace.notifyAll({
 });
 ```
 
-### ⚠️ notifyAdmins()
+###  notifyAdmins()
 
 Send a notification to admin users only.
 
@@ -758,7 +758,7 @@ await streamspace.notifyAdmins({
 
 ## Email API
 
-### ✅ send()
+###  send()
 
 Send an email.
 
@@ -834,7 +834,7 @@ await streamspace.email.send({
 
 Persistent key-value storage for plugin data.
 
-### ✅ get()
+###  get()
 
 Retrieve data from storage.
 
@@ -854,7 +854,7 @@ if (data) {
 }
 ```
 
-### ✅ set()
+###  set()
 
 Store data.
 
@@ -874,7 +874,7 @@ await streamspace.storage.set('my-plugin-config', {
 });
 ```
 
-### ✅ delete()
+###  delete()
 
 Delete data.
 
@@ -888,7 +888,7 @@ streamspace.storage.delete(key: string): Promise<void>
 await streamspace.storage.delete('my-plugin-cache');
 ```
 
-### ✅ keys()
+###  keys()
 
 List all keys.
 
@@ -907,7 +907,7 @@ const configKeys = await streamspace.storage.keys('config-');
 // Returns: ['config-app', 'config-database', ...]
 ```
 
-### ✅ clear()
+###  clear()
 
 Clear all plugin data.
 
@@ -926,7 +926,7 @@ await streamspace.storage.clear();
 
 ## UI API
 
-### ✅ registerWidget()
+###  registerWidget()
 
 Register a dashboard widget.
 
@@ -955,7 +955,7 @@ streamspace.ui.registerWidget('session-stats', {
 });
 ```
 
-### ✅ addMenuItem()
+###  addMenuItem()
 
 Add a menu item to the navigation.
 
@@ -984,7 +984,7 @@ streamspace.ui.addMenuItem({
 });
 ```
 
-### ✅ registerSettingsPage()
+###  registerSettingsPage()
 
 Add a plugin settings page.
 
@@ -1008,7 +1008,7 @@ streamspace.ui.registerSettingsPage('my-plugin-settings', {
 });
 ```
 
-### ⚠️ showDialog()
+###  showDialog()
 
 Show a modal dialog.
 
@@ -1060,7 +1060,7 @@ await streamspace.ui.showDialog({
 
 ## Command API
 
-### ✅ register()
+###  register()
 
 Register a custom command.
 
@@ -1103,7 +1103,7 @@ await streamspace.commands.execute('sync-templates');
 
 ## Logging API
 
-### ✅ log(), info(), warn(), error()
+###  log(), info(), warn(), error()
 
 Write logs.
 

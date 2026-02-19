@@ -1,4 +1,4 @@
-StreamSpace Templates
+﻿StreamSpace Templates
 Official application template repository for StreamSpace.
 
 Overview
@@ -127,7 +127,7 @@ python3 scripts/generate-from-catalog.py
 See scripts/README.md for detailed documentation.
 
 Current Images Status
-⚠️ Note: All templates use LinuxServer.io images. StreamSpace may migrate to native container images with TigerVNC + noVNC in future releases for complete open source independence.
+ Note: All templates use LinuxServer.io images. StreamSpace may migrate to native container images with TigerVNC + noVNC in future releases for complete open source independence.
 
 License
 MIT License - see LICENSE
