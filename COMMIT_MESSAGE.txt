@@ -1,43 +1,41 @@
-docs: add comprehensive shutdown procedures and port-forward instructions
+docs: add shutdown procedures and port-forward instructions
 
-Added detailed shutdown/cleanup procedures and port-forwarding instructions
-to all major documentation files based on user testing on Windows with
+Add shutdown/cleanup procedures and port-forwarding instructions
+to documentation files based on user testing on Windows with
 Docker Desktop.
 
 Changes:
-- Added "Stopping StreamSpace" sections with 7 shutdown methods
-- Enhanced port-forward instructions with multiple scenarios
-- Included platform-specific commands (Windows/Linux/macOS)
-- Added monitoring stack cleanup procedures
-- Cross-referenced documentation for easy navigation
+- Add "Stopping StreamSpace" sections with 7 shutdown methods
+- Add port-forward instructions with multiple scenarios
+- Add platform-specific commands (Windows/Linux/macOS)
+- Add monitoring stack cleanup procedures
+- Add cross-references between documentation files
 
 Files Modified:
-- TESTING.md: Complete shutdown guide (primary reference)
-- QUICKSTART.md: Quick reference with port-forward details
-- README.md: Developer access and shutdown sections
-- scripts/LOCAL_TESTING.md: Local development procedures
-- NEXT_STEPS_GUIDE.md: User-tested commands and examples
+- TESTING.md: shutdown guide (primary reference)
+- QUICKSTART.md: port-forward instructions
+- README.md: developer access and shutdown sections
+- scripts/LOCAL_TESTING.md: local development procedures
+- NEXT_STEPS_GUIDE.md: user-tested commands
 
-Shutdown Methods Added:
-1. Quick Stop - Delete namespace (fastest)
-2. Graceful Stop - Scale to zero (preserves config)
+Shutdown Methods:
+1. Quick Stop - Delete namespace
+2. Graceful Stop - Scale to zero
 3. Individual Components - Stop specific services
-4. Complete Cleanup - Remove everything including CRDs
+4. Complete Cleanup - Remove CRDs
 5. Monitoring Stack - Stop Prometheus/Grafana
 6. Port Forwards - Kill kubectl processes
-7. Docker Desktop - Stop entire Kubernetes cluster
+7. Docker Desktop - Stop Kubernetes cluster
 
-Port-Forward Enhancements:
-- Clear instructions for UI, API, and session access
+Port-Forward Instructions:
+- UI, API, and session access
 - Multiple terminal window examples
 - Different local ports for multiple sessions
-- Access URLs clearly documented
+- Access URLs documented
 - Notes about keeping terminals open
 
-Verified on:
+Tested on:
 - OS: Windows 10/11
 - Shell: Git Bash (MINGW64)
 - Kubernetes: Docker Desktop
 - Monitoring: Prometheus + Grafana
-
-Closes: #<issue-number-if-applicable>

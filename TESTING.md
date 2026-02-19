@@ -8,7 +8,7 @@ Complete testing guide for StreamSpace using Docker Desktop with Kubernetes enab
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [Docker Desktop Setup](#docker-desktop-setup)

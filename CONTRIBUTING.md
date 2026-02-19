@@ -132,7 +132,7 @@ cd ui && npm test
 ```bash
 # Deploy to test cluster
 kubectl create namespace streamspace-dev
-helm install streamspace-dev ./chart -n streamspace-dev -f test-values.yaml
+helm install streamspace-dev ./my-streamspace -n streamspace-dev -f test-values.yaml
 
 # Test session creation
 kubectl apply -f examples/test-session.yaml
@@ -170,4 +170,4 @@ Contributors are recognized in:
 - Release notes
 - Project README
 
-Thank you for contributing to StreamSpace! 🚀
+Thank you for contributing to StreamSpace!

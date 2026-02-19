@@ -7,7 +7,7 @@ A comprehensive guide to building plugins for StreamSpace.
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Introduction](#introduction)
 - [Getting Started](#getting-started)

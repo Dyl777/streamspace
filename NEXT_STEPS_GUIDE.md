@@ -1,13 +1,14 @@
 # StreamSpace - Next Steps Guide
 
-## Current Status ✅
-- All pods running successfully in `streamspace` namespace
+## Current Status
+
+- All pods running in `streamspace` namespace
 - Web UI accessible via port-forward on `http://localhost:3000`
 - API backend running and connected to PostgreSQL
 - NATS event bus operational
 - Kubernetes controller running
 
-## Issues Identified 🔍
+## Issues Identified
 
 ### 1. Template Schema Mismatch (CRITICAL)
 **Problem**: Template YAML files use legacy `kasmvnc` field, but the CRD expects `vnc` field.
@@ -15,8 +16,8 @@
 **Error**: `unknown field "spec.kasmvnc"` when applying templates
 
 **Root Cause**: The codebase is in transition:
-- Go types (controller) use modern `VNC` struct ✅
-- Template manifests still use legacy `kasmvnc` field ❌
+- Go types (controller) use modern `VNC` struct (migrated)
+- Template manifests still use legacy `kasmvnc` field (not migrated)
 - 36+ template files need migration
 
 ### 2. Web UI API Errors
@@ -319,10 +320,10 @@ The `k8s_local-path-provisioner` container is part of Kubernetes infrastructure 
 ## Next Actions
 
 ### Immediate (Test Basic Functionality)
-1. ✅ Apply corrected Firefox template
-2. ✅ Create a test session via kubectl
-3. ✅ Port-forward and access Firefox in browser
-4. ✅ Test hibernation (stop session, restart session)
+1. Apply corrected Firefox template
+2. Create a test session via kubectl
+3. Port-forward and access Firefox in browser
+4. Test hibernation (stop session, restart session)
 
 ### Short-term (Fix Web UI)
 1. Check API logs for specific errors
@@ -407,12 +408,12 @@ kubectl delete namespace streamspace
 
 You'll know everything is working when:
 
-1. ✅ Template applies without errors
-2. ✅ Session pod starts and reaches Running state
-3. ✅ Port-forward connects successfully
-4. ✅ Browser shows Firefox desktop environment
-5. ✅ Can interact with Firefox (browse websites)
-6. ✅ Session persists after hibernation/wake
+1. Template applies without errors
+2. Session pod starts and reaches Running state
+3. Port-forward connects
+4. Browser shows Firefox desktop environment
+5. Can interact with Firefox (browse websites)
+6. Session persists after hibernation/wake
 
 ---
 
